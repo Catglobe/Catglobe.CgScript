@@ -32,7 +32,7 @@ public abstract partial class BaseCgScriptMaker(string environment, IReadOnlyDic
    /// </summary>
    protected abstract string GetPreamble(IScriptDefinition scriptDef);
 
-   [GeneratedRegex(@"#IF\s+(?<env>Development|Production|Staging)\b(?<script>.*?)\b#ENDIF", RegexOptions.Singleline | RegexOptions.IgnoreCase, -1)]
+   [GeneratedRegex(@"#IF\s+(?<env>Development|Production|Staging)\s+(?<script>.*?)\s*#ENDIF", RegexOptions.Singleline | RegexOptions.IgnoreCase, -1)]
    private static partial Regex EnvironmentRegex();
    [GeneratedRegex("""new WorkflowScript\s*\(\s*"(?<scriptName>[^"]+)"\s*\)""", RegexOptions.Singleline, -1)]
    protected static partial Regex FindWorkflowReferences();
