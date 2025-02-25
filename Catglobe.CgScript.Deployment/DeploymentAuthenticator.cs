@@ -13,8 +13,7 @@ internal partial class DeploymentAuthenticator(HttpClient httpClient, IOptions<D
 
    private async Task<string> AcquireToken(CancellationToken cancellationToken)
    {
-      var o          = options.Value;
-      httpClient.BaseAddress = options.Value.Authority;
+      var o = options.Value;
       var requestData = new Dictionary<string, string> {
          {"grant_type", "client_credentials"},
          {"client_id", o.ClientId},

@@ -38,7 +38,7 @@ public static class HostExtensions
    private static IServiceCollection AddCommonCgScript(IServiceCollection services)
    {
       services.TryAddSingleton<IScriptProvider, FilesFromDirectoryScriptProvider>();
-      services.AddScoped<DeploymentAuthenticator>();
+      services.AddScoped<DeploymentAuthHandler>();
       services.AddHttpClient<IDeployer, Deployer>((sp, httpClient) => {
                   var site = sp.GetRequiredService<IOptions<DeploymentOptions>>().Value.Authority;
                   httpClient.BaseAddress = new(site + "api/CgScriptDeployment/");
