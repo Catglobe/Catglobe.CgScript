@@ -39,12 +39,14 @@ public static class HostExtensions
    {
       services.TryAddSingleton<IScriptProvider, FilesFromDirectoryScriptProvider>();
       services.AddScoped<DeploymentAuthenticator>();
-      services.AddScoped<DeploymentAuthHandler>();
       services.AddHttpClient<IDeployer, Deployer>((sp, httpClient) => {
                   var site = sp.GetRequiredService<IOptions<DeploymentOptions>>().Value.Authority;
                   httpClient.BaseAddress = new(site + "api/CgScriptDeployment/");
                })
               .AddHttpMessageHandler<DeploymentAuthHandler>();
+      services.AddHttpClient<DeploymentAuthenticator>((sp, httpClient) => {
+                  httpClient.BaseAddress = sp.GetRequiredService<IOptions<DeploymentOptions>>().Value.Authority;
+               });
       return services;
    }
 }
