@@ -4,11 +4,12 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Catglobe.CgScript.Common;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Catglobe.CgScript.Runtime;
 
-internal partial class DevelopmentModeCgScriptApiClient(HttpClient httpClient, IScriptProvider scriptProvider, IOptions<CgScriptOptions> options) : ApiClientBase(httpClient)
+internal partial class DevelopmentModeCgScriptApiClient(HttpClient httpClient, IScriptProvider scriptProvider, IOptions<CgScriptOptions> options, ILogger<ICgScriptApiClient> logger) : ApiClientBase(httpClient, logger)
 {
    private IReadOnlyDictionary<string, IScriptDefinition>? _scriptDefinitions;
    private BaseCgScriptMaker?                              _cgScriptMaker;
@@ -26,12 +27,9 @@ internal partial class DevelopmentModeCgScriptApiClient(HttpClient httpClient, I
       JsonContent.Create(new DynamicCgScript<TP>(scriptName, await GetScript(scriptName), parameter, callJsonTypeInfo), mediaType: null, jsonTypeInfo: DynamicCgScriptSerializer.Default.IDynamicScript);
 
    [RequiresUnreferencedCode("JSON")]
-   protected override async Task<JsonContent?> GetJsonContent<TP>(string scriptName, TP? parameter, JsonSerializerOptions? callJsonTypeInfo) where TP : default
-   {
-      var script = await GetScript(scriptName);
-
-      throw new NotImplementedException();
-   }
+   protected override async Task<JsonContent?> GetJsonContent<TP>(string scriptName, TP? parameter, JsonSerializerOptions? jsonOptions) where TP : default =>
+      JsonContent.Create(new DynamicCgScriptUnreferenced<TP>(scriptName, await GetScript(scriptName), parameter, jsonOptions), mediaType: null,
+                         jsonTypeInfo: DynamicCgScriptSerializer.Default.IDynamicScript);
 
    private Task<string> GetScript(string scriptName) => _cgScriptMaker!.GetContent(scriptName);
 
@@ -44,7 +42,7 @@ internal partial class DevelopmentModeCgScriptApiClient(HttpClient httpClient, I
    }
 
    [JsonConverter(typeof(DynamicConverter))]
-   internal record DynamicCgScript<T>(string ScriptName, string Script, T? Parameter, JsonTypeInfo<T> jsonTypeInfo) : IDynamicScript
+   internal record DynamicCgScript<T>(string ScriptName, string Script, T? Parameter, JsonTypeInfo<T> JsonTypeInfo) : IDynamicScript
    {
       public void WriteParameter(Utf8JsonWriter writer)
       {
@@ -52,7 +50,20 @@ internal partial class DevelopmentModeCgScriptApiClient(HttpClient httpClient, I
          if (Parameter is null)
             writer.WriteNullValue();
          else
-            JsonSerializer.Serialize(writer, Parameter, jsonTypeInfo);
+            JsonSerializer.Serialize(writer, Parameter, JsonTypeInfo);
+      }
+   }
+   [JsonConverter(typeof(DynamicConverter))]
+   [RequiresUnreferencedCode("JSON")]
+   internal record DynamicCgScriptUnreferenced<T>(string ScriptName, string Script, T? Parameter, JsonSerializerOptions? Options) : IDynamicScript
+   {
+      public void WriteParameter(Utf8JsonWriter writer)
+      {
+         writer.WritePropertyName("parameter");
+         if (Parameter is null)
+            writer.WriteNullValue();
+         else
+            JsonSerializer.Serialize(writer, Parameter, Parameter.GetType(), Options);
       }
    }
 

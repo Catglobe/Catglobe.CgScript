@@ -3,10 +3,11 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Catglobe.CgScript.Common;
+using Microsoft.Extensions.Logging;
 
 namespace Catglobe.CgScript.Runtime;
 
-internal class CgScriptApiClient(HttpClient httpClient, IScriptMapping map) : ApiClientBase(httpClient)
+internal class CgScriptApiClient(HttpClient httpClient, IScriptMapping map, ILogger<ICgScriptApiClient> logger) : ApiClientBase(httpClient, logger)
 {
    protected override async ValueTask<string> GetPath(string scriptName, string? additionalParameters = null)
    {
@@ -18,6 +19,6 @@ internal class CgScriptApiClient(HttpClient httpClient, IScriptMapping map) : Ap
       Task.FromResult(parameter is null ? default : JsonContent.Create(parameter, mediaType: null, jsonTypeInfo: callJsonTypeInfo));
 
    [RequiresUnreferencedCode("JSON")]
-   protected override Task<JsonContent?> GetJsonContent<TP>(string scriptName, TP? parameter, JsonSerializerOptions? options) where TP : default => 
-      Task.FromResult<JsonContent?>(JsonContent.Create(parameter, mediaType: null, options));
+   protected override Task<JsonContent?> GetJsonContent<TP>(string scriptName, TP? parameter, JsonSerializerOptions? jsonOptions) where TP : default => 
+      Task.FromResult<JsonContent?>(JsonContent.Create(parameter, mediaType: null, jsonOptions));
 }
