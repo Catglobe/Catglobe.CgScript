@@ -35,7 +35,8 @@
     [
       "@droidsolutions-oss/semantic-release-nuget",
       {
-        "projectPath": [ "Catglobe.CgScript.Runtime/Catglobe.CgScript.Runtime.csproj", "Catglobe.CgScript.Common/Catglobe.CgScript.Common.csproj", "Catglobe.CgScript.Deployment/Catglobe.CgScript.Deployment.csproj" ]
+        "projectPath": [ "Catglobe.CgScript.Runtime/Catglobe.CgScript.Runtime.csproj", "Catglobe.CgScript.Common/Catglobe.CgScript.Common.csproj", "Catglobe.CgScript.Deployment/Catglobe.CgScript.Deployment.csproj" ],
+        "includeSymbols": true
       }
     ],
     [
