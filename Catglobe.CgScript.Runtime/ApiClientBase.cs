@@ -11,6 +11,9 @@ internal abstract class ApiClientBase(HttpClient httpClient, ILogger<ICgScriptAp
    public async Task<ScriptResult<TR>> Execute<TP, TR>(string scriptName, TP parameter, JsonTypeInfo<TP> callJsonTypeInfo, JsonTypeInfo<TR> resultJsonTypeInfo, CancellationToken cancellationToken) =>
       await ParseResponse(await httpClient.PostAsync(await GetPath(scriptName), await GetJsonContent(scriptName, parameter, callJsonTypeInfo), cancellationToken).ConfigureAwait(false), resultJsonTypeInfo, cancellationToken);
 
+   public async Task<ScriptResult<TR>> ExecuteArray<TP, TR>(string scriptName, TP parameter, JsonTypeInfo<TP> callJsonTypeInfo, JsonTypeInfo<TR> resultJsonTypeInfo, CancellationToken cancellationToken) =>
+      await ParseResponse(await httpClient.PostAsync(await GetPath(scriptName, "?expandParameters=true"), await GetJsonContent(scriptName, parameter, callJsonTypeInfo), cancellationToken).ConfigureAwait(false), resultJsonTypeInfo, cancellationToken);
+
    public async Task<ScriptResult<TR>> Execute<TR>(string scriptName, JsonTypeInfo<TR> resultJsonTypeInfo, CancellationToken cancellationToken = default) =>
       await ParseResponse(await httpClient.PostAsync(await GetPath(scriptName, "?expandParameters=true"), await GetJsonContent(scriptName, null, (JsonTypeInfo<object>)null!), cancellationToken).ConfigureAwait(false), resultJsonTypeInfo, cancellationToken);
 
@@ -30,6 +33,9 @@ internal abstract class ApiClientBase(HttpClient httpClient, ILogger<ICgScriptAp
    [RequiresUnreferencedCode("JSON")]
    public async Task<ScriptResult<TR>> Execute<TP, TR>(string scriptName, TP parameter, JsonSerializerOptions? options, CancellationToken cancellationToken = default) =>
       await ParseResponse<TR>(await httpClient.PostAsync(await GetPath(scriptName), await GetJsonContent(scriptName, parameter, options), cancellationToken).ConfigureAwait(false), options, cancellationToken);
+   [RequiresUnreferencedCode("JSON")]
+   public async Task<ScriptResult<TR>> ExecuteArray<TP, TR>(string scriptName, TP parameter, JsonSerializerOptions? options, CancellationToken cancellationToken = default) =>
+      await ParseResponse<TR>(await httpClient.PostAsync(await GetPath(scriptName, "?expandParameters=true"), await GetJsonContent(scriptName, parameter, options), cancellationToken).ConfigureAwait(false), options, cancellationToken);
 
    [RequiresUnreferencedCode("JSON")]
    public async Task<ScriptResult<TR>> Execute<TR>(string scriptName, IReadOnlyCollection<object> parameters, JsonSerializerOptions? options = null, CancellationToken cancellationToken = default) =>
