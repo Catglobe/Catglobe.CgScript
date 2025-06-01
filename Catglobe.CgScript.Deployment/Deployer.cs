@@ -1,8 +1,9 @@
-﻿using System.Net.Http.Json;
+﻿using Catglobe.CgScript.Common;
+using Microsoft.Extensions.Options;
+using System.Diagnostics;
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Catglobe.CgScript.Common;
-using Microsoft.Extensions.Options;
 
 namespace Catglobe.CgScript.Deployment;
 
@@ -23,6 +24,7 @@ internal partial class Deployer(HttpClient httpClient, IScriptProvider provider,
 
    public async Task Sync(string environmentName, CancellationToken token)
    {
+      using var activity = CgScriptTelemetry.Source.StartActivity();
       var current           = await provider.GetAll();
       var mapAfterFirstSync = await SyncMap(current.Keys.Select(x => new CgScriptReference { ScriptName = x }).ToList(), token);
       var maker             = new CgScriptMaker(environmentName, current, mapAfterFirstSync);
@@ -41,14 +43,20 @@ internal partial class Deployer(HttpClient httpClient, IScriptProvider provider,
 
    private async Task<CgDeploymentMap> SyncMap(List<CgScriptReference> scripts, CancellationToken token)
    {
-      var req = await httpClient.PostAsJsonAsync($"SyncMap/{_parentId}", scripts, MapSerializer.Default.ListCgScriptReference, token);
+      using var activity = CgScriptTelemetry.Source.StartActivity();
+      var       req      = await httpClient.PostAsJsonAsync($"SyncMap/{_parentId}", scripts, MapSerializer.Default.ListCgScriptReference, token);
+      if (!req.IsSuccessStatusCode)
+         activity?.SetStatus(ActivityStatusCode.Error);
       req.EnsureSuccessStatusCode();
       return await req.Content.ReadFromJsonAsync(MapSerializer.Default.CgDeploymentMap, token) ?? new();
    }
 
    private async Task<CgDeploymentMap> UpdateScripts(List<CgScriptDefinition> scripts, CancellationToken token)
    {
-      var req = await httpClient.PostAsJsonAsync($"UpdateScripts/{_parentId}", scripts, MapSerializer.Default.ListCgScriptDefinition, token);
+      using var activity = CgScriptTelemetry.Source.StartActivity();
+      var       req      = await httpClient.PostAsJsonAsync($"UpdateScripts/{_parentId}", scripts, MapSerializer.Default.ListCgScriptDefinition, token);
+      if (!req.IsSuccessStatusCode)
+         activity?.SetStatus(ActivityStatusCode.Error);
       req.EnsureSuccessStatusCode();
       return await req.Content.ReadFromJsonAsync(MapSerializer.Default.CgDeploymentMap, token) ?? new();
    }

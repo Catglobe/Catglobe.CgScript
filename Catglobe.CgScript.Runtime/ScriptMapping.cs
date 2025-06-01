@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -16,7 +16,10 @@ internal partial class ScriptMapping(HttpClient httpClient, IOptions<CgScriptOpt
    public async ValueTask EnsureDownloaded()
    {
       if (_map is not null) return;
+      using var activity = CgScriptTelemetry.Source.StartActivity("DownloadMap");
       var req = await httpClient.GetAsync($"GetMap/{options.Value.FolderResourceId}");
+      if (!req.IsSuccessStatusCode)
+         activity?.SetStatus(ActivityStatusCode.Error);
       req.EnsureSuccessStatusCode();
       _map = await req.Content.ReadFromJsonAsync(MapSerializer.Default.DeploymentMap) ?? new();
    }

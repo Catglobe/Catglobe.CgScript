@@ -3,6 +3,7 @@ using Catglobe.CgScript.Common;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Trace;
 
 namespace Catglobe.CgScript.Runtime;
 
@@ -47,5 +48,10 @@ public static class HostExtensions
         .AddHttpMessageHandler<CgScriptAuthHandler>();
       return services;
    }
+
+   /// <summary>
+   /// Register the CgScript telemetry source
+   /// </summary>
+   public static TracerProviderBuilder AddCgScriptInstrumentation(this TracerProviderBuilder builder) => builder.AddSource(CgScriptTelemetry.TelemetrySourceName);
 }
 

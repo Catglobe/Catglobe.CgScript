@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Trace;
 
 namespace Catglobe.CgScript.Deployment;
 
@@ -49,5 +50,11 @@ public static class HostExtensions
                });
       return services;
    }
+
+   /// <summary>
+   /// Register the CgScript telemetry source
+   /// </summary>
+   public static TracerProviderBuilder AddCgScriptInstrumentation(this TracerProviderBuilder builder) => builder.AddSource(CgScriptTelemetry.TelemetrySourceName);
+
 }
 

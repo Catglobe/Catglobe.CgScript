@@ -370,6 +370,29 @@ In production, the impersonation accounts there can then be set up to have the c
 
 Setup `deployment` and sync your scripts to the Catglobe site.
 
+# Telemetry and OpenTelemetry integration
+
+To enable distributed tracing and telemetry for CgScript operations, you can use the provided `AddCgScriptInstrumentation` extension method. This will register the CgScript telemetry source with OpenTelemetry, allowing you to collect traces for script execution and deployment flows.
+
+### Example: Setting up OpenTelemetry with CgScript
+```
+using Catglobe.CgScript.Common;
+using Catglobe.CgScript.Deployment;
+using OpenTelemetry.Trace;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddOpenTelemetryTracing(tracerProviderBuilder =>
+{
+    tracerProviderBuilder
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddCgScriptInstrumentation() // Registers CgScript telemetry source
+        .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("MyApp"));
+});
+```
+You can now view CgScript-related activities in your OpenTelemetry-compatible backend (such as Jaeger, Zipkin, or Azure Monitor).
+
 # FAQ
 
 ## File name mapping to security

@@ -35,6 +35,10 @@
       </Content>
    </ItemGroup>
 
+   <ItemGroup>
+      <PackageReference Include="OpenTelemetry.Api" Version="1.12.0" />
+   </ItemGroup>
+
    <PropertyGroup>
       <DefaultItemExcludes>$(DefaultItemExcludes);node_modules/**</DefaultItemExcludes>
       <ProjectRootDir>$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), '.git/index'))\</ProjectRootDir>
