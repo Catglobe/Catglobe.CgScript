@@ -382,7 +382,7 @@ using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenTelemetryTracing(tracerProviderBuilder =>
+builder.Services.AddOpenTelemetry().WithTracing(tracerProviderBuilder =>
 {
     tracerProviderBuilder
         .AddAspNetCoreInstrumentation()
@@ -430,3 +430,7 @@ See supported scopes in your Catglobe site `https://mysite.catglobe.com/.well-kn
 ## Can I use AOT compilation for my C# with this library?
 
 Yes
+
+## Can I make a request during authentication?
+
+Yes, e.g. in `OnTicketReceived`, you can set the `httpContext.Items["access_token"]` and that will be used to make the next request.

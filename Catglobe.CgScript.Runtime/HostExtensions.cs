@@ -48,10 +48,5 @@ public static class HostExtensions
         .AddHttpMessageHandler<CgScriptAuthHandler>();
       return services;
    }
-
-   /// <summary>
-   /// Register the CgScript telemetry source
-   /// </summary>
-   public static TracerProviderBuilder AddCgScriptInstrumentation(this TracerProviderBuilder builder) => builder.AddSource(CgScriptTelemetry.TelemetrySourceName);
 }
 

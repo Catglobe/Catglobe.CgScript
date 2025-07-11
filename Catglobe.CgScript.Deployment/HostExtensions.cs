@@ -51,10 +51,5 @@ public static class HostExtensions
       return services;
    }
 
-   /// <summary>
-   /// Register the CgScript telemetry source
-   /// </summary>
-   public static TracerProviderBuilder AddCgScriptInstrumentation(this TracerProviderBuilder builder) => builder.AddSource(CgScriptTelemetry.TelemetrySourceName);
-
 }
 

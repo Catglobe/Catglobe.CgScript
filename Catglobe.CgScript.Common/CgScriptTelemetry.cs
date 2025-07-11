@@ -10,7 +10,7 @@ public static class CgScriptTelemetry
    /// <summary>
    /// Name of source
    /// </summary>
-   public const string TelemetrySourceName = "Catglobe.CgScript";
+   internal      const string TelemetrySourceName = "Catglobe.CgScript";
    /// <summary>
    /// ActivitySource for CgScript
    /// </summary>
