@@ -29,10 +29,12 @@ public class CgScriptAuthHandler(IHttpContextAccessor httpContextAccessor) : Del
       var httpContext = httpContextAccessor.HttpContext ??
                         throw new InvalidOperationException("No HttpContext available from the IHttpContextAccessor!");
 
-      if (httpContext.User.Identity?.IsAuthenticated == true)
+      string? accessToken = null;
+      if ((httpContext.Items.TryGetValue("access_token", out var accessTokenObj) && accessTokenObj is string accessToken2)) accessToken = accessToken2;
+      if (!string.IsNullOrEmpty(accessToken) || httpContext.User.Identity?.IsAuthenticated == true)
       {
-         var accessToken = await httpContext.GetTokenAsync("access_token") ??
-                           throw new InvalidOperationException("No access_token was saved");
+         accessToken ??= await httpContext.GetTokenAsync("access_token") ??
+                         throw new InvalidOperationException("No access_token was saved");
 
          request.Headers.Authorization = new("Bearer", accessToken);
       }
