@@ -38,12 +38,23 @@ internal abstract class ApiClientBase(HttpClient httpClient, ILogger<ICgScriptAp
          logger.LogInformation(await call.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
          call.EnsureSuccessStatusCode();
       }
-      var result = await call.Content.ReadFromJsonAsync(jsonTypeInfo, cancellationToken).ConfigureAwait(false);
-      if (result?.Error is not null)
+      try
+      {
+         var result = await call.Content.ReadFromJsonAsync(jsonTypeInfo, cancellationToken).ConfigureAwait(false);
+         if (result?.Error is not null)
+         {
+            Activity.Current?.SetStatus(ActivityStatusCode.Error);
+         }
+         return result ?? throw new IOException("Could not deserialize result");
+      } catch (OperationCanceledException e)
+      {
+         throw;
+      } catch (Exception e)
       {
          Activity.Current?.SetStatus(ActivityStatusCode.Error);
+         Activity.Current?.AddException(e);
+         throw;
       }
-      return result ?? throw new IOException("Could not deserialize result");
    }
 
    [RequiresUnreferencedCode("JSON")]
@@ -85,12 +96,23 @@ internal abstract class ApiClientBase(HttpClient httpClient, ILogger<ICgScriptAp
          logger.LogInformation(await call.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
          call.EnsureSuccessStatusCode();
       }
-      var result = (ScriptResult<TR>?)await call.Content.ReadFromJsonAsync(typeof(ScriptResult<TR>), retOptions, cancellationToken).ConfigureAwait(false);
-      if (result?.Error is not null)
+      try
+      {
+         var result = (ScriptResult<TR>?)await call.Content.ReadFromJsonAsync(typeof(ScriptResult<TR>), retOptions, cancellationToken).ConfigureAwait(false);
+         if (result?.Error is not null)
+         {
+            Activity.Current?.SetStatus(ActivityStatusCode.Error);
+         }
+         return result ?? throw new IOException("Could not deserialize result");
+      } catch (OperationCanceledException e)
+      {
+         throw;
+      } catch (Exception e)
       {
          Activity.Current?.SetStatus(ActivityStatusCode.Error);
+         Activity.Current?.AddException(e);
+         throw;
       }
-      return result ?? throw new IOException("Could not deserialize result");
    }
 
    protected abstract ValueTask<string> GetPath(string scriptName, string? additionalParameters = null);
