@@ -46,7 +46,7 @@ internal abstract class ApiClientBase(HttpClient httpClient, ILogger<ICgScriptAp
             Activity.Current?.SetStatus(ActivityStatusCode.Error);
          }
          return result ?? throw new IOException("Could not deserialize result");
-      } catch (OperationCanceledException e)
+      } catch (OperationCanceledException)
       {
          throw;
       } catch (Exception e)
@@ -104,7 +104,7 @@ internal abstract class ApiClientBase(HttpClient httpClient, ILogger<ICgScriptAp
             Activity.Current?.SetStatus(ActivityStatusCode.Error);
          }
          return result ?? throw new IOException("Could not deserialize result");
-      } catch (OperationCanceledException e)
+      } catch (OperationCanceledException)
       {
          throw;
       } catch (Exception e)
