@@ -53,7 +53,7 @@ public static class HostExtensions
         .AddHttpMessageHandler<CgScriptAuthHandler>()
         .AddStandardResilienceHandler(o => {
             o.AttemptTimeout.Timeout = TimeSpan.FromMinutes(30);
-            o.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(60);
+            o.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(90);
          });
       return services;
    }
