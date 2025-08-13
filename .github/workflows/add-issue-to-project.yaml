@@ -10,7 +10,7 @@ jobs:
     runs-on: cg-linux
     steps:
       - name: Save actions cache
-        uses: Catglobe/save-actions-cache@v1
+        uses: Catglobe/save-actions-cache@4c79891882ffd45e2cbb1d00e567bacd09d886c6 # v2
     # Generate token for GitHub app
       - name: Generate token
         id: generate-token
