@@ -46,6 +46,15 @@ public static class HostExtensions
             ? services.AddHttpClient<ICgScriptApiClient, DevelopmentModeCgScriptApiClient>(configureClient)
             : services.AddHttpClient<ICgScriptApiClient, CgScriptApiClient>(configureClient))
         .AddHttpMessageHandler<CgScriptAuthHandler>();
+
+      (isDevelopment
+            ? services.AddHttpClient<ILongRunningCgScriptApiClient, DevelopmentModeCgScriptApiClient>(configureClient)
+            : services.AddHttpClient<ILongRunningCgScriptApiClient, CgScriptApiClient>(configureClient))
+        .AddHttpMessageHandler<CgScriptAuthHandler>()
+        .AddStandardResilienceHandler(o => {
+            o.AttemptTimeout.Timeout = TimeSpan.FromMinutes(30);
+            o.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(60);
+         });
       return services;
    }
 }

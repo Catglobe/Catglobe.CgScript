@@ -96,3 +96,8 @@ public interface ICgScriptApiClient
    public Task<ScriptResult<TR>> Execute<TR>(string scriptName, JsonSerializerOptions? options = null, CancellationToken cancellationToken = default);
 
 }
+
+/// <summary>
+/// Long-running script API client. Configured for 30 minutes timeout vs the default 10 sec.
+/// </summary>
+public interface ILongRunningCgScriptApiClient : ICgScriptApiClient;

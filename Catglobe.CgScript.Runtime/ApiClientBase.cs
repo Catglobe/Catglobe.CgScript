@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Catglobe.CgScript.Runtime;
 
-internal abstract class ApiClientBase(HttpClient httpClient, ILogger<ICgScriptApiClient> logger) : ICgScriptApiClient
+internal abstract class ApiClientBase(HttpClient httpClient, ILogger<ICgScriptApiClient> logger) : ICgScriptApiClient, ILongRunningCgScriptApiClient
 {
    public async Task<ScriptResult<TR>> Execute<TP, TR>(string scriptName, TP parameter, JsonTypeInfo<TP> callJsonTypeInfo, JsonTypeInfo<TR> resultJsonTypeInfo, CancellationToken cancellationToken)
    {

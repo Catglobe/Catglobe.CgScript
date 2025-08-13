@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using OpenTelemetry.Trace;
+using Polly;
 
 namespace Catglobe.CgScript.Deployment;
 
@@ -44,7 +45,11 @@ public static class HostExtensions
                   var site = sp.GetRequiredService<IOptions<DeploymentOptions>>().Value.Authority;
                   httpClient.BaseAddress = new(site + "api/CgScriptDeployment/");
                })
-              .AddHttpMessageHandler<DeploymentAuthHandler>();
+              .AddHttpMessageHandler<DeploymentAuthHandler>()
+              .AddStandardResilienceHandler(o => {
+                  o.AttemptTimeout.Timeout      = TimeSpan.FromMinutes(10);
+                  o.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(20);
+               });
       services.AddHttpClient<DeploymentAuthenticator>((sp, httpClient) => {
                   httpClient.BaseAddress = sp.GetRequiredService<IOptions<DeploymentOptions>>().Value.Authority;
                });
