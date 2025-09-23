@@ -17,7 +17,7 @@ internal partial class ScriptMapping(HttpClient httpClient, IOptions<CgScriptOpt
    {
       if (_map is not null) return;
       using var activity = CgScriptTelemetry.Source.StartActivity("DownloadMap");
-      var req = await httpClient.GetAsync($"GetMap/{options.Value.FolderResourceId}");
+      var req = await httpClient.GetAsync($"api/CgScriptDeployment/GetMap/{options.Value.FolderResourceId}");
       if (!req.IsSuccessStatusCode)
          activity?.SetStatus(ActivityStatusCode.Error);
       req.EnsureSuccessStatusCode();

@@ -6,11 +6,6 @@
 public class CgScriptOptions
 {
    /// <summary>
-   /// Which site are we running on
-   /// </summary>
-   public Uri Site { get; set; } = null!;
-
-   /// <summary>
    /// Which root folder are we running from
    /// </summary>
    public uint FolderResourceId { get; set; }

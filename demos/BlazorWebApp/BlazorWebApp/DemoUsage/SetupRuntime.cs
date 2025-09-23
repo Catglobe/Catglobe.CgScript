@@ -2,6 +2,7 @@
 using Catglobe.CgScript.Runtime;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Extensions.Options;
 using Yarp.ReverseProxy.Transforms;
 
@@ -49,7 +50,7 @@ internal class SetupRuntime
       //Add this, if you need the browser (blazor wasm or javascript) to be able to call CgScript
       services.AddHttpForwarder();
 
-      services.AddCgScript(builder.Configuration.GetSection("CatglobeApi"), builder.Environment.IsDevelopment());
+      services.AddCgScript(builder.Configuration.GetSection("CatglobeApi"), builder.Environment.IsDevelopment(), "AuthClient");
 
       //and this is custom to this specific example... The rest above can be reused for pretty much any site
       services.AddSingleton<IWeatherForecaster, ServerWeatherForecaster>();
@@ -71,7 +72,7 @@ internal class SetupRuntime
 
       //Add this, if you need the browser (blazor wasm or javascript) to be able to call CgScript
       //add     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery.Yarp" Version="9.0.0" />
-      var site = app.Services.GetRequiredService<IOptions<CgScriptOptions>>().Value.Site;
+      var site = app.Services.GetService<IOptionsMonitor<OpenIdConnectOptions>>()?.Get(SCHEMENAME).Authority;
       app.MapForwarder("/api/cgscript", site + "api/cgscript", transformBuilder => {
          transformBuilder.AddRequestTransform(async transformContext => {
             var accessToken = await transformContext.HttpContext.GetTokenAsync("access_token");

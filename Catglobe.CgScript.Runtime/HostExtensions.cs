@@ -1,9 +1,7 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Catglobe.CgScript.Common;
+﻿using Catglobe.CgScript.Common;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using OpenTelemetry.Trace;
 
 namespace Catglobe.CgScript.Runtime;
 
@@ -15,46 +13,40 @@ public static class HostExtensions
    /// <summary>
    /// Add CgScript support
    /// </summary>
-   public static IServiceCollection AddCgScript(this IServiceCollection services, bool isDevelopment, Action<CgScriptOptions>? configurator = null)
+   public static IServiceCollection AddCgScript(this IServiceCollection services, bool isDevelopment, string nameOfHttpClient, Action<CgScriptOptions>? configurator = null)
    {
       if (configurator is not null) services.Configure(configurator);
-      return AddCommonCgScript(services, isDevelopment);
+      return AddCommonCgScript(services, isDevelopment, nameOfHttpClient);
    }
    /// <summary>
    /// Add CgScript support
    /// </summary>
-   public static IServiceCollection AddCgScript(this IServiceCollection services, IConfiguration namedConfigurationSection, bool isDevelopment)
+   public static IServiceCollection AddCgScript(this IServiceCollection services, IConfiguration namedConfigurationSection, bool isDevelopment, string nameOfHttpClient)
    {
       services.Configure<CgScriptOptions>(namedConfigurationSection);
-      return AddCommonCgScript(services, isDevelopment);
+      return AddCommonCgScript(services, isDevelopment, nameOfHttpClient);
    }
 
-   private static IServiceCollection AddCommonCgScript(IServiceCollection services, bool isDevelopment)
+   private static IServiceCollection AddCommonCgScript(IServiceCollection services, bool isDevelopment, string nameOfHttpClient)
    {
       services.AddHttpContextAccessor();
-      services.AddHttpClient<IScriptMapping, ScriptMapping>((sp, httpClient) => {
-         var site = sp.GetRequiredService<IOptions<CgScriptOptions>>().Value.Site;
-         httpClient.BaseAddress = new(site + "api/CgScriptDeployment/");
-      });
+      services.AddHttpClient<IScriptMapping, ScriptMapping>(nameOfHttpClient);
 
-      services.AddScoped<CgScriptAuthHandler>();
-      Action<IServiceProvider, HttpClient> configureClient = (sp, httpClient) => {
-         var site = sp.GetRequiredService<IOptions<CgScriptOptions>>().Value.Site;
-         httpClient.BaseAddress = new(site + "api/CgScript/");
-      };
-      (isDevelopment
-            ? services.AddHttpClient<ICgScriptApiClient, DevelopmentModeCgScriptApiClient>(configureClient)
-            : services.AddHttpClient<ICgScriptApiClient, CgScriptApiClient>(configureClient))
-        .AddHttpMessageHandler<CgScriptAuthHandler>();
+      if (isDevelopment)
+         services.AddHttpClient<ICgScriptApiClient, DevelopmentModeCgScriptApiClient>(nameOfHttpClient);
+      else
+         services.AddHttpClient<ICgScriptApiClient, CgScriptApiClient>(nameOfHttpClient);
 
+#pragma warning disable EXTEXP0001
       (isDevelopment
-            ? services.AddHttpClient<ILongRunningCgScriptApiClient, DevelopmentModeCgScriptApiClient>(configureClient)
-            : services.AddHttpClient<ILongRunningCgScriptApiClient, CgScriptApiClient>(configureClient))
-        .AddHttpMessageHandler<CgScriptAuthHandler>()
+            ? services.AddHttpClient<ILongRunningCgScriptApiClient, DevelopmentModeCgScriptApiClient>(nameOfHttpClient)
+            : services.AddHttpClient<ILongRunningCgScriptApiClient, CgScriptApiClient>(nameOfHttpClient))
+        .RemoveAllResilienceHandlers()
+#pragma warning restore EXTEXP0001
         .AddStandardResilienceHandler(o => {
             o.AttemptTimeout.Timeout          = TimeSpan.FromMinutes(30);
             o.TotalRequestTimeout.Timeout     = TimeSpan.FromMinutes(90);
-            o.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(60);
+            o.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(90);
          });
       return services;
    }

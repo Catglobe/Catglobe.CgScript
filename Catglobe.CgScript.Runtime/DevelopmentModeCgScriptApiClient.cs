@@ -9,7 +9,8 @@ using Microsoft.Extensions.Options;
 
 namespace Catglobe.CgScript.Runtime;
 
-internal partial class DevelopmentModeCgScriptApiClient(HttpClient httpClient, IScriptProvider scriptProvider, IOptions<CgScriptOptions> options, ILogger<ICgScriptApiClient> logger) : ApiClientBase(httpClient, logger)
+internal partial class DevelopmentModeCgScriptApiClient(HttpClient httpClient, IScriptProvider scriptProvider, IOptions<CgScriptOptions> options, ILogger<ICgScriptApiClient> logger) 
+   : ApiClientBase(httpClient, logger)
 {
    private IReadOnlyDictionary<string, IScriptDefinition>? _scriptDefinitions;
    private BaseCgScriptMaker?                              _cgScriptMaker;
@@ -20,7 +21,7 @@ internal partial class DevelopmentModeCgScriptApiClient(HttpClient httpClient, I
          _scriptDefinitions = await scriptProvider.GetAll();
          _cgScriptMaker     = new CgScriptMakerForDevelopment(_scriptDefinitions, options.Value.ImpersonationMapping);
       }
-      return $"dynamicRun{additionalParameters ?? ""}";
+      return $"api/CgScript/dynamicRun{additionalParameters ?? ""}";
    }
 
    protected override async Task<JsonContent?> GetJsonContent<TP>(string scriptName, TP? parameter, JsonTypeInfo<TP> callJsonTypeInfo) where TP : default => 

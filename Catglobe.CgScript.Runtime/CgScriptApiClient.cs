@@ -12,7 +12,7 @@ internal class CgScriptApiClient(HttpClient httpClient, IScriptMapping map, ILog
    protected override async ValueTask<string> GetPath(string scriptName, string? additionalParameters = null)
    {
       await map.EnsureDownloaded();
-      return $"run/{map.GetIdOf(scriptName)}{additionalParameters ?? ""}";
+      return $"api/CgScript/run/{map.GetIdOf(scriptName)}{additionalParameters ?? ""}";
    }
 
    protected override Task<JsonContent?> GetJsonContent<TP>(string scriptName, TP? parameter, JsonTypeInfo<TP> callJsonTypeInfo) where TP : default => 

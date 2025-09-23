@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
    <PropertyGroup>
       <PackageId>Catglobe.CgScript.Runtime</PackageId>
-      <Version>0.0.3</Version>
+      <Version>0.0.5</Version>
       <Authors>Dennis Haney</Authors>
       <Company>Voxmeter A/S</Company>
       <Product>Catglobe Script Deployer</Product>
