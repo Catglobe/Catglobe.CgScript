@@ -53,8 +53,7 @@ Add the following to the appsettings.json with the scopes you made above and you
   "SaveTokens": true
 },
 "CatglobeApi": {
-  "FolderResourceId": deploymentFolderId,
-  "Site": "https://mysite.catglobe.com/"
+  "FolderResourceId": deploymentFolderId
 }
 ```
 
@@ -105,17 +104,19 @@ services.AddAuthentication(SCHEMENAME)
             oidcOptions.TokenValidationParameters.NameClaimType = "name";
          })
         .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme);
-services.AddCgScript(builder.Configuration.GetSection("CatglobeApi"), builder.Environment.IsDevelopment());
-```
+services.AddHttpClient("AuthClient", (sp, httpClient) => {
+                  var site = sp.GetService<IOptionsMonitor<OpenIdConnectOptions>>()?.Get(SCHEMENAME).Authority;
+                  httpClient.BaseAddress = string.IsNullOrEmpty(site) ? null : new(site);
+                  httpClient.DefaultRequestHeaders.Accept.Clear();
+                  httpClient.DefaultRequestHeaders.Accept.Add(new("application/json"));
+               })
+              .AddUserAccessTokenHandler(); //<-- here we use Duande for token management
+services
+   .AddBlazorServerAccessTokenManagement<HybridCacheTokenStore>()
+   .AddOpenIdConnectAccessTokenManagement();
 
-Optionally, setup refresh-token refreshing as part of the cookie handling:
-```csharp
-services.AddSingleton<CookieOidcRefresher>();
-services.AddOptions<CookieAuthenticationOptions>(CookieAuthenticationDefaults.AuthenticationScheme).Configure<CookieOidcRefresher>((cookieOptions, refresher) => {
-   cookieOptions.Events.OnValidatePrincipal = context => refresher.ValidateOrRefreshCookieAsync(context, SCHEMENAME);
-});
+services.AddCgScript(builder.Configuration.GetSection("CatglobeApi"), builder.Environment.IsDevelopment(), "AuthClient");
 ```
-You can find the CookieOidcRefresher [here](https://github.com/dotnet/blazor-samples/blob/main/9.0/BlazorWebAppOidc/BlazorWebAppOidc/CookieOidcRefresher.cs).
 
 Before `app.Run`, add the following:
 ```csharp
