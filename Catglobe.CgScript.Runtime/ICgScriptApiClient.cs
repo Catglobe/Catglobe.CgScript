@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 
@@ -95,6 +96,101 @@ public interface ICgScriptApiClient
    [RequiresUnreferencedCode("JSON")]
    public Task<ScriptResult<TR>> Execute<TR>(string scriptName, JsonSerializerOptions? options = null, CancellationToken cancellationToken = default);
 
+   /// <summary>
+   /// Execute a script on the server while allowing customization of the HTTP request options.
+   /// </summary>
+   /// <param name="scriptName">Name of script to run</param>
+   /// <param name="parameter">The parameter for the script</param>
+   /// <param name="callJsonTypeInfo">Source generator parser for the parameter</param>
+   /// <param name="resultJsonTypeInfo">Source generator parser for the result</param>
+   /// <param name="applyOptions">Callback used to configure the outgoing <see cref="HttpRequestOptions"/>.</param>
+   /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
+   /// <returns>A results object that contains the message from the server</returns>
+   public Task<ScriptResult<TR>> ExecuteCustomOptions<TP, TR>(string scriptName, TP parameter, JsonTypeInfo<TP> callJsonTypeInfo, JsonTypeInfo<TR> resultJsonTypeInfo,
+                                                              Action<HttpRequestOptions>? applyOptions, CancellationToken cancellationToken = default);
+
+   /// <summary>
+   /// Execute a script on the server with expanded parameters while allowing customization of the HTTP request options.
+   /// </summary>
+   /// <param name="scriptName">Name of script to run</param>
+   /// <param name="parameter">The parameter for the script</param>
+   /// <param name="callJsonTypeInfo">Source generator parser for the parameter</param>
+   /// <param name="resultJsonTypeInfo">Source generator parser for the result</param>
+   /// <param name="applyOptions">Callback used to configure the outgoing <see cref="HttpRequestOptions"/>.</param>
+   /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
+   /// <returns>A results object that contains the message from the server</returns>
+   public Task<ScriptResult<TR>> ExecuteArrayCustomOptions<TP, TR>(string scriptName, TP parameter, JsonTypeInfo<TP> callJsonTypeInfo, JsonTypeInfo<TR> resultJsonTypeInfo,
+                                                                   Action<HttpRequestOptions>? applyOptions, CancellationToken cancellationToken = default);
+
+   /// <summary>
+   /// Execute a script on the server while allowing customization of the HTTP request options.
+   /// </summary>
+   /// <param name="scriptName">Name of script to run</param>
+   /// <param name="resultJsonTypeInfo">Source generator parser for the result</param>
+   /// <param name="applyOptions">Callback used to configure the outgoing <see cref="HttpRequestOptions"/>.</param>
+   /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
+   /// <returns>A results object that contains the message from the server</returns>
+   public Task<ScriptResult<TR>> ExecuteCustomOptions<TR>(string scriptName, JsonTypeInfo<TR> resultJsonTypeInfo, Action<HttpRequestOptions>? applyOptions, CancellationToken cancellationToken = default);
+
+   /// <summary>
+   /// Execute a script on the server while allowing customization of the HTTP request options.
+   /// </summary>
+   /// <remarks>
+   /// Not recommended to use. Prefer a model that uses <see cref="Execute{TP,TR}(string,TP,JsonTypeInfo{TP},JsonTypeInfo{TR},CancellationToken)"/>.
+   /// </remarks>
+   /// <param name="scriptName">Name of script to run</param>
+   /// <param name="parameter">The parameter for the script</param>
+   /// <param name="options">Options that will tell us how to serialize parameters and deserialize result. Can be null</param>
+   /// <param name="applyOptions">Callback used to configure the outgoing <see cref="HttpRequestOptions"/>.</param>
+   /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
+   /// <returns>A results object that contains the message from the server</returns>
+   [RequiresUnreferencedCode("JSON")]
+   public Task<ScriptResult<TR>> ExecuteCustomOptions<TP, TR>(string scriptName, TP parameter, JsonSerializerOptions? options, Action<HttpRequestOptions>? applyOptions, CancellationToken cancellationToken = default);
+
+   /// <summary>
+   /// Execute a script on the server with expanded parameters while allowing customization of the HTTP request options.
+   /// </summary>
+   /// <remarks>
+   /// Not recommended to use. Prefer a model that uses <see cref="ExecuteArray{TP,TR}(string,TP,JsonTypeInfo{TP},JsonTypeInfo{TR},CancellationToken)"/>.
+   /// </remarks>
+   /// <param name="scriptName">Name of script to run</param>
+   /// <param name="parameter">The parameter for the script</param>
+   /// <param name="options">Options that will tell us how to serialize parameters and deserialize result. Can be null</param>
+   /// <param name="applyOptions">Callback used to configure the outgoing <see cref="HttpRequestOptions"/>.</param>
+   /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
+   /// <returns>A results object that contains the message from the server</returns>
+   [RequiresUnreferencedCode("JSON")]
+   public Task<ScriptResult<TR>> ExecuteArrayCustomOptions<TP, TR>(string scriptName, TP parameter, JsonSerializerOptions? options, Action<HttpRequestOptions>? applyOptions, CancellationToken cancellationToken = default);
+
+   /// <summary>
+   /// Execute a script on the server while allowing customization of the HTTP request options.
+   /// </summary>
+   /// <remarks>
+   /// Not recommended to use. Prefer a model that uses <see cref="Execute{TP,TR}(string,TP,JsonTypeInfo{TP},JsonTypeInfo{TR},CancellationToken)"/>.
+   /// </remarks>
+   /// <param name="scriptName">Name of script to run</param>
+   /// <param name="parameters">The parameters for the script</param>
+   /// <param name="options">Options that will tell us how to serialize parameters and deserialize result. Can be null</param>
+   /// <param name="applyOptions">Callback used to configure the outgoing <see cref="HttpRequestOptions"/>.</param>
+   /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
+   /// <returns>A results object that contains the message from the server</returns>
+   [RequiresUnreferencedCode("JSON")]
+   public Task<ScriptResult<TR>> ExecuteCustomOptions<TR>(string scriptName, IReadOnlyCollection<object> parameters, JsonSerializerOptions? options, Action<HttpRequestOptions>? applyOptions,
+                                                          CancellationToken cancellationToken = default);
+
+   /// <summary>
+   /// Execute a script on the server while allowing customization of the HTTP request options.
+   /// </summary>
+   /// <remarks>
+   /// Not recommended to use. Prefer a model that uses <see cref="Execute{TP,TR}(string,TP,JsonTypeInfo{TP},JsonTypeInfo{TR},CancellationToken)"/>.
+   /// </remarks>
+   /// <param name="scriptName">Name of script to run</param>
+   /// <param name="options">Options that will tell us how to serialize parameters anddeserialize result. Can be null</param>
+   /// <param name="applyOptions">Callback used to configure the outgoing <see cref="HttpRequestOptions"/>.</param>
+   /// <param name="cancellationToken">Token to monitor for cancellation requests</param>
+   /// <returns>A results object that contains the message from the server</returns>
+   [RequiresUnreferencedCode("JSON")]
+   public Task<ScriptResult<TR>> ExecuteCustomOptions<TR>(string scriptName, JsonSerializerOptions? options, Action<HttpRequestOptions>? applyOptions, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

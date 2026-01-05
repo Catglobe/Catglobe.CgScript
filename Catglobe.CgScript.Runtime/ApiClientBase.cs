@@ -10,30 +10,48 @@ namespace Catglobe.CgScript.Runtime;
 
 internal abstract class ApiClientBase(HttpClient httpClient, ILogger<ICgScriptApiClient> logger) : ICgScriptApiClient, ILongRunningCgScriptApiClient
 {
-   public async Task<ScriptResult<TR>> Execute<TP, TR>(string scriptName, TP parameter, JsonTypeInfo<TP> callJsonTypeInfo, JsonTypeInfo<TR> resultJsonTypeInfo, CancellationToken cancellationToken)
+   public Task<ScriptResult<TR>> Execute<TP, TR>(string scriptName, TP parameter, JsonTypeInfo<TP> callJsonTypeInfo, JsonTypeInfo<TR> resultJsonTypeInfo, CancellationToken cancellationToken) =>
+      ExecuteCustomOptions(scriptName, parameter, callJsonTypeInfo, resultJsonTypeInfo, null, cancellationToken);
+
+   public async Task<ScriptResult<TR>> ExecuteCustomOptions<TP, TR>(string scriptName, TP parameter, JsonTypeInfo<TP> callJsonTypeInfo, JsonTypeInfo<TR> resultJsonTypeInfo,
+                                                                   Action<HttpRequestOptions>? applyOptions, CancellationToken cancellationToken)
    {
-      using var activity            = CgScriptTelemetry.Source.StartActivity(scriptName);
-      var       path                = await GetPath(scriptName);
-      var       jsonContent         = await GetJsonContent(scriptName, parameter, callJsonTypeInfo);
-      var       httpResponseMessage = await httpClient.PostAsync(path, jsonContent, cancellationToken).ConfigureAwait(false);
+      using var activity = CgScriptTelemetry.Source.StartActivity(scriptName);
+      var       path     = await GetPath(scriptName);
+      var       jsonContent = await GetJsonContent(scriptName, parameter, callJsonTypeInfo);
+      var       request     = new HttpRequestMessage(HttpMethod.Post, path) {Content = jsonContent,};
+      applyOptions?.Invoke(request.Options);
+      var httpResponseMessage = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
       return await ParseResponse(httpResponseMessage, resultJsonTypeInfo, cancellationToken);
    }
 
-   public async Task<ScriptResult<TR>> ExecuteArray<TP, TR>(string scriptName, TP parameter, JsonTypeInfo<TP> callJsonTypeInfo, JsonTypeInfo<TR> resultJsonTypeInfo, CancellationToken cancellationToken)
+   public Task<ScriptResult<TR>> ExecuteArray<TP, TR>(string scriptName, TP parameter, JsonTypeInfo<TP> callJsonTypeInfo, JsonTypeInfo<TR> resultJsonTypeInfo, CancellationToken cancellationToken) =>
+      ExecuteArrayCustomOptions(scriptName, parameter, callJsonTypeInfo, resultJsonTypeInfo, null, cancellationToken);
+
+   public async Task<ScriptResult<TR>> ExecuteArrayCustomOptions<TP, TR>(string scriptName, TP parameter, JsonTypeInfo<TP> callJsonTypeInfo, JsonTypeInfo<TR> resultJsonTypeInfo,
+                                                                        Action<HttpRequestOptions>? applyOptions, CancellationToken cancellationToken)
    {
-      using var activity            = CgScriptTelemetry.Source.StartActivity(scriptName);
-      var       path                = await GetPath(scriptName, "?expandParameters=true");
-      var       jsonContent         = await GetJsonContent(scriptName, parameter, callJsonTypeInfo);
-      var       httpResponseMessage = await httpClient.PostAsync(path, jsonContent, cancellationToken).ConfigureAwait(false);
+      using var activity = CgScriptTelemetry.Source.StartActivity(scriptName);
+      var       path     = await GetPath(scriptName, "?expandParameters=true");
+      var       jsonContent = await GetJsonContent(scriptName, parameter, callJsonTypeInfo);
+      var       request     = new HttpRequestMessage(HttpMethod.Post, path) {Content = jsonContent,};
+      applyOptions?.Invoke(request.Options);
+      var httpResponseMessage = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
       return await ParseResponse(httpResponseMessage, resultJsonTypeInfo, cancellationToken);
    }
 
-   public async Task<ScriptResult<TR>> Execute<TR>(string scriptName, JsonTypeInfo<TR> resultJsonTypeInfo, CancellationToken cancellationToken = default)
+   public Task<ScriptResult<TR>> Execute<TR>(string scriptName, JsonTypeInfo<TR> resultJsonTypeInfo, CancellationToken cancellationToken = default) =>
+      ExecuteCustomOptions(scriptName, resultJsonTypeInfo, null, cancellationToken);
+
+   public async Task<ScriptResult<TR>> ExecuteCustomOptions<TR>(string scriptName, JsonTypeInfo<TR> resultJsonTypeInfo, Action<HttpRequestOptions>? applyOptions,
+                                                                CancellationToken cancellationToken = default)
    {
-      using var activity            = CgScriptTelemetry.Source.StartActivity(scriptName);
-      var       path                = await GetPath(scriptName, "?expandParameters=true");
-      var       jsonContent         = await GetJsonContent(scriptName, null, (JsonTypeInfo<object>)null!);
-      var       httpResponseMessage = await httpClient.PostAsync(path, jsonContent, cancellationToken).ConfigureAwait(false);
+      using var activity = CgScriptTelemetry.Source.StartActivity(scriptName);
+      var       path     = await GetPath(scriptName, "?expandParameters=true");
+      var       jsonContent = await GetJsonContent(scriptName, null, (JsonTypeInfo<object>)null!);
+      var       request     = new HttpRequestMessage(HttpMethod.Post, path) {Content = jsonContent,};
+      applyOptions?.Invoke(request.Options);
+      var httpResponseMessage = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
       return await ParseResponse(httpResponseMessage, resultJsonTypeInfo, cancellationToken);
    }
 
@@ -67,39 +85,69 @@ internal abstract class ApiClientBase(HttpClient httpClient, ILogger<ICgScriptAp
    }
 
    [RequiresUnreferencedCode("JSON")]
-   public async Task<ScriptResult<TR>> Execute<TP, TR>(string scriptName, TP parameter, JsonSerializerOptions? options, CancellationToken cancellationToken = default)
+   public Task<ScriptResult<TR>> Execute<TP, TR>(string scriptName, TP parameter, JsonSerializerOptions? options, CancellationToken cancellationToken = default) =>
+      ExecuteCustomOptions<TP, TR>(scriptName, parameter, options, null, cancellationToken);
+
+   [RequiresUnreferencedCode("JSON")]
+   public async Task<ScriptResult<TR>> ExecuteCustomOptions<TP, TR>(string scriptName, TP parameter, JsonSerializerOptions? options, Action<HttpRequestOptions>? applyOptions,
+                                                                    CancellationToken cancellationToken = default)
    {
       using var activity = CgScriptTelemetry.Source.StartActivity(scriptName);
-      return await ParseResponse<TR>(await httpClient.PostAsync(await GetPath(scriptName), await GetJsonContent(scriptName, parameter, options), cancellationToken).ConfigureAwait(false), options, cancellationToken);
-   }
-
-   [RequiresUnreferencedCode("JSON")]
-   public async Task<ScriptResult<TR>> ExecuteArray<TP, TR>(string scriptName, TP parameter, JsonSerializerOptions? options, CancellationToken cancellationToken = default)
-   {
-      using var activity            = CgScriptTelemetry.Source.StartActivity(scriptName);
-      var       path                = await GetPath(scriptName, "?expandParameters=true");
-      var       jsonContent         = await GetJsonContent(scriptName, parameter, options);
-      var       httpResponseMessage = await httpClient.PostAsync(path, jsonContent, cancellationToken).ConfigureAwait(false);
+      var       path     = await GetPath(scriptName);
+      var       jsonContent = await GetJsonContent(scriptName, parameter, options);
+      var       request     = new HttpRequestMessage(HttpMethod.Post, path) {Content = jsonContent,};
+      applyOptions?.Invoke(request.Options);
+      var httpResponseMessage = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
       return await ParseResponse<TR>(httpResponseMessage, options, cancellationToken);
    }
 
    [RequiresUnreferencedCode("JSON")]
-   public async Task<ScriptResult<TR>> Execute<TR>(string scriptName, IReadOnlyCollection<object> parameters, JsonSerializerOptions? options = null, CancellationToken cancellationToken = default)
+   public async Task<ScriptResult<TR>> ExecuteArrayCustomOptions<TP, TR>(string scriptName, TP parameter, JsonSerializerOptions? options, Action<HttpRequestOptions>? applyOptions, CancellationToken cancellationToken = default)
    {
-      using var activity            = CgScriptTelemetry.Source.StartActivity(scriptName);
-      var       path                = await GetPath(scriptName, "?expandParameters=true");
-      var       jsonContent         = await GetJsonContent(scriptName, parameters, options);
-      var       httpResponseMessage = await httpClient.PostAsync(path, jsonContent, cancellationToken).ConfigureAwait(false);
+      using var activity    = CgScriptTelemetry.Source.StartActivity(scriptName);
+      var       path        = await GetPath(scriptName, "?expandParameters=true");
+      var       jsonContent = await GetJsonContent(scriptName, parameter, options);
+      var       request     = new HttpRequestMessage(HttpMethod.Post, path) {Content = jsonContent,};
+      applyOptions?.Invoke(request.Options);
+      var httpResponseMessage = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
       return await ParseResponse<TR>(httpResponseMessage, options, cancellationToken);
    }
 
    [RequiresUnreferencedCode("JSON")]
-   public async Task<ScriptResult<TR>> Execute<TR>(string scriptName, JsonSerializerOptions? options = null, CancellationToken cancellationToken = default)
+   public Task<ScriptResult<TR>> ExecuteArray<TP, TR>(string scriptName, TP parameter, JsonSerializerOptions? options, CancellationToken cancellationToken = default) =>
+      ExecuteArrayCustomOptions<TP, TR>(scriptName, parameter, options, null, cancellationToken);
+
+   [RequiresUnreferencedCode("JSON")]
+   public Task<ScriptResult<TR>> Execute<TR>(string scriptName, IReadOnlyCollection<object> parameters, JsonSerializerOptions? options = null, CancellationToken cancellationToken = default) =>
+      ExecuteCustomOptions<TR>(scriptName, parameters, options, null, cancellationToken);
+
+   [RequiresUnreferencedCode("JSON")]
+   public async Task<ScriptResult<TR>> ExecuteCustomOptions<TR>(string scriptName, IReadOnlyCollection<object> parameters, JsonSerializerOptions? options,
+                                                                Action<HttpRequestOptions>? applyOptions, CancellationToken cancellationToken = default)
    {
-      using var activity            = CgScriptTelemetry.Source.StartActivity(scriptName);
-      var       path                = await GetPath(scriptName);
-      var       jsonContent         = await GetJsonContent(scriptName, null, (JsonTypeInfo<object>)null!);
-      var       httpResponseMessage = await httpClient.PostAsync(path, jsonContent, cancellationToken).ConfigureAwait(false);
+      using var activity = CgScriptTelemetry.Source.StartActivity(scriptName);
+      var       path     = await GetPath(scriptName, "?expandParameters=true");
+      var       jsonContent = await GetJsonContent(scriptName, parameters, options);
+      var       request     = new HttpRequestMessage(HttpMethod.Post, path) {Content = jsonContent,};
+      applyOptions?.Invoke(request.Options);
+      var httpResponseMessage = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+      return await ParseResponse<TR>(httpResponseMessage, options, cancellationToken);
+   }
+
+   [RequiresUnreferencedCode("JSON")]
+   public Task<ScriptResult<TR>> Execute<TR>(string scriptName, JsonSerializerOptions? options = null, CancellationToken cancellationToken = default) =>
+      ExecuteCustomOptions<TR>(scriptName, options, null, cancellationToken);
+
+   [RequiresUnreferencedCode("JSON")]
+   public async Task<ScriptResult<TR>> ExecuteCustomOptions<TR>(string scriptName, JsonSerializerOptions? options, Action<HttpRequestOptions>? applyOptions,
+                                                                CancellationToken cancellationToken = default)
+   {
+      using var activity = CgScriptTelemetry.Source.StartActivity(scriptName);
+      var       path     = await GetPath(scriptName);
+      var       jsonContent = await GetJsonContent(scriptName, null, (JsonTypeInfo<object>)null!);
+      var       request     = new HttpRequestMessage(HttpMethod.Post, path) {Content = jsonContent,};
+      applyOptions?.Invoke(request.Options);
+      var httpResponseMessage = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
       return await ParseResponse<TR>(httpResponseMessage, options, cancellationToken);
    }
 
