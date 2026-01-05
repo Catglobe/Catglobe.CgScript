@@ -57,7 +57,7 @@ Add the following to the appsettings.json with the scopes you made above and you
 }
 ```
 
-and in appsettings.Staging.json:
+and in appsettings.Staging.json: 
 
 ```json
 "CatglobeOidc": {
