@@ -16,13 +16,15 @@
   ],
   "separateMajorMinor": true,
   "kubernetes": {
-    "fileMatch": "\\.yaml$"
+    "managerFilePatterns": [
+      "/\\.yaml$/"
+    ]
   },
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": [
-        "(^|/|\\.)[dD]ockerfile$"
+      "managerFilePatterns": [
+        "/(^|/|\\.)[dD]ockerfile$/"
       ],
       "matchStrings": [
         "datasource=(?<datasource>.*?) depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s+ENV .*?_VERSION[=\\s](?<currentValue>.*)\\s"
@@ -31,8 +33,8 @@
     },
     {
       "customType": "regex",
-      "fileMatch": [
-        "(^|/|\\.)values\\.yaml$"
+      "managerFilePatterns": [
+        "/(^|/|\\.)values\\.yaml$/"
       ],
       "matchStrings": [
         "datasource=(?<datasource>.*?) depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s+tag:\\s*(?<currentValue>.*)\\s"
@@ -41,8 +43,8 @@
     },
     {
       "customType": "regex",
-      "fileMatch": [
-        "(^|/|\\.)[dD]ockerfile$"
+      "managerFilePatterns": [
+        "/(^|/|\\.)[dD]ockerfile$/"
       ],
       "matchStrings": [
         "ARG IMAGE=(?<depName>.*?):(?<currentValue>.*?)(@(?<currentDigest>sha256:[a-f0-9]+))?\\s"
@@ -76,7 +78,15 @@
       "enabled": false
     },
     {
-      "matchDepTypes": [ "action", "minor", "patch", "devDependencies", "pin", "pinDigest", "digest" ],
+      "matchDepTypes": [
+        "action",
+        "minor",
+        "patch",
+        "devDependencies",
+        "pin",
+        "pinDigest",
+        "digest"
+      ],
       "automerge": true,
       "automergeType": "branch"
     }
