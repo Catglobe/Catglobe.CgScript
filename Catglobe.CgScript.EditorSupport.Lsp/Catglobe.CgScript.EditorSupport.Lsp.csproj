@@ -8,6 +8,7 @@
       <RepositoryType>git</RepositoryType>
       <RepositoryUrl>https://github.com/catglobe/Catglobe.ScriptDeployer</RepositoryUrl>
       <PackageLicenseExpression>MIT</PackageLicenseExpression>
+      <PackageReadmeFile>README.md</PackageReadmeFile>
    </PropertyGroup>
 
    <PropertyGroup>
@@ -23,6 +24,13 @@
 
    <ItemGroup>
       <ProjectReference Include="..\Catglobe.CgScript.EditorSupport.Parsing\Catglobe.CgScript.EditorSupport.Parsing.csproj" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <Content Include="../README.md">
+         <Pack>true</Pack>
+         <PackagePath></PackagePath>
+      </Content>
    </ItemGroup>
 
    <ItemGroup>

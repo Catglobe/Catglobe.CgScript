@@ -18,8 +18,8 @@ export async function activate(context: ExtensionContext): Promise<void> {
    }
 
    const serverOptions: ServerOptions = {
-      run:   { command: serverExe, transport: TransportKind.stdio },
-      debug: { command: serverExe, transport: TransportKind.stdio },
+      run:   { command: 'dotnet', args: [serverExe], transport: TransportKind.stdio },
+      debug: { command: 'dotnet', args: [serverExe], transport: TransportKind.stdio },
    };
 
    const clientOptions: LanguageClientOptions = {
@@ -46,21 +46,8 @@ export async function deactivate(): Promise<void> {
    client = undefined;
 }
 
-/** Resolves the platform-specific self-contained server binary. */
+/** Resolves the framework-dependent server entry point. Requires dotnet on PATH. */
 function resolveServerExe(context: ExtensionContext): string | undefined {
-   const platform = process.platform; // 'win32' | 'linux' | 'darwin'
-   const arch     = process.arch;     // 'x64' | 'arm64'
-
-   const rid = platform === 'win32'  ? `win-${arch}` :
-               platform === 'linux'  ? `linux-${arch}` :
-               platform === 'darwin' ? `osx-${arch}` : undefined;
-
-   if (!rid) return undefined;
-
-   const exeName = platform === 'win32'
-      ? 'Catglobe.CgScript.EditorSupport.Lsp.Server.exe'
-      : 'Catglobe.CgScript.EditorSupport.Lsp.Server';
-
-   const candidate = path.join(context.extensionPath, 'server', rid, exeName);
-   return fs.existsSync(candidate) ? candidate : undefined;
+   const dll = path.join(context.extensionPath, 'server', 'Catglobe.CgScript.EditorSupport.Lsp.Server.dll');
+   return fs.existsSync(dll) ? dll : undefined;
 }

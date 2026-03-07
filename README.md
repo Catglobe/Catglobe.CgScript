@@ -1,3 +1,32 @@
+# Editor Support
+
+The CgScript editor extensions provide IntelliSense, completions, hover documentation, diagnostics and semantic highlighting for `.cgs` files.
+
+Download the latest `.vsix` files from the [GitHub Releases](https://github.com/Catglobe/Catglobe.CgScript/releases) page.
+
+## Visual Studio Code
+
+1. Open VS Code
+2. Open the Extensions view (`Ctrl+Shift+X`)
+3. Click the **`…`** menu (top-right of the Extensions panel) → **Install from VSIX…**
+4. Select the downloaded `cgscript-vscode-*.vsix` file
+
+Or via the command line:
+```
+code --install-extension cgscript-vscode-x.y.z.vsix
+```
+
+## Visual Studio
+
+1. Close all Visual Studio instances
+2. Double-click the downloaded `Catglobe.CgScript.EditorSupport.VisualStudio-*.vsix`
+3. Follow the installer prompts and reopen Visual Studio
+
+Or via the command line:
+```
+vsixinstaller.exe Catglobe.CgScript.EditorSupport.VisualStudio-x.y.z.vsix
+```
+
 # Catglobe.ScriptDeployer
 Easily handle development and deployment of sites that needs to run CgScripts on a Catglobe site
 

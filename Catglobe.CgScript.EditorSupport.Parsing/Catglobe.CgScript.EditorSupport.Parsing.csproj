@@ -8,6 +8,7 @@
       <RepositoryType>git</RepositoryType>
       <RepositoryUrl>https://github.com/catglobe/Catglobe.ScriptDeployer</RepositoryUrl>
       <PackageLicenseExpression>MIT</PackageLicenseExpression>
+      <PackageReadmeFile>README.md</PackageReadmeFile>
    </PropertyGroup>
 
    <PropertyGroup>
@@ -23,6 +24,13 @@
            CS0108 = EMPTY() hides ParserRuleContext.EMPTY (name collision with CgScript keyword) -->
       <NoWarn>$(NoWarn);CS8669;CS0108;NU1900</NoWarn>
    </PropertyGroup>
+
+   <ItemGroup>
+      <Content Include="../README.md">
+         <Pack>true</Pack>
+         <PackagePath></PackagePath>
+      </Content>
+   </ItemGroup>
 
    <ItemGroup>
       <PackageReference Include="Antlr4.Runtime.Standard" Version="4.13.1" />

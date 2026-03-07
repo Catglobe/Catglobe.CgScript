@@ -5,6 +5,10 @@
   "version": "0.1.0",
   "publisher": "Voxmeter",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Catglobe/Catglobe.CgScript.git"
+  },
   "engines": { "vscode": "^1.82.0" },
   "categories": ["Programming Languages"],
   "activationEvents": [],

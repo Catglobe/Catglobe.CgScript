@@ -49,6 +49,12 @@
       }
     ],
     [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "cd Catglobe.CgScript.EditorSupport.VsCode && npx vsce package"
+      }
+    ],
+    [
       "@droidsolutions-oss/semantic-release-nuget",
       {
         "projectPath": [ "Catglobe.CgScript.Runtime/Catglobe.CgScript.Runtime.csproj", "Catglobe.CgScript.Common/Catglobe.CgScript.Common.csproj", "Catglobe.CgScript.Deployment/Catglobe.CgScript.Deployment.csproj", "Catglobe.CgScript.EditorSupport.Parsing/Catglobe.CgScript.EditorSupport.Parsing.csproj", "Catglobe.CgScript.EditorSupport.Lsp/Catglobe.CgScript.EditorSupport.Lsp.csproj", "Catglobe.CgScript.EditorSupport.SourceGenerator/Catglobe.CgScript.EditorSupport.SourceGenerator.csproj" ],
@@ -60,7 +66,8 @@
       {
         "addReleases": "top",
         "assets": [
-          { "path": "release-assets/*.vsix" }
+          { "path": "Catglobe.CgScript.EditorSupport.VsCode/*.vsix" },
+          { "path": "Catglobe.CgScript.EditorSupport.VisualStudio/bin/Release/**/*.vsix" }
         ]
       }
     ]

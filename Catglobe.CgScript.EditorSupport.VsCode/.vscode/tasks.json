@@ -17,10 +17,7 @@
             "publish",
             "${workspaceFolder}/../Catglobe.CgScript.EditorSupport.Lsp.Server/Catglobe.CgScript.EditorSupport.Lsp.Server.csproj",
             "-c", "Release",
-            "-r", "win-x64",
-            "--self-contained",
-            "/p:PublishSingleFile=true",
-            "-o", "${workspaceFolder}/server/win-x64"
+            "-o", "${workspaceFolder}/server"
          ],
          "problemMatcher": "$msCompile",
          "group": "build",
