@@ -15,6 +15,11 @@
    </PropertyGroup>
 
    <ItemGroup>
+      <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+      <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+   </ItemGroup>
+
+   <ItemGroup>
       <Content Include="../README.md">
          <Pack>true</Pack>
          <PackagePath></PackagePath>

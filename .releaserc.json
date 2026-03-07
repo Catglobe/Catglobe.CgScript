@@ -67,7 +67,7 @@
         "addReleases": "top",
         "assets": [
           { "path": "Catglobe.CgScript.EditorSupport.VsCode/*.vsix" },
-          { "path": "Catglobe.CgScript.EditorSupport.VisualStudio/bin/Release/**/*.vsix" }
+          { "path": "vs-extension.vsix" }
         ]
       }
     ]

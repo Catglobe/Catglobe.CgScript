@@ -35,6 +35,12 @@ jobs:
           node-version: 'lts/*'
       - name: Build Visual Studio extension
         run: dotnet build Catglobe.CgScript.EditorSupport.VisualStudio -c Release
+      - name: Locate VS extension vsix
+        run: |
+          vsix=$(find Catglobe.CgScript.EditorSupport.VisualStudio/bin/Release -name "*.vsix" | head -1)
+          if [ -z "$vsix" ]; then echo "ERROR: no vsix produced" && exit 1; fi
+          cp "$vsix" vs-extension.vsix
+          echo "Copied $vsix → vs-extension.vsix"
       - name: Publish LSP server
         run: dotnet publish Catglobe.CgScript.EditorSupport.Lsp.Server -c Release -o Catglobe.CgScript.EditorSupport.VsCode/server
       - name: Compile VS Code extension
