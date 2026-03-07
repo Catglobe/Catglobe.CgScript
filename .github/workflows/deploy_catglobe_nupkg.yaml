@@ -11,9 +11,36 @@ permissions:
   packages: write
 
 jobs:
+  build-vs-extension:
+    name: Build VS Extension
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4
+        with:
+          dotnet-version: '10'
+      - name: Build Visual Studio extension
+        run: dotnet build Catglobe.CgScript.EditorSupport.VisualStudio -c Release
+      - name: Locate and stage vsix
+        run: |
+          $vsix = Get-ChildItem Catglobe.CgScript.EditorSupport.VisualStudio\bin\Release -Recurse -Filter *.vsix | Select-Object -First 1
+          if (-not $vsix) { Write-Error "ERROR: no vsix produced"; exit 1 }
+          Copy-Item $vsix.FullName vs-extension.vsix
+          Write-Host "Staged $($vsix.FullName) -> vs-extension.vsix"
+        shell: pwsh
+      - name: Upload VS extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vs-extension
+          path: vs-extension.vsix
+          retention-days: 1
+
   release:
     name: Build and Release
     runs-on: ubuntu-latest
+    needs: build-vs-extension
     permissions:
       contents: write
       issues: write
@@ -33,14 +60,10 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
           node-version: 'lts/*'
-      - name: Build Visual Studio extension
-        run: dotnet build Catglobe.CgScript.EditorSupport.VisualStudio -c Release
-      - name: Locate VS extension vsix
-        run: |
-          vsix=$(find Catglobe.CgScript.EditorSupport.VisualStudio/bin/Release -name "*.vsix" | head -1)
-          if [ -z "$vsix" ]; then echo "ERROR: no vsix produced" && exit 1; fi
-          cp "$vsix" vs-extension.vsix
-          echo "Copied $vsix → vs-extension.vsix"
+      - name: Download VS extension artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vs-extension
       - name: Publish LSP server
         run: dotnet publish Catglobe.CgScript.EditorSupport.Lsp.Server -c Release -o Catglobe.CgScript.EditorSupport.VsCode/server
       - name: Compile VS Code extension
