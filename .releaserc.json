@@ -51,7 +51,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "cd Catglobe.CgScript.EditorSupport.VsCode && npx vsce package && cd .. && python3 scripts/patch-vsix-version.py ${nextRelease.version}"
+        "prepareCmd": "cd Catglobe.CgScript.EditorSupport.VsCode && npx vsce package && cd .. && sh scripts/patch-vsix-version.sh ${nextRelease.version}"
       }
     ],
     [
