@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Catglobe.CgScript.EditorSupport.VisualStudio": {
+      "commandName": "Project",
+      "commandLineArgs": "D:\\VoxTest\\VoxTest\\CgScript\\AppProductsAdmin\\createCompany.cgs"
+    }
+  }
+}

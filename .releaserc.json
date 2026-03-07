@@ -22,9 +22,18 @@
       {
         "files": [
           {
-            "path": [ "Catglobe.CgScript.Runtime/Catglobe.CgScript.Runtime.csproj", "Catglobe.CgScript.Common/Catglobe.CgScript.Common.csproj", "Catglobe.CgScript.Deployment/Catglobe.CgScript.Deployment.csproj" ],
-            "type": "xml",
-            "replacements": [
+            "path": [
+              "Catglobe.CgScript.Runtime/Catglobe.CgScript.Runtime.csproj",
+              "Catglobe.CgScript.Common/Catglobe.CgScript.Common.csproj",
+              "Catglobe.CgScript.Deployment/Catglobe.CgScript.Deployment.csproj",
+              "Catglobe.CgScript.EditorSupport.Parsing/Catglobe.CgScript.EditorSupport.Parsing.csproj",
+              "Catglobe.CgScript.EditorSupport.Lsp/Catglobe.CgScript.EditorSupport.Lsp.csproj",
+              "Catglobe.CgScript.EditorSupport.SourceGenerator/Catglobe.CgScript.EditorSupport.SourceGenerator.csproj",
+              "Catglobe.CgScript.EditorSupport.VisualStudio/Catglobe.CgScript.EditorSupport.VisualStudio.csproj",
+              "Catglobe.CgScript.EditorSupport.VsCode/Catglobe.CgScript.EditorSupport.VsCode.csproj"
+            ],
+          "type": "xml",
+          "replacements": [
               { "key": "Version", "value": "${nextRelease.version}" },
               { "key": "RepositoryCommit", "value": "${nextRelease.gitHead}" }
             ]
@@ -33,16 +42,26 @@
       }
     ],
     [
+      "@semantic-release/npm",
+      {
+        "pkgRoot": "Catglobe.CgScript.EditorSupport.VsCode",
+        "npmPublish": false
+      }
+    ],
+    [
       "@droidsolutions-oss/semantic-release-nuget",
       {
-        "projectPath": [ "Catglobe.CgScript.Runtime/Catglobe.CgScript.Runtime.csproj", "Catglobe.CgScript.Common/Catglobe.CgScript.Common.csproj", "Catglobe.CgScript.Deployment/Catglobe.CgScript.Deployment.csproj" ],
+        "projectPath": [ "Catglobe.CgScript.Runtime/Catglobe.CgScript.Runtime.csproj", "Catglobe.CgScript.Common/Catglobe.CgScript.Common.csproj", "Catglobe.CgScript.Deployment/Catglobe.CgScript.Deployment.csproj", "Catglobe.CgScript.EditorSupport.Parsing/Catglobe.CgScript.EditorSupport.Parsing.csproj", "Catglobe.CgScript.EditorSupport.Lsp/Catglobe.CgScript.EditorSupport.Lsp.csproj", "Catglobe.CgScript.EditorSupport.SourceGenerator/Catglobe.CgScript.EditorSupport.SourceGenerator.csproj" ],
         "includeSymbols": true
       }
     ],
     [
       "@semantic-release/github",
       {
-        "addReleases": "top"
+        "addReleases": "top",
+        "assets": [
+          { "path": "release-assets/*.vsix" }
+        ]
       }
     ]
   ]

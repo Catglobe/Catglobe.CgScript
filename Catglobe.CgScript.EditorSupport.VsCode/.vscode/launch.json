@@ -1,0 +1,19 @@
+{
+   "version": "0.2.0",
+   "configurations": [
+      {
+         "name": "Launch Extension (Development Host)",
+         "type": "extensionHost",
+         "request": "launch",
+         "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+         "outFiles": ["${workspaceFolder}/out/**/*.js"],
+         "preLaunchTask": "build-all"
+      },
+      {
+         "name": "Attach to LSP Server (.NET)",
+         "type": "coreclr",
+         "request": "attach",
+         "processName": "Catglobe.CgScript.EditorSupport.Lsp.Server"
+      }
+   ]
+}

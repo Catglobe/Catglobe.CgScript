@@ -1,0 +1,20 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/Demos/">
+    <Project Path="demos/BlazorWebApp/BlazorWebApp.Client/BlazorWebApp.Client.csproj" />
+    <Project Path="demos/BlazorWebApp/BlazorWebApp/BlazorWebApp.csproj" />
+  </Folder>
+  <Project Path="Catglobe.CgScript.Common/Catglobe.CgScript.Common.csproj" />
+  <Project Path="Catglobe.CgScript.Deployment/Catglobe.CgScript.Deployment.csproj" />
+  <Project Path="Catglobe.CgScript.EditorSupport.Lsp.Server/Catglobe.CgScript.EditorSupport.Lsp.Server.csproj" />
+  <Project Path="Catglobe.CgScript.EditorSupport.Lsp/Catglobe.CgScript.EditorSupport.Lsp.csproj" />
+  <Project Path="Catglobe.CgScript.EditorSupport.Parsing/Catglobe.CgScript.EditorSupport.Parsing.csproj" />
+  <Project Path="Catglobe.CgScript.EditorSupport.SourceGenerator/Catglobe.CgScript.EditorSupport.SourceGenerator.csproj" />
+  <Project Path="Catglobe.CgScript.EditorSupport.VisualStudio/Catglobe.CgScript.EditorSupport.VisualStudio.csproj" />
+  <Project Path="Catglobe.CgScript.EditorSupport.VsCode/Catglobe.CgScript.EditorSupport.VsCode.csproj" />
+  <Project Path="Catglobe.CgScript.Runtime/Catglobe.CgScript.Runtime.csproj" />
+</Solution>

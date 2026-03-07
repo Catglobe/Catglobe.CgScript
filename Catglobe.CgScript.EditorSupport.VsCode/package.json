@@ -1,0 +1,61 @@
+{
+  "name": "cgscript-vscode",
+  "displayName": "CgScript Language Support",
+  "description": "IntelliSense, diagnostics, completions and semantic highlighting for CgScript (.cgs) files.",
+  "version": "0.1.0",
+  "publisher": "Voxmeter",
+  "license": "MIT",
+  "engines": { "vscode": "^1.82.0" },
+  "categories": ["Programming Languages"],
+  "activationEvents": [],
+  "contributes": {
+    "languages": [
+      {
+        "id": "cgscript",
+        "aliases": ["CgScript", "cgs"],
+        "extensions": [".cgs"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "cgscript",
+        "scopeName": "source.cgs",
+        "path": "./syntaxes/cgscript.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "CgScript",
+      "properties": {
+        "cgscript.trace.server": {
+          "scope": "window",
+          "type": "string",
+          "enum": ["off", "messages", "verbose"],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the CgScript language server."
+        }
+      }
+    }
+  },
+  "configurationDefaults": {
+    "[cgscript]": {
+      "editor.semanticHighlighting.enabled": true
+    }
+  },
+  "main": "./out/extension.js",
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch":   "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node":  "^20.0.0",
+    "@types/vscode": "^1.82.0",
+    "typescript":   "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  }
+}

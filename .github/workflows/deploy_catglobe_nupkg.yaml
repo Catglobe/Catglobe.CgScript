@@ -11,8 +11,62 @@ permissions:
   packages: write
 
 jobs:
+  build-vscode-extension:
+    name: Build VS Code Extension
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4
+        with:
+          dotnet-version: '10'
+      - name: Publish LSP server (all platforms)
+        working-directory: Catglobe.CgScript.EditorSupport.VsCode
+        run: |
+          for rid in win-x64 win-arm64 linux-x64 linux-arm64 osx-x64 osx-arm64; do
+            dotnet publish ../Catglobe.CgScript.EditorSupport.Lsp.Server \
+              -c Release -r $rid --self-contained \
+              /p:PublishSingleFile=true \
+              -o server/$rid
+          done
+      - name: Setup Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
+        with:
+          node-version: 'lts/*'
+      - name: Install and package VS Code extension
+        working-directory: Catglobe.CgScript.EditorSupport.VsCode
+        run: |
+          npm clean-install
+          npm run compile
+          npx vsce package
+      - name: Upload VS Code extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-extension
+          path: Catglobe.CgScript.EditorSupport.VsCode/*.vsix
+
+  build-vs-extension:
+    name: Build Visual Studio Extension
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4
+        with:
+          dotnet-version: '10'
+      - name: Build Visual Studio extension
+        run: dotnet build Catglobe.CgScript.EditorSupport.VisualStudio -c Release
+      - name: Upload Visual Studio extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vs-extension
+          path: Catglobe.CgScript.EditorSupport.VisualStudio/bin/Release/**/*.vsix
+
   release:
     name: Release
+    needs: [build-vscode-extension, build-vs-extension]
     runs-on: ubuntu-latest
     permissions:
       contents: write # to be able to publish a GitHub release
@@ -25,13 +79,23 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4
         with:
-          dotnet-version: '9'
+          dotnet-version: '10'
       - name: Setup Node.js
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
         with:
           cache: npm
           cache-dependency-path: package-lock.json
           node-version: 'lts/*'
+      - name: Download VS Code extension artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vscode-extension
+          path: release-assets
+      - name: Download Visual Studio extension artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vs-extension
+          path: release-assets
       - name: Install dependencies
         run: npm clean-install
       - name: Release

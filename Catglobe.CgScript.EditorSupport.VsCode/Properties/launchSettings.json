@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Catglobe.CgScript.EditorSupport.VsCode": {
+      "commandName": "Executable",
+      "executablePath": "cmd.exe",
+      "commandLineArgs": "/c code --extensionDevelopmentPath=\"D:\\Catglobe.ScriptDeployer\\Catglobe.CgScript.EditorSupport.VsCode\" \"D:\\VoxTest\\VoxTest\\CgScript\\AppProductsAdmin\\createCompany.cgs\""
+    }
+  }
+}

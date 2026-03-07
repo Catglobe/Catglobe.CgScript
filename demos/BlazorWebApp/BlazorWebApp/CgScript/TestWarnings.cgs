@@ -1,0 +1,28 @@
+// TestWarnings.cgs — intentional CgScript issues used to verify build-time diagnostics.
+// Expected warnings:
+//   CGS001  duplicate declaration of 'counter'
+//   CGS006  empty statement after if-block
+//   CGS007  unreachable code after return
+//   CGS008  use of 'total' before its declaration
+//   CGS009  'unused' is declared but never used
+
+// CGS009 — declared but never read anywhere
+number unused;
+
+// CGS008 — 'total' is used on the next line before it is declared below
+number result = total + 1;
+number total = 10;
+
+// CGS001 — re-declaration of 'counter'
+number counter = 0;
+number counter = 1;
+
+// CGS007 — unreachable code after return
+if (counter > 0)
+{
+    return counter;
+    number dead = 99;
+}
+
+// CGS006 — stray semicolon after block
+if (result > 0) {};

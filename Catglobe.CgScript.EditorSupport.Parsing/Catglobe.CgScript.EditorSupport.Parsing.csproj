@@ -1,0 +1,65 @@
+﻿<Project Sdk="Microsoft.NET.Sdk" InitialTargets="ValidatePrecommitHook">
+   <PropertyGroup>
+      <PackageId>Catglobe.CgScript.EditorSupport.Parsing</PackageId>
+      <Version>0.1.0</Version>
+      <Authors>Dennis Haney</Authors>
+      <Company>Voxmeter A/S</Company>
+      <description>CgScript parser library used by editor tooling and source generators.</description>
+      <RepositoryType>git</RepositoryType>
+      <RepositoryUrl>https://github.com/catglobe/Catglobe.ScriptDeployer</RepositoryUrl>
+      <PackageLicenseExpression>MIT</PackageLicenseExpression>
+   </PropertyGroup>
+
+   <PropertyGroup>
+      <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks>
+      <Nullable>enable</Nullable>
+      <ImplicitUsings>enable</ImplicitUsings>
+      <LangVersion>preview</LangVersion>
+      <GenerateDocumentationFile>True</GenerateDocumentationFile>
+      <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+      <IsTrimmable Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net10.0'))">true</IsTrimmable>
+      <!-- Suppress warnings from ANTLR4-generated code:
+           CS8669 = nullable annotation context (generated file has no #nullable directive)
+           CS0108 = EMPTY() hides ParserRuleContext.EMPTY (name collision with CgScript keyword) -->
+      <NoWarn>$(NoWarn);CS8669;CS0108;NU1900</NoWarn>
+   </PropertyGroup>
+
+   <ItemGroup>
+      <PackageReference Include="Antlr4.Runtime.Standard" Version="4.13.1" />
+      <PackageReference Include="Antlr4BuildTasks" Version="12.14.0" PrivateAssets="all" />
+      <!-- System.Text.Json is built-in on net5+; needed as a NuGet only for netstandard2.0 -->
+      <PackageReference Include="System.Text.Json" Version="9.0.9" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <EmbeddedResource Include="Resources\CgScriptConstants.json" />
+      <EmbeddedResource Include="Resources\CgScriptFunctionDefinitions.json" />
+      <EmbeddedResource Include="Resources\CgScriptObjectDefinitions.json" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <Antlr4 Include="Grammar\CgScriptLexer.g4">
+         <Package>Catglobe.CgScript.EditorSupport.Parsing</Package>
+         <Listener>false</Listener>
+         <Visitor>true</Visitor>
+         <Error>false</Error>
+      </Antlr4>
+      <Antlr4 Include="Grammar\CgScriptParser.g4">
+         <Package>Catglobe.CgScript.EditorSupport.Parsing</Package>
+         <Listener>false</Listener>
+         <Visitor>true</Visitor>
+         <Error>false</Error>
+      </Antlr4>
+   </ItemGroup>
+
+   <PropertyGroup>
+      <DefaultItemExcludes>$(DefaultItemExcludes);node_modules/**</DefaultItemExcludes>
+      <ProjectRootDir>$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), '.git/index'))\</ProjectRootDir>
+   </PropertyGroup>
+
+   <Target Name="ValidatePrecommitHook" Condition="'$(BuildingInsideVisualStudio)' != '' And '$(ProjectRootDir)' != ''">
+      <Error
+         Text="You forgot to setup commit check. Run npm install -g git-conventional-commits &amp;&amp; git-conventional-commits init"
+         Condition="!Exists('$(ProjectRootDir).git\hooks\commit-msg')" />
+   </Target>
+</Project>

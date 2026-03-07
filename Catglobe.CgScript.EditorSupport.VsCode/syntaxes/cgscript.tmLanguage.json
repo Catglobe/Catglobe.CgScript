@@ -1,0 +1,83 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "CgScript",
+  "scopeName": "source.cgs",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#char-literal" },
+    { "include": "#date-literal" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#constants" },
+    { "include": "#numbers" },
+    { "include": "#function-call" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.cgs",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.cgs",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.cgs",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        { "name": "constant.character.escape.cgs", "match": "\\\\." }
+      ]
+    },
+    "char-literal": {
+      "name": "string.quoted.single.cgs",
+      "match": "'(?:[^'\\\\]|\\\\.)'",
+      "patterns": [
+        { "name": "constant.character.escape.cgs", "match": "\\\\." }
+      ]
+    },
+    "date-literal": {
+      "name": "constant.other.date.cgs",
+      "match": "#\\d+-\\d+-\\d+(?:\\s+\\d+:\\d+(?::\\d+)?)?#"
+    },
+    "keywords": {
+      "name": "keyword.control.cgs",
+      "match": "\\b(if|else|while|for|break|continue|return|switch|case|default|try|catch|throw|where|new|function)\\b"
+    },
+    "types": {
+      "name": "storage.type.cgs",
+      "match": "\\b(bool|number|string|array|question|object)\\b"
+    },
+    "constants": {
+      "name": "constant.language.cgs",
+      "match": "\\b(true|false|empty)\\b"
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.cgs",
+          "match": "\\b(?:\\d+\\.\\d*|\\.\\d+)(?:[eE][+\\-]?\\d+)?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.cgs",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "function-call": {
+      "name": "entity.name.function.cgs",
+      "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s*\\()"
+    },
+    "operators": {
+      "name": "keyword.operator.cgs",
+      "match": "\\+\\+|--|==|!=|<=|>=|&&|\\|\\||[+\\-*/%^<>=!?]"
+    }
+  }
+}

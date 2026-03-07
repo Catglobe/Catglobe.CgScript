@@ -1,0 +1,15 @@
+# Exclude development/source files from the packaged extension
+src/
+.vscode/
+tsconfig.json
+*.csproj
+Program.cs
+Properties/
+bin/
+obj/
+node_modules/
+*.md
+.gitignore
+
+# Re-include server binaries (they are in .gitignore but must be in the package)
+!server/**

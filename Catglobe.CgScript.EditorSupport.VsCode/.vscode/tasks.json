@@ -1,0 +1,37 @@
+{
+   "version": "2.0.0",
+   "tasks": [
+      {
+         "label": "compile-ts",
+         "type": "npm",
+         "script": "compile",
+         "problemMatcher": "$tsc",
+         "group": "build",
+         "presentation": { "reveal": "silent" }
+      },
+      {
+         "label": "publish-server",
+         "type": "shell",
+         "command": "dotnet",
+         "args": [
+            "publish",
+            "${workspaceFolder}/../Catglobe.CgScript.EditorSupport.Lsp.Server/Catglobe.CgScript.EditorSupport.Lsp.Server.csproj",
+            "-c", "Release",
+            "-r", "win-x64",
+            "--self-contained",
+            "/p:PublishSingleFile=true",
+            "-o", "${workspaceFolder}/server/win-x64"
+         ],
+         "problemMatcher": "$msCompile",
+         "group": "build",
+         "presentation": { "reveal": "silent" }
+      },
+      {
+         "label": "build-all",
+         "dependsOn": ["compile-ts", "publish-server"],
+         "dependsOrder": "parallel",
+         "group": { "kind": "build", "isDefault": true },
+         "problemMatcher": []
+      }
+   ]
+}

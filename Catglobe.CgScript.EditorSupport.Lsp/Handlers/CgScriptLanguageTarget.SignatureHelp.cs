@@ -1,0 +1,64 @@
+using Antlr4.Runtime;
+using Antlr4.Runtime.Tree;
+using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
+using Catglobe.CgScript.EditorSupport.Parsing;
+using Microsoft.VisualStudio.LanguageServer.Protocol;
+using StreamJsonRpc;
+using System.Collections.Concurrent;
+using System.Threading;
+using LspDiagnostic = Microsoft.VisualStudio.LanguageServer.Protocol.Diagnostic;
+using LspRange      = Microsoft.VisualStudio.LanguageServer.Protocol.Range;
+
+namespace Catglobe.CgScript.EditorSupport.Lsp.Handlers;
+
+public partial class CgScriptLanguageTarget
+{
+   // ── signature help ────────────────────────────────────────────────────────────
+
+   /// <summary>
+   /// Provides active signature information by scanning backwards from the cursor
+   /// to find the enclosing function call and the current argument index.
+   /// </summary>
+   public SignatureHelp? OnSignatureHelp(SignatureHelpParams p)
+   {
+      var text = _store.GetText(p.TextDocument.Uri.ToString());
+      if (text is null) return null;
+
+      var offset = GetOffset(text, p.Position.Line, p.Position.Character);
+
+      // Scan backwards to find the opening paren of the current call.
+      int depth      = 0;
+      int commaCount = 0;
+
+      for (int i = offset - 1; i >= 0; i--)
+      {
+         char c = text[i];
+
+         if      (c == ')')                { depth++; }
+         else if (c == '(' && depth > 0)   { depth--; }
+         else if (c == '(' && depth == 0)
+         {
+            // Found the call-opening paren. The identifier immediately to its
+            // left is the function name.
+            var funcName = GetIdentifierBefore(text, i);
+            if (funcName is null) return null;
+
+            if (!_definitions.Functions.TryGetValue(funcName, out var fn)) return null;
+
+            var signatures = BuildSignatureInfoList(funcName, fn);
+            return new SignatureHelp
+            {
+               Signatures      = signatures,
+               ActiveSignature = 0,
+               ActiveParameter = commaCount,
+            };
+         }
+         else if (c == ',' && depth == 0)
+         {
+            commaCount++;
+         }
+      }
+
+      return null;
+   }
+}

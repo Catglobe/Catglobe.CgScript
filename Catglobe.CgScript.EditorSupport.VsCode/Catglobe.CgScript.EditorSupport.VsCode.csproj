@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+   <PropertyGroup>
+      <TargetFramework>net10.0</TargetFramework>
+      <OutputType>Exe</OutputType>
+      <IsPackable>false</IsPackable>
+      <Version>0.1.0</Version>
+      <DefaultItemExcludes>$(DefaultItemExcludes);node_modules\**;out\**;server\**</DefaultItemExcludes>
+   </PropertyGroup>
+
+   <ItemGroup>
+      <ProjectReference Include="..\Catglobe.CgScript.EditorSupport.Lsp.Server\Catglobe.CgScript.EditorSupport.Lsp.Server.csproj" />
+   </ItemGroup>
+</Project>

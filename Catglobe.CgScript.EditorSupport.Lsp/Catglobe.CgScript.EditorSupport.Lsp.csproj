@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+   <PropertyGroup>
+      <PackageId>Catglobe.CgScript.EditorSupport.Lsp</PackageId>
+      <Version>0.1.0</Version>
+      <Authors>Dennis Haney</Authors>
+      <Company>Voxmeter A/S</Company>
+      <description>CgScript LSP server — provides editor intelligence (completions, hover, diagnostics) for .cgs files.</description>
+      <RepositoryType>git</RepositoryType>
+      <RepositoryUrl>https://github.com/catglobe/Catglobe.ScriptDeployer</RepositoryUrl>
+      <PackageLicenseExpression>MIT</PackageLicenseExpression>
+   </PropertyGroup>
+
+   <PropertyGroup>
+      <TargetFramework>net10.0</TargetFramework>
+      <Nullable>enable</Nullable>
+      <ImplicitUsings>enable</ImplicitUsings>
+      <LangVersion>preview</LangVersion>
+      <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+      <RollForward>Major</RollForward>
+      <!-- Self-contained publish profiles are configured in the VS/VsCode extension projects -->
+      <NoWarn>$(NoWarn);CS8669;CS0108;NU1900</NoWarn>
+   </PropertyGroup>
+
+   <ItemGroup>
+      <ProjectReference Include="..\Catglobe.CgScript.EditorSupport.Parsing\Catglobe.CgScript.EditorSupport.Parsing.csproj" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.3" />
+      <PackageReference Include="Microsoft.VisualStudio.LanguageServer.Protocol" Version="17.2.8" />
+      <PackageReference Include="StreamJsonRpc" Version="2.24.84" />
+   </ItemGroup>
+</Project>

@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+   <PropertyGroup>
+      <TargetFramework>netstandard2.0</TargetFramework>
+      <LangVersion>latest</LangVersion>
+      <Nullable>enable</Nullable>
+      <ImplicitUsings>enable</ImplicitUsings>
+      <PackageId>Catglobe.CgScript.EditorSupport.SourceGenerator</PackageId>
+      <Version>0.1.0</Version>
+      <Authors>Dennis Haney</Authors>
+      <Company>Voxmeter A/S</Company>
+      <Description>Roslyn source generator that reads .cgs script files and emits typed C# wrapper methods.</Description>
+      <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+   </PropertyGroup>
+
+   <ItemGroup>
+      <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
+      <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
+      <!-- Transitive deps of the Parsing project; must land in the output dir for Roslyn to load them -->
+      <PackageReference Include="Antlr4.Runtime.Standard" Version="4.13.1" PrivateAssets="all" GeneratePathProperty="true" />
+      <PackageReference Include="System.Text.Json" Version="9.0.9" PrivateAssets="all" GeneratePathProperty="true" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <ProjectReference Include="..\Catglobe.CgScript.EditorSupport.Parsing\Catglobe.CgScript.EditorSupport.Parsing.csproj"
+                        PrivateAssets="all" />
+   </ItemGroup>
+
+   <!--
+      Copy dependency DLLs next to the generator DLL so Roslyn can load them when the
+      generator is consumed as an <Analyzer> project reference.
+   -->
+   <Target Name="CopyAnalyzerDependencies" AfterTargets="Build">
+      <Copy SourceFiles="$(PkgAntlr4_Runtime_Standard)\lib\netstandard2.0\Antlr4.Runtime.Standard.dll"
+            DestinationFolder="$(OutputPath)"
+            SkipUnchangedFiles="true" />
+      <Copy SourceFiles="$(PkgSystem_Text_Json)\lib\netstandard2.0\System.Text.Json.dll"
+            DestinationFolder="$(OutputPath)"
+            SkipUnchangedFiles="true" />
+   </Target>
+
+   <!--
+      Advertise the extra DLLs to consuming projects so they are passed to the compiler
+      alongside the generator DLL itself.
+   -->
+   <PropertyGroup>
+      <GetTargetPathDependsOn>$(GetTargetPathDependsOn);GetAnalyzerDependencies</GetTargetPathDependsOn>
+   </PropertyGroup>
+   <Target Name="GetAnalyzerDependencies">
+      <ItemGroup>
+         <TargetPathWithTargetPlatformMoniker
+            Include="$(MSBuildProjectDirectory)\$(OutputPath)Catglobe.CgScript.EditorSupport.Parsing.dll"
+            IncludeRuntimeDependency="false" />
+         <TargetPathWithTargetPlatformMoniker
+            Include="$(MSBuildProjectDirectory)\$(OutputPath)Antlr4.Runtime.Standard.dll"
+            IncludeRuntimeDependency="false" />
+         <TargetPathWithTargetPlatformMoniker
+            Include="$(MSBuildProjectDirectory)\$(OutputPath)System.Text.Json.dll"
+            IncludeRuntimeDependency="false" />
+      </ItemGroup>
+   </Target>
+</Project>

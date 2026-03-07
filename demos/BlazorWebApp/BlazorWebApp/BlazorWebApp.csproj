@@ -25,7 +25,15 @@
 
    <!--Added for this demo-->
   <ItemGroup>
-    <Content Include="CgScript\**\*.cgs" />
+    <!-- Treated as AdditionalFiles so the source generator can read and analyse them -->
+    <AdditionalFiles Include="CgScript\**\*.cgs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Source generator: emits typed C# wrappers and reports CgScript diagnostics -->
+    <ProjectReference Include="..\..\..\Catglobe.CgScript.EditorSupport.SourceGenerator\Catglobe.CgScript.EditorSupport.SourceGenerator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
    <!--end Added for this demo-->
 

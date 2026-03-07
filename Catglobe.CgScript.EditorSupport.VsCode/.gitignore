@@ -1,0 +1,6 @@
+# TypeScript compiled output
+out/
+
+# Published .NET LSP server binaries
+server/
+
