@@ -51,7 +51,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "cd Catglobe.CgScript.EditorSupport.VsCode && npx vsce package && cd .. && rm -rf /tmp/vsix-patch && unzip -q vs-extension.vsix -d /tmp/vsix-patch && sed -i 's/\\(<Identity[^>]*Version=\"\\)[^\"]*\"/\\1${nextRelease.version}\"/' /tmp/vsix-patch/extension.vsixmanifest && (cd /tmp/vsix-patch && zip -qr - .) > cgscript-vs-${nextRelease.version}.vsix"
+        "prepareCmd": "cd Catglobe.CgScript.EditorSupport.VsCode && npx vsce package && cd .. && python3 scripts/patch-vsix-version.py ${nextRelease.version}"
       }
     ],
     [
@@ -66,8 +66,8 @@
       {
         "addReleases": "top",
         "assets": [
-          { "path": "Catglobe.CgScript.EditorSupport.VsCode/*.vsix" },
-          { "path": "cgscript-vs-${nextRelease.version}.vsix" }
+          { "path": "Catglobe.CgScript.EditorSupport.VsCode/*.vsix", "label": "VS Code Extension" },
+          { "path": "cgscript-vs-*.vsix", "label": "Visual Studio Extension" }
         ]
       }
     ]
