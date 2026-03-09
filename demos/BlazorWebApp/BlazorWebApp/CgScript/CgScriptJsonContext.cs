@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using Catglobe.CgScript;
 
@@ -10,7 +11,7 @@ namespace BlazorWebApp;
 /// </summary>
 [CgScriptSerializer]
 [JsonSerializable(typeof(object))]
-[JsonSerializable(typeof(object[]))]
-[JsonSerializable(typeof(TagItem[]))]
+[JsonSerializable(typeof(IEnumerable<object>))]
+[JsonSerializable(typeof(IEnumerable<TagItem>))]
 [JsonSerializable(typeof(TagSummary))]
 internal partial class CgScriptJsonContext : System.Text.Json.Serialization.JsonSerializerContext;

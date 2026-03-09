@@ -278,7 +278,7 @@ public partial class CgScriptLanguageTarget
       foreach (var (cgsType, name) in paramNames)
       {
          // Ambiguous types get a type attribute placeholder; primitives just get doc text
-         bool needsType = cgsType is "array" or "object" or "question";
+         bool needsType = cgsType is "array" or "object" or "question" or "number";
          if (needsType)
             sb.Append($"{indent}/// <param name=\"{name}\" type=\"${tabStop++}\">${tabStop++}</param>");
          else

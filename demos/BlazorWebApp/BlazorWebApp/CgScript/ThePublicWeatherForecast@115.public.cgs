@@ -1,3 +1,6 @@
+// @return array
+// @param numberOfDays int
+// @param city string
 Dictionary namedParameters = Workflow_getParameters()[0];
 string city = namedParameters["city"];
 number numberOfDays = namedParameters["numberOfDays"];

@@ -198,17 +198,24 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
    /// </summary>
    private static string GetSimpleName(string fullTypeName)
    {
-      var arrayPart = "";
-      var baseName  = fullTypeName;
-      if (baseName.EndsWith("[]"))
+      // Handle generics: Namespace.Outer<Namespace.Inner> → Outer<Inner>
+      var genericOpen = fullTypeName.IndexOf('<');
+      if (genericOpen >= 0 && fullTypeName.EndsWith(">"))
       {
-         arrayPart = "[]";
-         baseName  = baseName.Substring(0, baseName.Length - 2);
+         var outer = fullTypeName.Substring(0, genericOpen);
+         var inner = fullTypeName.Substring(genericOpen + 1, fullTypeName.Length - genericOpen - 2);
+         return $"{StripNamespace(outer)}<{GetSimpleName(inner)}>";
       }
-      var lastDot = baseName.LastIndexOf('.');
-      if (lastDot >= 0)
-         baseName = baseName.Substring(lastDot + 1);
-      return baseName + arrayPart;
+      // Handle arrays: Namespace.T[] → T[]
+      if (fullTypeName.EndsWith("[]"))
+         return GetSimpleName(fullTypeName.Substring(0, fullTypeName.Length - 2)) + "[]";
+      return StripNamespace(fullTypeName);
+   }
+
+   private static string StripNamespace(string typeName)
+   {
+      var dot = typeName.LastIndexOf('.');
+      return dot >= 0 ? typeName.Substring(dot + 1) : typeName;
    }
 
    /// <summary>

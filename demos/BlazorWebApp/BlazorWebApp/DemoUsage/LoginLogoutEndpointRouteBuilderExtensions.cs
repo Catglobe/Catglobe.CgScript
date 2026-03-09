@@ -20,7 +20,7 @@ internal static class LoginLogoutEndpointRouteBuilderExtensions
                                                                                       [CookieAuthenticationDefaults.AuthenticationScheme, SetupRuntime.SCHEMENAME]));
 
       return group;
-      //CgScriptWrappers.TestWarnings()
+      //CgScriptWrappers.TestWarnings(client, new TagItem[], 42);
    }
 
    private static AuthenticationProperties GetAuthProperties(string? returnUrl)

@@ -81,16 +81,18 @@ internal static class ScriptParser
           RegexOptions.Compiled | RegexOptions.Multiline);
 
    // CgScript → C# type map
+   // Only string and bool have an unambiguous 1:1 C# equivalent.
+   // number/array require an annotation so the caller can say int vs double, TagItem vs plain object, etc.
    private static readonly Dictionary<string, string> TypeMap = new()
    {
-      ["number"]   = "double",
+      ["number"]   = "double",               // placeholder — requires @param annotation (CGS012)
       ["string"]   = "string",
       ["bool"]     = "bool",
-      ["array"]    = "object[]",
-      ["object"]   = "object",
-      ["question"] = "object",
+      ["array"]    = "IEnumerable<object>",  // placeholder — requires @param annotation (CGS012)
+      ["object"]   = "object",               // requires annotation
+      ["question"] = "object",               // requires annotation
       ["void"]     = "void",
-      ["int"]      = "int",      // @return can say int
+      ["int"]      = "int",                  // explicit int allowed in annotations
    };
 
    /// <summary>
@@ -198,8 +200,12 @@ internal static class ScriptParser
       new (string, string)[0];
 
    /// <summary>
-   /// Returns the subset of <paramref name="parms"/> whose C# type is ambiguous
-   /// (<c>object</c> or <c>object[]</c>) and for which no <c>@param</c> override was supplied.
+   /// Returns the subset of <paramref name="parms"/> whose C# type still needs an explicit
+   /// annotation because the CgScript type is ambiguous:
+   /// <list type="bullet">
+   ///   <item><c>object</c> / <c>IEnumerable&lt;object&gt;</c> — from <c>object</c>, <c>question</c>, <c>array</c></item>
+   ///   <item><c>double</c> — from <c>number</c> (could be int, float, etc.)</item>
+   /// </list>
    /// </summary>
    private static IReadOnlyList<(string Name, string CsType)> FindMissingAnnotations(
       IReadOnlyList<ScriptParam> parms,
@@ -208,7 +214,7 @@ internal static class ScriptParser
       List<(string, string)>? missing = null;
       foreach (var p in parms)
       {
-         if ((p.CsType == "object" || p.CsType == "object[]") &&
+         if ((p.CsType is "object" or "IEnumerable<object>" or "double") &&
              !paramOverrides.ContainsKey(p.Name))
          {
             (missing ??= new List<(string, string)>()).Add((p.Name, p.CsType));
@@ -302,10 +308,17 @@ internal static class ScriptParser
       => TypeMap.TryGetValue(cgsType.ToLowerInvariant(), out var cs) ? cs : "object";
 
    /// <summary>
-   /// Maps a type string from an <c>@return</c> or <c>@param</c> annotation.
+   /// Maps a type string from a <c>type="…"</c> annotation attribute.
    /// Known CgScript keywords are mapped (e.g. <c>number</c> → <c>double</c>);
-   /// anything else is passed through as-is so that qualified C# type names are preserved.
+   /// <c>T[]</c> syntax is recursively converted to <c>IEnumerable&lt;T&gt;</c>
+   /// (so <c>TagItem[][]</c> → <c>IEnumerable&lt;IEnumerable&lt;TagItem&gt;&gt;</c>);
+   /// anything else is passed through as-is.
    /// </summary>
    internal static string AnnotatedToCsType(string annotated)
-      => TypeMap.TryGetValue(annotated.ToLowerInvariant(), out var cs) ? cs : annotated;
+   {
+      if (TypeMap.TryGetValue(annotated.ToLowerInvariant(), out var cs)) return cs;
+      if (annotated.EndsWith("[]"))
+         return $"IEnumerable<{AnnotatedToCsType(annotated.Substring(0, annotated.Length - 2))}>";
+      return annotated;
+   }
 }
