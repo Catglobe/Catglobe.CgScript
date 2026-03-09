@@ -16,27 +16,33 @@ internal static class WrapperEmitter
 
       var methodName  = ToPascalCase(meta.ScriptName);
       var paramsClass = methodName + "Params";
-      var ctxClass    = methodName + "Context";
-      var returnCs    = meta.ReturnType;
+      var returnCs    = meta.ReturnType == "void" ? "object" : meta.ReturnType;
 
       // ── extension method ─────────────────────────────────────────────────────
       sb.AppendLine($"    // Generated from {meta.ScriptName}.cgs");
-      sb.Append($"    public static global::System.Threading.Tasks.Task<global::Catglobe.CgScript.Common.ScriptResult<{returnCs}>> {methodName}(");
-      sb.Append("this global::Catglobe.CgScript.Common.ICgScriptApiClient client");
+      sb.Append($"    public static global::System.Threading.Tasks.Task<global::Catglobe.CgScript.Runtime.ScriptResult<{returnCs}>> {methodName}(");
+      sb.Append("this global::Catglobe.CgScript.Runtime.ICgScriptApiClient client");
 
       foreach (var p in meta.Parameters)
          sb.Append($", {CsType(p)} {ToCamelCase(p.Name)}");
 
       sb.AppendLine(", global::System.Threading.CancellationToken ct = default)");
       sb.AppendLine("    {");
+      // The params record is emitted by this source generator and is therefore invisible
+      // to the System.Text.Json source generator (generators cannot see each other's output).
+      // Reflection-based serialization is used; it is safe for server-side scenarios.
+#pragma warning disable RS1035 // Do not use APIs banned for use in analyzers
+      sb.AppendLine("#pragma warning disable IL2026, IL3050");
+#pragma warning restore RS1035
       sb.Append($"        return client.Execute<{paramsClass}, {returnCs}>(");
       sb.Append($"\"{meta.ScriptName}\", ");
       sb.Append($"new {paramsClass}(");
       sb.Append(string.Join(", ", meta.Parameters.Select(p => ToCamelCase(p.Name))));
-      sb.Append("), ");
-      sb.Append($"{ctxClass}.Default.{paramsClass}, ");
-      sb.Append($"{ctxClass}.Default.{CsContextReturnType(returnCs)}, ");
-      sb.AppendLine("ct);");      sb.AppendLine("    }");
+      sb.AppendLine("), cancellationToken: ct);");
+#pragma warning disable RS1035
+      sb.AppendLine("#pragma warning restore IL2026, IL3050");
+#pragma warning restore RS1035
+      sb.AppendLine("    }");
       sb.AppendLine();
 
       // ── params record ────────────────────────────────────────────────────────
@@ -50,13 +56,6 @@ internal static class WrapperEmitter
       {
          sb.AppendLine($"    private record {paramsClass}();");
       }
-      sb.AppendLine();
-
-      // ── JsonSerializerContext ─────────────────────────────────────────────────
-      sb.AppendLine($"    [global::System.Text.Json.Serialization.JsonSerializable(typeof({paramsClass}))]");
-      if (returnCs != "void")
-         sb.AppendLine($"    [global::System.Text.Json.Serialization.JsonSerializable(typeof({returnCs}))]");
-      sb.AppendLine($"    private partial class {ctxClass} : global::System.Text.Json.Serialization.JsonSerializerContext {{}}");
 
       return sb.ToString();
    }
@@ -84,10 +83,27 @@ internal static class WrapperEmitter
 
    // ── helpers ──────────────────────────────────────────────────────────────────
 
-   private static string ToPascalCase(string s)
+   internal static string ToPascalCase(string s)
    {
       if (string.IsNullOrEmpty(s)) return s;
-      return char.ToUpperInvariant(s[0]) + s.Substring(1);
+      var sb = new StringBuilder(s.Length);
+      bool capitalize = true;
+      foreach (var c in s)
+      {
+         if (char.IsLetterOrDigit(c) || c == '_')
+         {
+            sb.Append(capitalize && char.IsLetter(c) ? char.ToUpperInvariant(c) : c);
+            capitalize = false;
+         }
+         else
+         {
+            capitalize = true; // capitalize next valid char after a separator
+         }
+      }
+      // Ensure it doesn't start with a digit
+      if (sb.Length > 0 && char.IsDigit(sb[0]))
+         sb.Insert(0, '_');
+      return sb.Length > 0 ? sb.ToString() : "_";
    }
 
    private static string ToCamelCase(string s)
@@ -95,15 +111,4 @@ internal static class WrapperEmitter
       if (string.IsNullOrEmpty(s)) return s;
       return char.ToLowerInvariant(s[0]) + s.Substring(1);
    }
-
-   private static string CsContextReturnType(string returnCs) => returnCs switch
-   {
-      "void"     => "Object",
-      "int"      => "Int32",
-      "double"   => "Double",
-      "bool"     => "Boolean",
-      "string"   => "String",
-      "object[]" => "ObjectArray",
-      _          => ToPascalCase(returnCs),
-   };
 }

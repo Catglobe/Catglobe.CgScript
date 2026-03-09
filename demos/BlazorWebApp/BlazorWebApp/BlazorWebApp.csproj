@@ -4,6 +4,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
     <UserSecretsId>aspnet-BlazorWebApp-058011ee-34cd-4482-9d5a-96535612df93</UserSecretsId>
   </PropertyGroup>
 

@@ -41,6 +41,7 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
 
          var source   = text.ToString();
          var baseName = Path.GetFileNameWithoutExtension(file.Path);
+         var hintName = SanitizeHintName(baseName);
 
          // ── Semantic diagnostics ──────────────────────────────────────────────
          ReportSemanticDiagnostics(spc, file, text, source);
@@ -53,9 +54,17 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
          var body      = WrapperEmitter.Emit(meta, ns);
          var fullSource = WrapperEmitter.WrapInPartialClass(ns, body);
 
-         spc.AddSource($"CgScript.{baseName}.g.cs",
+         spc.AddSource($"CgScript.{hintName}.g.cs",
             SourceText.From(fullSource, Encoding.UTF8));
       });
+   }
+
+   private static string SanitizeHintName(string name)
+   {
+      var sb = new StringBuilder(name.Length);
+      foreach (var c in name)
+         sb.Append(char.IsLetterOrDigit(c) || c == '_' || c == '-' ? c : '_');
+      return sb.ToString();
    }
 
    private static void ReportSemanticDiagnostics(

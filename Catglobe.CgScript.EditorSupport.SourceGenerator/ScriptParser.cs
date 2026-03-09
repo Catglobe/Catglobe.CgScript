@@ -42,6 +42,15 @@ internal static class ScriptParser
       new(@"(?m)^\s*(\w+)\s+(\w+)\s*=\s*params\s*\[\s*0\s*\]\s*\[\s*""(\w+)""\s*\]",
           RegexOptions.Compiled | RegexOptions.Multiline);
 
+   // Pattern C: dictVar = Workflow_getParameters()[0]; type name = dictVar["key"]
+   private static readonly Regex DictAssignDecl =
+      new(@"\b(\w+)\s*=\s*Workflow_getParameters\s*\(\s*\)\s*\[\s*0\s*\]",
+          RegexOptions.Compiled);
+
+   private static readonly Regex DictRead =
+      new(@"(?m)^\s*(\w+)\s+(\w+)\s*=\s*(\w+)\s*\[\s*""(\w+)""\s*\]",
+          RegexOptions.Compiled | RegexOptions.Multiline);
+
    // CgScript → C# type map
    private static readonly Dictionary<string, string> TypeMap = new()
    {
@@ -57,6 +66,24 @@ internal static class ScriptParser
 
    public static ScriptMetadata? TryParse(string scriptName, string source)
    {
+      // ── Pattern C: dictVar = Workflow_getParameters()[0]; type name = dictVar["key"] ──
+      var dictAssign = DictAssignDecl.Match(source);
+      if (dictAssign.Success)
+      {
+         var dictVar = dictAssign.Groups[1].Value;
+         var cParams = new List<ScriptParam>();
+         foreach (Match m in DictRead.Matches(source))
+         {
+            if (m.Groups[3].Value == dictVar)
+               cParams.Add(new ScriptParam(m.Groups[1].Value, m.Groups[4].Value));
+         }
+         if (cParams.Count > 0)
+         {
+            string returnType = ExtractReturnType(source) ?? "void";
+            return new ScriptMetadata(scriptName, ToCsType(returnType), cParams);
+         }
+      }
+
       // ── Pattern B first (more distinctive) ──────────────────────────────────
       if (source.Contains("Workflow_getParameters()") &&
           source.Contains("params[0]["))
