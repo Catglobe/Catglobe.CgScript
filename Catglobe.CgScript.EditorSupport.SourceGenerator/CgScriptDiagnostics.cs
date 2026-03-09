@@ -78,6 +78,22 @@ internal static class CgScriptDiagnostics
       defaultSeverity:    DiagnosticSeverity.Warning,
       isEnabledByDefault: true);
 
+   public static readonly DiagnosticDescriptor MissingCgScriptSerializer = new(
+      id:                 "CGS010",
+      title:              "Missing or duplicate [CgScriptSerializer] context",
+      messageFormat:      "Exactly one JsonSerializerContext must be marked [CgScriptSerializer]: {0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor MissingJsonSerializable = new(
+      id:                 "CGS011",
+      title:              "Missing [JsonSerializable] on CgScript serializer context",
+      messageFormat:      "The [CgScriptSerializer] context must declare [JsonSerializable(typeof({0}))] for the return type of script '{1}'",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
+
    /// <summary>Maps a Parsing-project diagnostic severity to a Roslyn DiagnosticSeverity.</summary>
    public static DiagnosticSeverity ToRoslyn(Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity s)
       => s == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error

@@ -3,58 +3,84 @@ using System.Text;
 namespace Catglobe.CgScript.EditorSupport.SourceGenerator;
 
 /// <summary>
-/// Emits C# source for a typed wrapper method and supporting types for one .cgs script.
+/// Emits C# source for a typed AOT-safe wrapper method for one .cgs script.
+///
+/// Params are serialised via a generated <c>JsonMetadataServices.CreateObjectInfo</c> with an inline
+/// <c>SerializeHandler</c> — no STJ source generator involvement needed for the params type.
+/// The return-type <c>JsonTypeInfo</c> is resolved from the assembly's <c>[CgScriptSerializer]</c>
+/// context (a <c>JsonSerializerContext</c> the user declares and annotates with
+/// <c>[JsonSerializable(typeof(TR))]</c>).
 /// </summary>
 internal static class WrapperEmitter
 {
+   private const string JMeta   = "global::System.Text.Json.Serialization.Metadata.JsonMetadataServices";
+   private const string JObjVal = "global::System.Text.Json.Serialization.Metadata.JsonObjectInfoValues";
+   private const string JInfo   = "global::System.Text.Json.Serialization.Metadata.JsonTypeInfo";
+   private const string JWriter = "global::System.Text.Json.Utf8JsonWriter";
+
    /// <summary>
    /// Generates the partial class body (without namespace/class wrapper) for one script.
    /// </summary>
-   public static string Emit(ScriptMetadata meta, string wrapperNamespace)
+   public static string Emit(ScriptMetadata meta, string wrapperNamespace, string contextFullName)
    {
       var sb = new StringBuilder();
 
       var methodName  = ToPascalCase(meta.ScriptName);
       var paramsClass = methodName + "Params";
       var returnCs    = meta.ReturnType == "void" ? "object" : meta.ReturnType;
+      var hasParams   = meta.Parameters.Count > 0;
 
       // ── extension method ─────────────────────────────────────────────────────
       sb.AppendLine($"    // Generated from {meta.ScriptName}.cgs");
       sb.Append($"    public static global::System.Threading.Tasks.Task<global::Catglobe.CgScript.Runtime.ScriptResult<{returnCs}>> {methodName}(");
       sb.Append("this global::Catglobe.CgScript.Runtime.ICgScriptApiClient client");
-
       foreach (var p in meta.Parameters)
          sb.Append($", {CsType(p)} {ToCamelCase(p.Name)}");
-
       sb.AppendLine(", global::System.Threading.CancellationToken ct = default)");
       sb.AppendLine("    {");
-      // The params record is emitted by this source generator and is therefore invisible
-      // to the System.Text.Json source generator (generators cannot see each other's output).
-      // Reflection-based serialization is used; it is safe for server-side scenarios.
-#pragma warning disable RS1035 // Do not use APIs banned for use in analyzers
-      sb.AppendLine("#pragma warning disable IL2026, IL3050");
-#pragma warning restore RS1035
-      sb.Append($"        return client.Execute<{paramsClass}, {returnCs}>(");
-      sb.Append($"\"{meta.ScriptName}\", ");
-      sb.Append($"new {paramsClass}(");
-      sb.Append(string.Join(", ", meta.Parameters.Select(p => ToCamelCase(p.Name))));
-      sb.AppendLine("), cancellationToken: ct);");
-#pragma warning disable RS1035
-      sb.AppendLine("#pragma warning restore IL2026, IL3050");
-#pragma warning restore RS1035
+      sb.AppendLine($"        var ctx = global::{contextFullName}.Default;");
+
+      if (hasParams)
+      {
+         // Build the params type info using CreateObjectInfo + inline SerializeHandler.
+         // This is AOT-safe: the trimmer can see every type accessed via the handler.
+         sb.AppendLine($"        var paramsInfo = {JMeta}.CreateObjectInfo<{paramsClass}>(ctx.Options,");
+         sb.AppendLine($"            new {JObjVal}<{paramsClass}>");
+         sb.AppendLine("            {");
+         sb.AppendLine("                ObjectCreator = null, // serialisation-only");
+         sb.AppendLine($"                SerializeHandler = ({JWriter} w, {paramsClass} v) =>");
+         sb.AppendLine("                {");
+         sb.AppendLine("                    w.WriteStartObject();");
+         foreach (var p in meta.Parameters)
+         {
+            var prop    = ToPascalCase(p.Name);
+            var jsonKey = p.Name; // original lowercase key the CgScript side reads
+            sb.AppendLine(WritePropertyLine(jsonKey, prop, p.CgsType));
+         }
+         sb.AppendLine("                    w.WriteEndObject();");
+         sb.AppendLine("                }");
+         sb.AppendLine("            });");
+      }
+
+      // Resolve return-type info from the user's serializer context
+      sb.AppendLine($"        var resultInfo = (({JInfo}<{returnCs}>?)ctx.GetTypeInfo(typeof({returnCs})))");
+      sb.AppendLine($"            ?? throw new global::System.InvalidOperationException(");
+      sb.AppendLine($"                \"Add [JsonSerializable(typeof({returnCs}))] to the [CgScriptSerializer] context.\");");
+
+      if (hasParams)
+         sb.AppendLine($"        return client.Execute<{paramsClass}, {returnCs}>(\"{meta.ScriptName}\", new {paramsClass}({string.Join(", ", meta.Parameters.Select(p => ToCamelCase(p.Name)))}), paramsInfo, resultInfo, cancellationToken: ct);");
+      else
+         sb.AppendLine($"        return client.Execute<{returnCs}>(\"{meta.ScriptName}\", resultInfo, cancellationToken: ct);");
+
       sb.AppendLine("    }");
       sb.AppendLine();
 
       // ── params record ────────────────────────────────────────────────────────
-      if (meta.Parameters.Count > 0)
+      if (hasParams)
       {
          sb.Append($"    private record {paramsClass}(");
          sb.Append(string.Join(", ", meta.Parameters.Select(p => $"{CsType(p)} {ToPascalCase(p.Name)}")));
          sb.AppendLine(");");
-      }
-      else
-      {
-         sb.AppendLine($"    private record {paramsClass}();");
       }
 
       return sb.ToString();
@@ -79,6 +105,18 @@ internal static class WrapperEmitter
       return sb.ToString();
    }
 
+   // ── Utf8JsonWriter call per CgScript param type ───────────────────────────
+
+   private static string WritePropertyLine(string jsonKey, string propName, string cgsType) =>
+      cgsType.ToLowerInvariant() switch
+      {
+         "string"              => $"                    w.WriteString(\"{jsonKey}\", v.{propName});",
+         "number" or "double"  => $"                    w.WriteNumber(\"{jsonKey}\", v.{propName});",
+         "int" or "integer"    => $"                    w.WriteNumber(\"{jsonKey}\", v.{propName});",
+         "bool" or "boolean"   => $"                    w.WriteBoolean(\"{jsonKey}\", v.{propName});",
+         _                     => $"                    global::System.Text.Json.JsonSerializer.Serialize(w, (object?)v.{propName}, ctx.Options); // {cgsType}",
+      };
+
    private static string CsType(ScriptParam p) => ScriptParser.ToCsType(p.CgsType);
 
    // ── helpers ──────────────────────────────────────────────────────────────────
@@ -97,10 +135,9 @@ internal static class WrapperEmitter
          }
          else
          {
-            capitalize = true; // capitalize next valid char after a separator
+            capitalize = true; // capitalize next valid char after separator
          }
       }
-      // Ensure it doesn't start with a digit
       if (sb.Length > 0 && char.IsDigit(sb[0]))
          sb.Insert(0, '_');
       return sb.Length > 0 ? sb.ToString() : "_";
