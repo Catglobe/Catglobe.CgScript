@@ -19,6 +19,13 @@ public partial class CgScriptLanguageTarget
    {
       var text        = _store.GetText(p.TextDocument.Uri.ToString()) ?? string.Empty;
       var offset      = GetOffset(text, p.Position.Line, p.Position.Character);
+
+      // ── Doc comment template trigger: user just typed the third '/' ───────────
+      var docItem = TryGetDocCommentCompletion(text, p.Position.Line, offset);
+      if (docItem is not null)
+         return new SumType<CompletionItem[], CompletionList>(
+            new CompletionList { IsIncomplete = false, Items = [docItem] });
+
       var prefix      = GetWordPrefix(text, offset);
       int prefixStart = offset - prefix.Length;
       bool afterDot   = prefixStart > 0 && text[prefixStart - 1] == '.';
@@ -193,5 +200,108 @@ public partial class CgScriptLanguageTarget
       }
 
       return new CompletionList { IsIncomplete = false, Items = items.ToArray() };
+   }
+
+   // ── Doc comment template generation ─────────────────────────────────────────
+
+   private static readonly System.Text.RegularExpressions.Regex FunctionDeclForDoc =
+      new(@"function\s*\(([^)]*)\)", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+   /// <summary>
+   /// When the cursor is at the end of a line that is just <c>///</c> (optional leading
+   /// whitespace), looks ahead to find the next non-empty, non-comment line.  If that line
+   /// contains a <c>function(...)</c> declaration, returns a completion item that inserts
+   /// the full C# XML doc template as a snippet.
+   /// Returns <c>null</c> if the conditions are not met.
+   /// </summary>
+   private static CompletionItem? TryGetDocCommentCompletion(string text, int cursorLine, int offset)
+   {
+      // Current line up to cursor must be exactly optional-whitespace + "///"
+      var lines    = text.Split('\n');
+      if (cursorLine >= lines.Length) return null;
+      var lineText = lines[cursorLine];
+      // Strip trailing \r
+      var lineTrimmed = lineText.TrimEnd('\r').TrimStart();
+      if (lineTrimmed != "///") return null;
+
+      // Find next non-empty, non-comment line
+      string? nextLine = null;
+      for (int i = cursorLine + 1; i < lines.Length; i++)
+      {
+         var t = lines[i].TrimEnd('\r').Trim();
+         if (t.Length == 0 || t.StartsWith("//")) continue;
+         nextLine = t;
+         break;
+      }
+      if (nextLine is null) return null;
+
+      // Must be a function declaration
+      var fnMatch = FunctionDeclForDoc.Match(nextLine);
+      if (!fnMatch.Success) return null;
+
+      // Build the snippet
+      var indent   = lineText.Length - lineTrimmed.Length;  // leading spaces/tabs count
+      var indentStr = lineText[..indent];
+      var snippet  = BuildDocSnippet(indentStr, fnMatch.Groups[1].Value);
+
+      // The insert range replaces the current "///" on the line
+      var lineStartChar = indent;  // character index of the "///"
+      return new CompletionItem
+      {
+         Label           = "/// XML doc comment",
+         Kind            = CompletionItemKind.Snippet,
+         Detail          = "Generate XML doc comment",
+         InsertTextFormat = InsertTextFormat.Snippet,
+         TextEdit        = new TextEdit
+         {
+            NewText = snippet,
+            Range   = new LspRange
+            {
+               Start = new Position(cursorLine, lineStartChar),
+               End   = new Position(cursorLine, lineText.TrimEnd('\r').Length),
+            },
+         },
+      };
+   }
+
+   /// <summary>Builds the LSP snippet text for the XML doc template.</summary>
+   private static string BuildDocSnippet(string indent, string paramList)
+   {
+      var sb = new System.Text.StringBuilder();
+      var paramNames = ParseParamNames(paramList);
+
+      sb.Append($"/// <summary>");
+      sb.Append("$1");
+      sb.AppendLine("</summary>");
+
+      int tabStop = 2;
+      foreach (var (cgsType, name) in paramNames)
+      {
+         // Ambiguous types get a type attribute placeholder; primitives just get doc text
+         bool needsType = cgsType is "array" or "object" or "question";
+         if (needsType)
+            sb.Append($"{indent}/// <param name=\"{name}\" type=\"${tabStop++}\">${tabStop++}</param>");
+         else
+            sb.Append($"{indent}/// <param name=\"{name}\">${tabStop++}</param>");
+         sb.AppendLine();
+      }
+
+      sb.Append($"{indent}/// <returns>${tabStop}</returns>");
+      return sb.ToString();
+   }
+
+   /// <summary>Parses <c>type name, type name</c> pairs from a function parameter list.</summary>
+   private static IReadOnlyList<(string Type, string Name)> ParseParamNames(string paramList)
+   {
+      var result = new List<(string, string)>();
+      if (string.IsNullOrWhiteSpace(paramList)) return result;
+      foreach (var part in paramList.Split(','))
+      {
+         var tokens = part.Trim().Split(new[] { ' ', '\t' },
+            System.StringSplitOptions.RemoveEmptyEntries);
+         if (tokens.Length >= 2)
+            result.Add((tokens[0], tokens[1]));
+      }
+      return result;
    }
 }

@@ -21,26 +21,45 @@ internal sealed record ScriptMetadata(
 /// <summary>
 /// Extracts the script name, return type and parameter list from a .cgs source file.
 ///
-/// Pattern A — function-based workflow:
-///   // @return int Gets the count
-///   function(number companyFolderId, string name) { ... }.Invoke(Workflow_getParameters()[0]);
+/// C# XML doc annotations (preferred):
+///   /// &lt;summary&gt;Gets the count.&lt;/summary&gt;
+///   /// &lt;param name="companyFolderId"&gt;The folder.&lt;/param&gt;
+///   /// &lt;param name="tags" type="TagItem[]"&gt;Tag items.&lt;/param&gt;
+///   /// &lt;returns type="TagSummary"&gt;The result.&lt;/returns&gt;
+///   function(number companyFolderId, array tags) { ... }.Invoke(Workflow_getParameters()[0]);
 ///
-/// Pattern B — array-based workflow:
-///   array params = Workflow_getParameters();
-///   string name = params[0]["name"];
-///   bool active = params[0]["active"];
+/// Legacy annotations (still supported):
+///   // @summary Gets the count
+///   // @return TagSummary The result
+///   // @param tags TagItem[] Tag items
 /// </summary>
 internal static class ScriptParser
 {
-   // @return <CsType> [optional description]
+   // ── C# XML doc format (/// style) ─────────────────────────────────────────────
+   // Extract only ///–prefixed lines and strip the prefix, producing pure XML fragments.
+   private static readonly Regex TripleSlashLine =
+      new(@"^[ \t]*///[ \t]?(.*)", RegexOptions.Compiled | RegexOptions.Multiline);
+
+   private static readonly Regex XmlSummary =
+      new(@"<summary>(.*?)</summary>", RegexOptions.Compiled | RegexOptions.Singleline);
+
+   // <param name="name"> or <param name="name" type="CsType">description</param>
+   private static readonly Regex XmlParam =
+      new(@"<param\s+name=""(\w+)""(?:\s+type=""([^""]+)"")?\s*>(.*?)</param>",
+          RegexOptions.Compiled | RegexOptions.Singleline);
+
+   // <returns> or <returns type="CsType">description</returns>
+   private static readonly Regex XmlReturns =
+      new(@"<returns(?:\s+type=""([^""]+)"")?\s*>(.*?)</returns>",
+          RegexOptions.Compiled | RegexOptions.Singleline);
+
+   // ── Legacy // @ format (backward compat) ──────────────────────────────────────
    private static readonly Regex ReturnComment =
       new(@"//\s*@return\s+(\S+)(.*)", RegexOptions.Compiled);
 
-   // @summary <description>
    private static readonly Regex SummaryComment =
       new(@"//\s*@summary\s+(.*)", RegexOptions.Compiled);
 
-   // @param <name> <CsType> [optional description]
    private static readonly Regex ParamComment =
       new(@"//\s*@param\s+(\w+)\s+(\S+)(.*)", RegexOptions.Compiled);
 
@@ -84,12 +103,29 @@ internal static class ScriptParser
    public static (ScriptMetadata? Meta, IReadOnlyList<(string Name, string CsType)> MissingAnnotations)
       TryParse(string scriptName, string source)
    {
-      // Collect @summary, @return doc, and @param overrides + docs
-      var summary     = ExtractSummary(source);
-      var (returnType0, returnDoc) = ExtractReturnTypeAndDoc(source);
+      // Collect annotations — try C# XML doc format first, fall back to // @ legacy
+      var docContent = ExtractTripleSlashContent(source);
+      var summary     = ExtractXmlSummary(docContent) ?? ExtractLegacySummary(source);
+      var (returnType0, returnDoc) = ExtractXmlReturns(docContent) is { } xmlRet
+         ? xmlRet
+         : ExtractLegacyReturns(source);
 
       var paramOverrides = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
       var paramDocs      = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+
+      // Populate from XML doc params
+      foreach (Match m in XmlParam.Matches(docContent))
+      {
+         var name    = m.Groups[1].Value;
+         var typeStr = m.Groups[2].Value;  // empty string when attribute absent
+         var doc     = CollapseWhitespace(m.Groups[3].Value);
+         if (typeStr.Length > 0)
+            paramOverrides[name] = AnnotatedToCsType(typeStr);
+         if (doc.Length > 0)
+            paramDocs[name] = doc;
+      }
+
+      // Overlay with legacy // @param (allows mixing old annotations in new files)
       foreach (Match m in ParamComment.Matches(source))
       {
          paramOverrides[m.Groups[1].Value] = AnnotatedToCsType(m.Groups[2].Value);
@@ -181,20 +217,58 @@ internal static class ScriptParser
       return missing ?? (IReadOnlyList<(string, string)>)_empty;
    }
 
-   // ── helpers ──────────────────────────────────────────────────────────────────
+   // ── doc extraction helpers ────────────────────────────────────────────────────
 
-   private static string? ExtractSummary(string source)
+   /// <summary>
+   /// Extracts only <c>///</c>-prefixed lines, stripping the prefix, giving clean XML fragments.
+   /// Regular <c>//</c> comments are excluded so they cannot accidentally match XML patterns.
+   /// </summary>
+   private static string ExtractTripleSlashContent(string source)
+   {
+      var sb = new System.Text.StringBuilder();
+      foreach (Match m in TripleSlashLine.Matches(source))
+         sb.AppendLine(m.Groups[1].Value);
+      return sb.ToString();
+   }
+
+   /// <summary>Extracts summary text from already-stripped XML doc content.</summary>
+   private static string? ExtractXmlSummary(string docContent)
+   {
+      var m = XmlSummary.Match(docContent);
+      if (!m.Success) return null;
+      return CollapseWhitespace(m.Groups[1].Value);
+   }
+
+   /// <summary>Extracts return type+doc from already-stripped XML doc content.</summary>
+   private static (string? Type, string? Doc)? ExtractXmlReturns(string docContent)
+   {
+      var m = XmlReturns.Match(docContent);
+      if (!m.Success) return null;
+      var type = m.Groups[1].Value;  // empty when attribute absent
+      var doc  = CollapseWhitespace(m.Groups[2].Value);
+      return (type.Length > 0 ? type : null, doc.Length > 0 ? doc : null);
+   }
+
+   private static string? ExtractLegacySummary(string source)
    {
       var m = SummaryComment.Match(source);
       return m.Success ? m.Groups[1].Value.Trim() : null;
    }
 
-   private static (string? Type, string? Doc) ExtractReturnTypeAndDoc(string source)
+   private static (string? Type, string? Doc) ExtractLegacyReturns(string source)
    {
       var m = ReturnComment.Match(source);
       if (!m.Success) return (null, null);
       var doc = m.Groups[2].Value.Trim();
       return (m.Groups[1].Value, doc.Length > 0 ? doc : null);
+   }
+
+   /// <summary>Collapses leading/trailing whitespace and internal newlines to single spaces.</summary>
+   private static string CollapseWhitespace(string s)
+   {
+      // Strip leading /// prefix remnants that may survive on continuation lines
+      s = System.Text.RegularExpressions.Regex.Replace(s.Trim(), @"\s+", " ");
+      return s;
    }
 
    private static IReadOnlyList<ScriptParam> ParseFunctionParams(

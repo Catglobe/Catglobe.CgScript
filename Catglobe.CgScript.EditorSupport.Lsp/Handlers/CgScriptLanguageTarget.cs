@@ -65,7 +65,7 @@ public partial class CgScriptLanguageTarget
             CompletionProvider = new CompletionOptions
             {
                ResolveProvider   = false,
-               TriggerCharacters = ["."],
+               TriggerCharacters = [".", "/"],
             },
             HoverProvider              = true,
             SignatureHelpProvider      = new SignatureHelpOptions { TriggerCharacters = ["(", ","] },
