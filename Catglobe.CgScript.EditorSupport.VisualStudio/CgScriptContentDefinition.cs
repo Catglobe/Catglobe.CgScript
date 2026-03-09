@@ -11,9 +11,9 @@ public class ExtensionEntrypoint : Extension
    public override ExtensionConfiguration ExtensionConfiguration => new()
    {
       Metadata = new(
-         id: "CgScriptLanguageSupport.7c3f2e1d-b8a4-4d9e-9f0a-1b2c3d4e5f6a",
+         id: "CgScriptLanguageSupport.e841c4eb-8913-4ff2-bb7c-91487ee8fa5c",
          version: this.ExtensionAssemblyVersion,
-         publisherName: "Voxmeter A/S",
+         publisherName: "Voxmeter",
          displayName: "CgScript Language Support",
          description: "IntelliSense, diagnostics, completions and semantic highlighting for CgScript (.cgs) files.") {
       },
