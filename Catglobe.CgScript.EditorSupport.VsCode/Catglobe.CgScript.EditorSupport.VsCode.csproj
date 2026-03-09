@@ -4,6 +4,7 @@
       <OutputType>Exe</OutputType>
       <IsPackable>false</IsPackable>
       <Version>0.1.0</Version>
+      <PublishDir>server\</PublishDir>
       <DefaultItemExcludes>$(DefaultItemExcludes);node_modules\**;out\**;server\**</DefaultItemExcludes>
    </PropertyGroup>
 

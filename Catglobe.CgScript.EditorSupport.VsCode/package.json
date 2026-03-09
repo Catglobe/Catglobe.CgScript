@@ -49,6 +49,7 @@
   },
   "main": "./out/extension.js",
   "scripts": {
+    "vscode:prepublish": "npm ci && dotnet publish -c Release --no-build && npm run compile",
     "compile": "tsc -p ./",
     "watch":   "tsc -watch -p ./",
     "package": "vsce package"

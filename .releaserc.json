@@ -29,8 +29,7 @@
               "Catglobe.CgScript.EditorSupport.Parsing/Catglobe.CgScript.EditorSupport.Parsing.csproj",
               "Catglobe.CgScript.EditorSupport.Lsp/Catglobe.CgScript.EditorSupport.Lsp.csproj",
               "Catglobe.CgScript.EditorSupport.SourceGenerator/Catglobe.CgScript.EditorSupport.SourceGenerator.csproj",
-              "Catglobe.CgScript.EditorSupport.VisualStudio/Catglobe.CgScript.EditorSupport.VisualStudio.csproj",
-              "Catglobe.CgScript.EditorSupport.VsCode/Catglobe.CgScript.EditorSupport.VsCode.csproj"
+              "Catglobe.CgScript.EditorSupport.VisualStudio/Catglobe.CgScript.EditorSupport.VisualStudio.csproj"
             ],
           "type": "xml",
           "replacements": [
@@ -42,23 +41,27 @@
       }
     ],
     [
-      "@semantic-release/npm",
-      {
-        "pkgRoot": "Catglobe.CgScript.EditorSupport.VsCode",
-        "npmPublish": false
-      }
-    ],
-    [
-      "@semantic-release/exec",
-      {
-        "prepareCmd": "cd Catglobe.CgScript.EditorSupport.VsCode && npx vsce package && cd .. && sh scripts/patch-vsix-version.sh ${nextRelease.version}"
-      }
-    ],
-    [
       "@droidsolutions-oss/semantic-release-nuget",
       {
-        "projectPath": [ "Catglobe.CgScript.Runtime/Catglobe.CgScript.Runtime.csproj", "Catglobe.CgScript.Common/Catglobe.CgScript.Common.csproj", "Catglobe.CgScript.Deployment/Catglobe.CgScript.Deployment.csproj", "Catglobe.CgScript.EditorSupport.Parsing/Catglobe.CgScript.EditorSupport.Parsing.csproj", "Catglobe.CgScript.EditorSupport.Lsp/Catglobe.CgScript.EditorSupport.Lsp.csproj", "Catglobe.CgScript.EditorSupport.SourceGenerator/Catglobe.CgScript.EditorSupport.SourceGenerator.csproj" ],
+        "projectPath": [
+          "Catglobe.CgScript.Runtime/Catglobe.CgScript.Runtime.csproj",
+          "Catglobe.CgScript.Common/Catglobe.CgScript.Common.csproj",
+          "Catglobe.CgScript.Deployment/Catglobe.CgScript.Deployment.csproj",
+          "Catglobe.CgScript.EditorSupport.Parsing/Catglobe.CgScript.EditorSupport.Parsing.csproj",
+          "Catglobe.CgScript.EditorSupport.Lsp/Catglobe.CgScript.EditorSupport.Lsp.csproj",
+          "Catglobe.CgScript.EditorSupport.SourceGenerator/Catglobe.CgScript.EditorSupport.SourceGenerator.csproj",
+          "Catglobe.CgScript.EditorSupport.VisualStudio/Catglobe.CgScript.EditorSupport.VisualStudio.csproj",
+          "Catglobe.CgScript.EditorSupport.VsCode/Catglobe.CgScript.EditorSupport.VsCode.csproj"
+        ],
         "includeSymbols": true
+      }
+    ],
+    [
+      "semantic-release-vsce",
+      {
+        "packageVsix": true,
+        "packageRoot": "Catglobe.CgScript.EditorSupport.VsCode",
+        "publish": false
       }
     ],
     [
@@ -66,8 +69,8 @@
       {
         "addReleases": "top",
         "assets": [
-          { "path": "Catglobe.CgScript.EditorSupport.VsCode/*.vsix", "label": "VS Code Extension" },
-          { "path": "cgscript-vs-*.vsix", "label": "Visual Studio Extension" }
+          { "path": "Catglobe.CgScript.EditorSupport.VsCode/cgscript-vscode*.vsix", "name": "cgscript-vscode-${nextRelease.version}.vsix", "label": "VS Code Extension" },
+          { "path": "Catglobe.CgScript.EditorSupport.VisualStudio.vsix", "name": "cgscript-vs-${nextRelease.version}.vsix", "label": "Visual Studio Extension" }
         ]
       }
     ]
