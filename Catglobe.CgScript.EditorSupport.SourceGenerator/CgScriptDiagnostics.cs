@@ -89,7 +89,7 @@ internal static class CgScriptDiagnostics
    public static readonly DiagnosticDescriptor MissingJsonSerializable = new(
       id:                 "CGS011",
       title:              "Missing [JsonSerializable] on CgScript serializer context",
-      messageFormat:      "The [CgScriptSerializer] context must declare [JsonSerializable(typeof({0}))] for the return type of script '{1}'",
+      messageFormat:      "The [CgScriptSerializer] context must declare [JsonSerializable(typeof({0}))] — required by script '{1}'",
       category:           Category,
       defaultSeverity:    DiagnosticSeverity.Error,
       isEnabledByDefault: true);

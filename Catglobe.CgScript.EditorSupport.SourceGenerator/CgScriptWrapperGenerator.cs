@@ -143,7 +143,7 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
          }
          if (meta is null) return;
 
-         // ── CGS011: check [JsonSerializable] for non-primitive return types ────
+         // ── CGS011: check [JsonSerializable] for non-primitive return + param types ──
          // Map void→object (WrapperEmitter uses object as the return type for void scripts)
          var csReturnType = meta.ReturnType == "void" ? "object" : meta.ReturnType;
          if (NeedsJsonSerializableCheck(csReturnType) &&
@@ -154,6 +154,19 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
                Location.None,
                csReturnType, meta.ScriptName));
             return;
+         }
+
+         foreach (var p in meta.Parameters)
+         {
+            if (NeedsJsonSerializableCheck(p.CsType) &&
+                !serCtx.Registered.Contains(p.CsType))
+            {
+               spc.ReportDiagnostic(Microsoft.CodeAnalysis.Diagnostic.Create(
+                  CgScriptDiagnostics.MissingJsonSerializable,
+                  Location.None,
+                  p.CsType, meta.ScriptName));
+               return;
+            }
          }
 
          var ns         = compilation.AssemblyName ?? "CgScriptGenerated";
