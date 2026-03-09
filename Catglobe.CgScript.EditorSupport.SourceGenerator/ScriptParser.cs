@@ -6,7 +6,7 @@ namespace Catglobe.CgScript.EditorSupport.SourceGenerator;
 /// <summary>
 /// Detected parameter from a .cgs script.
 /// </summary>
-internal sealed record ScriptParam(string CsType, string Name);
+internal sealed record ScriptParam(string CsType, string Name, string? Doc = null);
 
 /// <summary>
 /// Extracted metadata from a .cgs script file.
@@ -14,7 +14,9 @@ internal sealed record ScriptParam(string CsType, string Name);
 internal sealed record ScriptMetadata(
    string ScriptName,
    string ReturnType,
-   IReadOnlyList<ScriptParam> Parameters);
+   IReadOnlyList<ScriptParam> Parameters,
+   string? Summary   = null,
+   string? ReturnDoc = null);
 
 /// <summary>
 /// Extracts the script name, return type and parameter list from a .cgs source file.
@@ -30,13 +32,17 @@ internal sealed record ScriptMetadata(
 /// </summary>
 internal static class ScriptParser
 {
-   // Pattern A: optional @return comment + function declaration
+   // @return <CsType> [optional description]
    private static readonly Regex ReturnComment =
-      new(@"//\s*@return\s+(\S+)", RegexOptions.Compiled);
+      new(@"//\s*@return\s+(\S+)(.*)", RegexOptions.Compiled);
 
-   // @param annotations: // @param <name> <CsType> [optional description]
+   // @summary <description>
+   private static readonly Regex SummaryComment =
+      new(@"//\s*@summary\s+(.*)", RegexOptions.Compiled);
+
+   // @param <name> <CsType> [optional description]
    private static readonly Regex ParamComment =
-      new(@"//\s*@param\s+(\w+)\s+(\S+)", RegexOptions.Compiled);
+      new(@"//\s*@param\s+(\w+)\s+(\S+)(.*)", RegexOptions.Compiled);
 
    private static readonly Regex FunctionDecl =
       new(@"function\s*\(([^)]*)\)\s*\{", RegexOptions.Compiled);
@@ -78,10 +84,22 @@ internal static class ScriptParser
    public static (ScriptMetadata? Meta, IReadOnlyList<(string Name, string CsType)> MissingAnnotations)
       TryParse(string scriptName, string source)
    {
-      // Collect @param overrides first: // @param <name> <CsType>
+      // Collect @summary, @return doc, and @param overrides + docs
+      var summary     = ExtractSummary(source);
+      var (returnType0, returnDoc) = ExtractReturnTypeAndDoc(source);
+
       var paramOverrides = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+      var paramDocs      = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
       foreach (Match m in ParamComment.Matches(source))
-         paramOverrides[m.Groups[1].Value] = m.Groups[2].Value;
+      {
+         paramOverrides[m.Groups[1].Value] = AnnotatedToCsType(m.Groups[2].Value);
+         var doc = m.Groups[3].Value.Trim();
+         if (doc.Length > 0)
+            paramDocs[m.Groups[1].Value] = doc;
+      }
+
+      ScriptMetadata Make(IReadOnlyList<ScriptParam> parms, string retType) =>
+         new ScriptMetadata(scriptName, retType, parms, summary, returnDoc);
 
       // ── Pattern C: dictVar = Workflow_getParameters()[0]; type name = dictVar["key"] ──
       var dictAssign = DictAssignDecl.Match(source);
@@ -95,15 +113,14 @@ internal static class ScriptParser
             {
                var name   = m.Groups[4].Value;
                var csType = paramOverrides.TryGetValue(name, out var ov) ? ov : ToCsType(m.Groups[1].Value);
-               cParams.Add(new ScriptParam(csType, name));
+               cParams.Add(new ScriptParam(csType, name, paramDocs.TryGetValue(name, out var d) ? d : null));
             }
          }
          if (cParams.Count > 0)
          {
             var missing = FindMissingAnnotations(cParams, paramOverrides);
             if (missing.Count > 0) return (null, missing);
-            string returnType = AnnotatedToCsType(ExtractReturnType(source) ?? "void");
-            return (new ScriptMetadata(scriptName, returnType, cParams), _empty);
+            return (Make(cParams, AnnotatedToCsType(returnType0 ?? "void")), _empty);
          }
       }
 
@@ -117,15 +134,14 @@ internal static class ScriptParser
             var cgsType = m.Groups[1].Value;
             var name    = m.Groups[3].Value;
             var csType  = paramOverrides.TryGetValue(name, out var ov) ? ov : ToCsType(cgsType);
-            bParams.Add(new ScriptParam(csType, name));
+            bParams.Add(new ScriptParam(csType, name, paramDocs.TryGetValue(name, out var d) ? d : null));
          }
 
          if (bParams.Count > 0)
          {
             var missing = FindMissingAnnotations(bParams, paramOverrides);
             if (missing.Count > 0) return (null, missing);
-            string returnType = AnnotatedToCsType(ExtractReturnType(source) ?? "void");
-            return (new ScriptMetadata(scriptName, returnType, bParams), _empty);
+            return (Make(bParams, AnnotatedToCsType(returnType0 ?? "void")), _empty);
          }
       }
 
@@ -133,11 +149,10 @@ internal static class ScriptParser
       var fnMatch = FunctionDecl.Match(source);
       if (fnMatch.Success && source.Contains(".Invoke("))
       {
-         var aParams = ParseFunctionParams(fnMatch.Groups[1].Value, paramOverrides);
+         var aParams = ParseFunctionParams(fnMatch.Groups[1].Value, paramOverrides, paramDocs);
          var missing = FindMissingAnnotations(aParams, paramOverrides);
          if (missing.Count > 0) return (null, missing);
-         string returnType = AnnotatedToCsType(ExtractReturnType(source) ?? "void");
-         return (new ScriptMetadata(scriptName, returnType, aParams), _empty);
+         return (Make(aParams, AnnotatedToCsType(returnType0 ?? "void")), _empty);
       }
 
       return (null, _empty);
@@ -168,15 +183,24 @@ internal static class ScriptParser
 
    // ── helpers ──────────────────────────────────────────────────────────────────
 
-   private static string? ExtractReturnType(string source)
+   private static string? ExtractSummary(string source)
+   {
+      var m = SummaryComment.Match(source);
+      return m.Success ? m.Groups[1].Value.Trim() : null;
+   }
+
+   private static (string? Type, string? Doc) ExtractReturnTypeAndDoc(string source)
    {
       var m = ReturnComment.Match(source);
-      return m.Success ? m.Groups[1].Value : null;
+      if (!m.Success) return (null, null);
+      var doc = m.Groups[2].Value.Trim();
+      return (m.Groups[1].Value, doc.Length > 0 ? doc : null);
    }
 
    private static IReadOnlyList<ScriptParam> ParseFunctionParams(
       string paramList,
-      Dictionary<string, string> paramOverrides)
+      Dictionary<string, string> paramOverrides,
+      Dictionary<string, string> paramDocs)
    {
       var result = new List<ScriptParam>();
       if (string.IsNullOrWhiteSpace(paramList)) return result;
@@ -189,7 +213,7 @@ internal static class ScriptParser
          {
             var name   = tokens[1];
             var csType = paramOverrides.TryGetValue(name, out var ov) ? ov : ToCsType(tokens[0]);
-            result.Add(new ScriptParam(csType, name));
+            result.Add(new ScriptParam(csType, name, paramDocs.TryGetValue(name, out var d) ? d : null));
          }
       }
 

@@ -30,8 +30,18 @@ internal static class WrapperEmitter
       var returnCs    = meta.ReturnType == "void" ? "object" : meta.ReturnType;
       var hasParams   = meta.Parameters.Count > 0;
 
-      // ── extension method ─────────────────────────────────────────────────────
+      // ── XML doc comment ──────────────────────────────────────────────────────
       sb.AppendLine($"    // Generated from {meta.ScriptName}.cgs");
+      sb.AppendLine("    /// <summary>");
+      sb.AppendLine($"    /// {XmlEscape(meta.Summary ?? $"Calls the <c>{meta.ScriptName}</c> CgScript.")}");
+      sb.AppendLine("    /// </summary>");
+      foreach (var p in meta.Parameters)
+      {
+         if (p.Doc != null)
+            sb.AppendLine($"    /// <param name=\"{ToCamelCase(p.Name)}\">{XmlEscape(p.Doc)}</param>");
+      }
+      if (meta.ReturnDoc != null)
+         sb.AppendLine($"    /// <returns>{XmlEscape(meta.ReturnDoc)}</returns>");
       sb.Append($"    public static global::System.Threading.Tasks.Task<global::Catglobe.CgScript.Runtime.ScriptResult<{returnCs}>> {methodName}(");
       sb.Append("this global::Catglobe.CgScript.Runtime.ICgScriptApiClient client");
       foreach (var p in meta.Parameters)
@@ -153,4 +163,7 @@ internal static class WrapperEmitter
       if (string.IsNullOrEmpty(s)) return s;
       return char.ToLowerInvariant(s[0]) + s.Substring(1);
    }
+
+   private static string XmlEscape(string s) =>
+      s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 }

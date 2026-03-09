@@ -7,13 +7,15 @@
 //   CGS009  'unused' is declared but never used
 //
 // ── Complex-type annotations example ────────────────────────────────────────────────────────
-// Demonstrates @return and @param annotations for complex input/output types.
+// Demonstrates @summary, @return, and @param annotations for complex input/output types.
 //   • without @param on 'tags', the generator would emit CGS012 (ambiguous array type)
 //   • without @return, the return type defaults to object
 //   • the [CgScriptSerializer] context must declare [JsonSerializable] for both types (CGS011)
 //
-// @return TagSummary
-// @param tags TagItem[]
+// @summary Builds a tag cloud summary from an array of tag items.
+// @return TagSummary The computed tag cloud with the top tag and an aggregate count.
+// @param tags TagItem[] The tag items to aggregate.
+// @param maxResults number Maximum number of results to consider; used to set the truncated flag.
 
 // CGS009 — declared but never read anywhere
 number unused;
