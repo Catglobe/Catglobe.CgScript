@@ -11,7 +11,6 @@
       <Version>0.1.0</Version>
       <NoWarn>CA1001,CA1812,CA2007,CS1591,NU1605</NoWarn>
       <IsPackable>false</IsPackable>
-      <VsixOutputPath>$(MSBuildThisFileDirectory)..\</VsixOutputPath>
    </PropertyGroup>
 
    <ItemGroup>

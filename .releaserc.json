@@ -50,7 +50,6 @@
           "Catglobe.CgScript.EditorSupport.Parsing/Catglobe.CgScript.EditorSupport.Parsing.csproj",
           "Catglobe.CgScript.EditorSupport.Lsp/Catglobe.CgScript.EditorSupport.Lsp.csproj",
           "Catglobe.CgScript.EditorSupport.SourceGenerator/Catglobe.CgScript.EditorSupport.SourceGenerator.csproj",
-          "Catglobe.CgScript.EditorSupport.VisualStudio/Catglobe.CgScript.EditorSupport.VisualStudio.csproj",
           "Catglobe.CgScript.EditorSupport.VsCode/Catglobe.CgScript.EditorSupport.VsCode.csproj"
         ],
         "includeSymbols": true
@@ -69,8 +68,8 @@
       {
         "addReleases": "top",
         "assets": [
-          { "path": "Catglobe.CgScript.EditorSupport.VsCode/cgscript-vscode*.vsix", "name": "cgscript-vscode-${nextRelease.version}.vsix", "label": "VS Code Extension" },
-          { "path": "Catglobe.CgScript.EditorSupport.VisualStudio.vsix", "name": "cgscript-vs-${nextRelease.version}.vsix", "label": "Visual Studio Extension" }
+          { "path": "cgscript-vscode*.vsix", "name": "cgscript-vscode-${nextRelease.version}.vsix", "label": "VS Code Extension" },
+          { "path": "Catglobe.CgScript.EditorSupport.VisualStudio/bin/Release/**/Catglobe.CgScript.EditorSupport.VisualStudio.vsix", "name": "cgscript-vs-${nextRelease.version}.vsix", "label": "Visual Studio Extension" }
         ]
       }
     ]

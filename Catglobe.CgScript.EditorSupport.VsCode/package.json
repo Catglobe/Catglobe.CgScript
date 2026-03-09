@@ -49,7 +49,7 @@
   },
   "main": "./out/extension.js",
   "scripts": {
-    "vscode:prepublish": "npm ci && dotnet publish -c Release && npm run compile",
+    "vscode:prepublish": "npm ci && dotnet publish -c Release && dotnet build -c Release ../Catglobe.CgScript.EditorSupport.VisualStudio/Catglobe.CgScript.EditorSupport.VisualStudio.csproj && npm run compile",
     "compile": "tsc -p ./",
     "watch":   "tsc -watch -p ./",
     "package": "vsce package"
