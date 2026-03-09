@@ -16,7 +16,6 @@ public class ExtensionEntrypoint : Extension
          publisherName: "Voxmeter A/S",
          displayName: "CgScript Language Support",
          description: "IntelliSense, diagnostics, completions and semantic highlighting for CgScript (.cgs) files.") {
-         DotnetTargetVersions = ["net10.0"]
       },
    };
 
