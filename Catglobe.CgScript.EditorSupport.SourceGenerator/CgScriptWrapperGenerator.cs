@@ -84,7 +84,15 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
                   if (attr.AttributeClass?.Name != "JsonSerializableAttribute") continue;
                   if (attr.ConstructorArguments.Length == 0) continue;
                   if (attr.ConstructorArguments[0].Value is ITypeSymbol ts)
-                     registered.Add(ts.ToDisplayString());
+                  {
+                     var fullName2 = ts.ToDisplayString();
+                     registered.Add(fullName2);
+                     // Also add the unqualified simple name so @return/@param annotations
+                     // without a namespace prefix (e.g. "TagSummary") match correctly.
+                     var simpleName = GetSimpleName(fullName2);
+                     if (simpleName != fullName2)
+                        registered.Add(simpleName);
+                  }
                }
 
                return (IsValid: true, FullName: fullName, Registered: (ImmutableHashSet<string>)registered.ToImmutable());
@@ -181,6 +189,27 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
    /// <summary>Strips deployer metadata (@NNN[.public]) from a script base name.</summary>
    private static readonly Regex s_deployerSuffix =
       new Regex(@"@\d+(?:\.public)?$", RegexOptions.IgnoreCase);
+
+   /// <summary>
+   /// Strips the namespace prefix from a fully-qualified type name so that unqualified
+   /// annotations (<c>@return TagSummary</c>) can match against fully-qualified registrations
+   /// (<c>[JsonSerializable(typeof(BlazorWebApp.TagSummary))]</c>).
+   /// Handles simple arrays: <c>"My.Ns.Foo[]"</c> → <c>"Foo[]"</c>.
+   /// </summary>
+   private static string GetSimpleName(string fullTypeName)
+   {
+      var arrayPart = "";
+      var baseName  = fullTypeName;
+      if (baseName.EndsWith("[]"))
+      {
+         arrayPart = "[]";
+         baseName  = baseName.Substring(0, baseName.Length - 2);
+      }
+      var lastDot = baseName.LastIndexOf('.');
+      if (lastDot >= 0)
+         baseName = baseName.Substring(lastDot + 1);
+      return baseName + arrayPart;
+   }
 
    /// <summary>
    /// Returns true when we must verify [JsonSerializable] is present.

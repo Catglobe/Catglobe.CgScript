@@ -44,3 +44,16 @@ internal static class LoginLogoutEndpointRouteBuilderExtensions
       return new AuthenticationProperties { RedirectUri = returnUrl };
    }
 }
+
+   public static partial class CgScriptWrappers
+   {
+      // Generated from WeatherForecast.cgs
+      public static global::System.Threading.Tasks.Task<global::Catglobe.CgScript.Runtime.ScriptResult<object[]>> WeatherForecast(this global::Catglobe.CgScript.Runtime.ICgScriptApiClient client, string city, double numberOfDays, global::System.Threading.CancellationToken ct = default)
+      {
+         return client.Execute<WeatherForecastParams, object[]>("WeatherForecast", new WeatherForecastParams(city, numberOfDays), cancellationToken: ct);
+#pragma warning restore IL2026, IL3050
+      }
+
+      private record WeatherForecastParams(string City, double NumberOfDays);
+
+   }

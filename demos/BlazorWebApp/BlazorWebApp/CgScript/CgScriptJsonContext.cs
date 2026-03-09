@@ -11,4 +11,6 @@ namespace BlazorWebApp;
 [CgScriptSerializer]
 [JsonSerializable(typeof(object))]
 [JsonSerializable(typeof(object[]))]
+[JsonSerializable(typeof(TagItem[]))]
+[JsonSerializable(typeof(TagSummary))]
 internal partial class CgScriptJsonContext : System.Text.Json.Serialization.JsonSerializerContext;

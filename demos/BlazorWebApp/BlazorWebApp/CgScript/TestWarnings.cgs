@@ -5,6 +5,15 @@
 //   CGS007  unreachable code after return
 //   CGS008  use of 'total' before its declaration
 //   CGS009  'unused' is declared but never used
+//
+// ── Complex-type annotations example ────────────────────────────────────────────────────────
+// Demonstrates @return and @param annotations for complex input/output types.
+//   • without @param on 'tags', the generator would emit CGS012 (ambiguous array type)
+//   • without @return, the return type defaults to object
+//   • the [CgScriptSerializer] context must declare [JsonSerializable] for both types (CGS011)
+//
+// @return TagSummary
+// @param tags TagItem[]
 
 // CGS009 — declared but never read anywhere
 number unused;
@@ -26,3 +35,22 @@ if (counter > 0)
 
 // CGS006 — stray semicolon after block
 if (result > 0) {};
+
+// ── Workflow entry-point ─────────────────────────────────────────────────────────────────────
+// 'array tags'       → resolved to TagItem[]  via the @param annotation above
+// 'number maxResults'→ resolved to double     automatically (number is a primitive)
+function(array tags, number maxResults) {
+    number totalCount = 0;
+    string topTag = tags.Count > 0 ? tags[0]["name"] : "";
+    for (i for 0; tags.Count) {
+        totalCount = totalCount + tags[i]["count"];
+        if (tags[i]["count"] > tags[0]["count"]) {
+            topTag = tags[i]["name"];
+        }
+    }
+    return {
+        "topTag":      topTag,
+        "totalCount":  totalCount,
+        "truncated":   tags.Count > maxResults
+    };
+}.Invoke(Workflow_getParameters()[0]);
