@@ -133,7 +133,14 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
          var serCtx = ctxClasses[0];
 
          // ── Wrapper code generation ───────────────────────────────────────────
-         var meta = ScriptParser.TryParse(scriptName, source);
+         var (meta, missingAnnotations) = ScriptParser.TryParse(scriptName, source);
+         foreach (var (paramName, csType) in missingAnnotations)
+         {
+            spc.ReportDiagnostic(Microsoft.CodeAnalysis.Diagnostic.Create(
+               CgScriptDiagnostics.MissingParamAnnotation,
+               Location.None,
+               paramName, csType));
+         }
          if (meta is null) return;
 
          // ── CGS011: check [JsonSerializable] for non-primitive return types ────

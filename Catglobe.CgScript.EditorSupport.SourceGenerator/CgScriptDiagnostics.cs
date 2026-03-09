@@ -94,6 +94,14 @@ internal static class CgScriptDiagnostics
       defaultSeverity:    DiagnosticSeverity.Error,
       isEnabledByDefault: true);
 
+   public static readonly DiagnosticDescriptor MissingParamAnnotation = new(
+      id:                 "CGS012",
+      title:              "CgScript parameter requires @param annotation",
+      messageFormat:      "Parameter '{0}' has ambiguous type '{1}'. Add '// @param {0} YourCsType' to the script to specify the C# type for the generated wrapper.",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
+
    /// <summary>Maps a Parsing-project diagnostic severity to a Roslyn DiagnosticSeverity.</summary>
    public static DiagnosticSeverity ToRoslyn(Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity s)
       => s == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error

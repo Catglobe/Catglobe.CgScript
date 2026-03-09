@@ -6,7 +6,7 @@ namespace Catglobe.CgScript.EditorSupport.SourceGenerator;
 /// <summary>
 /// Detected parameter from a .cgs script.
 /// </summary>
-internal sealed record ScriptParam(string CgsType, string Name);
+internal sealed record ScriptParam(string CsType, string Name);
 
 /// <summary>
 /// Extracted metadata from a .cgs script file.
@@ -32,7 +32,11 @@ internal static class ScriptParser
 {
    // Pattern A: optional @return comment + function declaration
    private static readonly Regex ReturnComment =
-      new(@"//\s*@return\s+(\w+)", RegexOptions.Compiled);
+      new(@"//\s*@return\s+(\S+)", RegexOptions.Compiled);
+
+   // @param annotations: // @param <name> <CsType> [optional description]
+   private static readonly Regex ParamComment =
+      new(@"//\s*@param\s+(\w+)\s+(\S+)", RegexOptions.Compiled);
 
    private static readonly Regex FunctionDecl =
       new(@"function\s*\(([^)]*)\)\s*\{", RegexOptions.Compiled);
@@ -64,8 +68,21 @@ internal static class ScriptParser
       ["int"]      = "int",      // @return can say int
    };
 
-   public static ScriptMetadata? TryParse(string scriptName, string source)
+   /// <summary>
+   /// Parses a .cgs script file.
+   /// Returns <c>(metadata, empty)</c> on success, <c>(null, missing)</c> when one or more parameters
+   /// use an ambiguous CgScript type (<c>array</c>, <c>Dictionary</c>, etc.) without a
+   /// <c>// @param name CsType</c> annotation — the caller should report CGS012 per missing entry.
+   /// Returns <c>(null, empty)</c> when no recognisable workflow pattern is found.
+   /// </summary>
+   public static (ScriptMetadata? Meta, IReadOnlyList<(string Name, string CsType)> MissingAnnotations)
+      TryParse(string scriptName, string source)
    {
+      // Collect @param overrides first: // @param <name> <CsType>
+      var paramOverrides = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+      foreach (Match m in ParamComment.Matches(source))
+         paramOverrides[m.Groups[1].Value] = m.Groups[2].Value;
+
       // ── Pattern C: dictVar = Workflow_getParameters()[0]; type name = dictVar["key"] ──
       var dictAssign = DictAssignDecl.Match(source);
       if (dictAssign.Success)
@@ -75,12 +92,18 @@ internal static class ScriptParser
          foreach (Match m in DictRead.Matches(source))
          {
             if (m.Groups[3].Value == dictVar)
-               cParams.Add(new ScriptParam(m.Groups[1].Value, m.Groups[4].Value));
+            {
+               var name   = m.Groups[4].Value;
+               var csType = paramOverrides.TryGetValue(name, out var ov) ? ov : ToCsType(m.Groups[1].Value);
+               cParams.Add(new ScriptParam(csType, name));
+            }
          }
          if (cParams.Count > 0)
          {
-            string returnType = ExtractReturnType(source) ?? "void";
-            return new ScriptMetadata(scriptName, ToCsType(returnType), cParams);
+            var missing = FindMissingAnnotations(cParams, paramOverrides);
+            if (missing.Count > 0) return (null, missing);
+            string returnType = AnnotatedToCsType(ExtractReturnType(source) ?? "void");
+            return (new ScriptMetadata(scriptName, returnType, cParams), _empty);
          }
       }
 
@@ -92,15 +115,17 @@ internal static class ScriptParser
          foreach (Match m in ParamsBRead.Matches(source))
          {
             var cgsType = m.Groups[1].Value;
-            // Use the dict-key name (group 3) as the canonical parameter name
-            bParams.Add(new ScriptParam(cgsType, m.Groups[3].Value));
+            var name    = m.Groups[3].Value;
+            var csType  = paramOverrides.TryGetValue(name, out var ov) ? ov : ToCsType(cgsType);
+            bParams.Add(new ScriptParam(csType, name));
          }
 
          if (bParams.Count > 0)
          {
-            // Return type: look for @return comment
-            string returnType = ExtractReturnType(source) ?? "void";
-            return new ScriptMetadata(scriptName, ToCsType(returnType), bParams);
+            var missing = FindMissingAnnotations(bParams, paramOverrides);
+            if (missing.Count > 0) return (null, missing);
+            string returnType = AnnotatedToCsType(ExtractReturnType(source) ?? "void");
+            return (new ScriptMetadata(scriptName, returnType, bParams), _empty);
          }
       }
 
@@ -108,12 +133,37 @@ internal static class ScriptParser
       var fnMatch = FunctionDecl.Match(source);
       if (fnMatch.Success && source.Contains(".Invoke("))
       {
-         var aParams = ParseFunctionParams(fnMatch.Groups[1].Value);
-         string returnType = ExtractReturnType(source) ?? "void";
-         return new ScriptMetadata(scriptName, ToCsType(returnType), aParams);
+         var aParams = ParseFunctionParams(fnMatch.Groups[1].Value, paramOverrides);
+         var missing = FindMissingAnnotations(aParams, paramOverrides);
+         if (missing.Count > 0) return (null, missing);
+         string returnType = AnnotatedToCsType(ExtractReturnType(source) ?? "void");
+         return (new ScriptMetadata(scriptName, returnType, aParams), _empty);
       }
 
-      return null;
+      return (null, _empty);
+   }
+
+   private static readonly IReadOnlyList<(string Name, string CsType)> _empty =
+      new (string, string)[0];
+
+   /// <summary>
+   /// Returns the subset of <paramref name="parms"/> whose C# type is ambiguous
+   /// (<c>object</c> or <c>object[]</c>) and for which no <c>@param</c> override was supplied.
+   /// </summary>
+   private static IReadOnlyList<(string Name, string CsType)> FindMissingAnnotations(
+      IReadOnlyList<ScriptParam> parms,
+      Dictionary<string, string> paramOverrides)
+   {
+      List<(string, string)>? missing = null;
+      foreach (var p in parms)
+      {
+         if ((p.CsType == "object" || p.CsType == "object[]") &&
+             !paramOverrides.ContainsKey(p.Name))
+         {
+            (missing ??= new List<(string, string)>()).Add((p.Name, p.CsType));
+         }
+      }
+      return missing ?? (IReadOnlyList<(string, string)>)_empty;
    }
 
    // ── helpers ──────────────────────────────────────────────────────────────────
@@ -124,7 +174,9 @@ internal static class ScriptParser
       return m.Success ? m.Groups[1].Value : null;
    }
 
-   private static IReadOnlyList<ScriptParam> ParseFunctionParams(string paramList)
+   private static IReadOnlyList<ScriptParam> ParseFunctionParams(
+      string paramList,
+      Dictionary<string, string> paramOverrides)
    {
       var result = new List<ScriptParam>();
       if (string.IsNullOrWhiteSpace(paramList)) return result;
@@ -134,12 +186,28 @@ internal static class ScriptParser
          var tokens = part.Trim().Split(new[] { ' ', '\t' },
             System.StringSplitOptions.RemoveEmptyEntries);
          if (tokens.Length >= 2)
-            result.Add(new ScriptParam(tokens[0], tokens[1]));
+         {
+            var name   = tokens[1];
+            var csType = paramOverrides.TryGetValue(name, out var ov) ? ov : ToCsType(tokens[0]);
+            result.Add(new ScriptParam(csType, name));
+         }
       }
 
       return result;
    }
 
+   /// <summary>
+   /// Maps a CgScript type keyword to its C# equivalent.
+   /// Unknown types fall back to <c>"object"</c> (safe for inferred types from script source).
+   /// </summary>
    internal static string ToCsType(string cgsType)
       => TypeMap.TryGetValue(cgsType.ToLowerInvariant(), out var cs) ? cs : "object";
+
+   /// <summary>
+   /// Maps a type string from an <c>@return</c> or <c>@param</c> annotation.
+   /// Known CgScript keywords are mapped (e.g. <c>number</c> → <c>double</c>);
+   /// anything else is passed through as-is so that qualified C# type names are preserved.
+   /// </summary>
+   internal static string AnnotatedToCsType(string annotated)
+      => TypeMap.TryGetValue(annotated.ToLowerInvariant(), out var cs) ? cs : annotated;
 }

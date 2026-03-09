@@ -35,7 +35,7 @@ internal static class WrapperEmitter
       sb.Append($"    public static global::System.Threading.Tasks.Task<global::Catglobe.CgScript.Runtime.ScriptResult<{returnCs}>> {methodName}(");
       sb.Append("this global::Catglobe.CgScript.Runtime.ICgScriptApiClient client");
       foreach (var p in meta.Parameters)
-         sb.Append($", {CsType(p)} {ToCamelCase(p.Name)}");
+         sb.Append($", {p.CsType} {ToCamelCase(p.Name)}");
       sb.AppendLine(", global::System.Threading.CancellationToken ct = default)");
       sb.AppendLine("    {");
       sb.AppendLine($"        var ctx = global::{contextFullName}.Default;");
@@ -54,8 +54,8 @@ internal static class WrapperEmitter
          foreach (var p in meta.Parameters)
          {
             var prop    = ToPascalCase(p.Name);
-            var jsonKey = p.Name; // original lowercase key the CgScript side reads
-            sb.AppendLine(WritePropertyLine(jsonKey, prop, p.CgsType));
+            var jsonKey = p.Name;
+            sb.AppendLine(WritePropertyLine(jsonKey, prop, p.CsType));
          }
          sb.AppendLine("                    w.WriteEndObject();");
          sb.AppendLine("                }");
@@ -79,7 +79,7 @@ internal static class WrapperEmitter
       if (hasParams)
       {
          sb.Append($"    private record {paramsClass}(");
-         sb.Append(string.Join(", ", meta.Parameters.Select(p => $"{CsType(p)} {ToPascalCase(p.Name)}")));
+         sb.Append(string.Join(", ", meta.Parameters.Select(p => $"{p.CsType} {ToPascalCase(p.Name)}")));
          sb.AppendLine(");");
       }
 
@@ -105,19 +105,24 @@ internal static class WrapperEmitter
       return sb.ToString();
    }
 
-   // ── Utf8JsonWriter call per CgScript param type ───────────────────────────
+   // ── Utf8JsonWriter call per C# param type ────────────────────────────────
 
-   private static string WritePropertyLine(string jsonKey, string propName, string cgsType) =>
-      cgsType.ToLowerInvariant() switch
+   private static string WritePropertyLine(string jsonKey, string propName, string csType) =>
+      csType.ToLowerInvariant() switch
       {
-         "string"              => $"                    w.WriteString(\"{jsonKey}\", v.{propName});",
-         "number" or "double"  => $"                    w.WriteNumber(\"{jsonKey}\", v.{propName});",
-         "int" or "integer"    => $"                    w.WriteNumber(\"{jsonKey}\", v.{propName});",
-         "bool" or "boolean"   => $"                    w.WriteBoolean(\"{jsonKey}\", v.{propName});",
-         _                     => $"                    global::System.Text.Json.JsonSerializer.Serialize(w, (object?)v.{propName}, ctx.Options); // {cgsType}",
+         "string"                               => $"                    w.WriteString(\"{jsonKey}\", v.{propName});",
+         "double" or "float"                    => $"                    w.WriteNumber(\"{jsonKey}\", v.{propName});",
+         "int" or "long" or "short" or "byte"   => $"                    w.WriteNumber(\"{jsonKey}\", v.{propName});",
+         "bool"                                 => $"                    w.WriteBoolean(\"{jsonKey}\", v.{propName});",
+         _ =>
+            $"                    w.WritePropertyName(\"{jsonKey}\");\n" +
+            $"                    global::System.Text.Json.JsonSerializer.Serialize(w, v.{propName}, " +
+            $"(({JInfo}<{csType}>?)ctx.GetTypeInfo(typeof({csType})))" +
+            $" ?? throw new global::System.InvalidOperationException(" +
+            $"\"Add [JsonSerializable(typeof({csType}))] to the [CgScriptSerializer] context.\"));",
       };
 
-   private static string CsType(ScriptParam p) => ScriptParser.ToCsType(p.CgsType);
+   private static string CsType(ScriptParam p) => p.CsType;
 
    // ── helpers ──────────────────────────────────────────────────────────────────
 
