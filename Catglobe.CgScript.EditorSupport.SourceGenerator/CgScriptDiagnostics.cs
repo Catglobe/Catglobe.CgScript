@@ -105,7 +105,7 @@ internal static class CgScriptDiagnostics
    public static readonly DiagnosticDescriptor InvalidTypeAnnotation = new(
       id:                 "CGS013",
       title:              "Invalid type annotation syntax",
-      messageFormat:      "Invalid C# type annotation '{0}' — brackets must appear as '[]' pairs (e.g. TagItem[] or TagItem[][])",
+      messageFormat:      "Invalid C# type annotation '{0}' — brackets must appear as '[]' pairs (for example TagItem[] or TagItem[][])",
       category:           Category,
       defaultSeverity:    DiagnosticSeverity.Error,
       isEnabledByDefault: true);
