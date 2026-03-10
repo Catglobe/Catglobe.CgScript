@@ -95,7 +95,12 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
                   }
                }
 
-               return (IsValid: true, FullName: fullName, Registered: (ImmutableHashSet<string>)registered.ToImmutable());
+               var cgAttrLocation = symbol.GetAttributes()
+                  .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == CgScriptSerializerAttributeName)
+                  ?.ApplicationSyntaxReference?.GetSyntax()?.GetLocation()
+                  ?? cls.Identifier.GetLocation();
+
+               return (IsValid: true, FullName: fullName, Registered: (ImmutableHashSet<string>)registered.ToImmutable(), Location: cgAttrLocation);
             })
          .Where(static x => x.IsValid)
          .Collect();
@@ -159,7 +164,7 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
          {
             spc.ReportDiagnostic(Microsoft.CodeAnalysis.Diagnostic.Create(
                CgScriptDiagnostics.MissingJsonSerializable,
-               Location.None,
+               serCtx.Location,
                csReturnType, meta.ScriptName));
             return;
          }
@@ -171,7 +176,7 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
             {
                spc.ReportDiagnostic(Microsoft.CodeAnalysis.Diagnostic.Create(
                   CgScriptDiagnostics.MissingJsonSerializable,
-                  Location.None,
+                  serCtx.Location,
                   p.CsType, meta.ScriptName));
                return;
             }

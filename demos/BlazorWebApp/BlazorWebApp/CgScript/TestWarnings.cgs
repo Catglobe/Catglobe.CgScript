@@ -14,8 +14,23 @@
 //
 /// <summary>Builds a tag cloud summary from an array of tag items.</summary>
 /// <returns type="TagSummary">The computed tag cloud with the top tag and an aggregate count.</returns>
-/// <param name="tags" type="TagItem[]">The tag items to aggregate.</param>
+/// <param name="tags" type="TagItem[][]">The tag items to aggregate.</param>
 /// <param name="maxResults" type="int">Maximum number of results to consider; used to set the truncated flag.</param>
+function(array tags, number maxResults) {
+    number totalCount = 0;
+    string topTag = tags.Count > 0 ? tags[0]["name"] : "";
+    for (i for 0; tags.Count) {
+        totalCount = totalCount + tags[i]["count"];
+        if (tags[i]["count"] > tags[0]["count"]) {
+            topTag = tags[i]["name"];
+        }
+    }
+    return {
+        "topTag":      topTag,
+        "totalCount":  totalCount,
+        "truncated":   tags.Count > maxResults
+    };
+}.Invoke(Workflow_getParameters()[0]);
 
 // CGS009 — declared but never read anywhere
 number unused;
@@ -38,21 +53,3 @@ if (counter > 0)
 // CGS006 — stray semicolon after block
 if (result > 0) {};
 
-// ── Workflow entry-point ─────────────────────────────────────────────────────────────────────
-// 'array tags'       → resolved to TagItem[]  via the @param annotation above
-// 'number maxResults'→ resolved to int       via the type="int" annotation above
-function(array tags, number maxResults) {
-    number totalCount = 0;
-    string topTag = tags.Count > 0 ? tags[0]["name"] : "";
-    for (i for 0; tags.Count) {
-        totalCount = totalCount + tags[i]["count"];
-        if (tags[i]["count"] > tags[0]["count"]) {
-            topTag = tags[i]["name"];
-        }
-    }
-    return {
-        "topTag":      topTag,
-        "totalCount":  totalCount,
-        "truncated":   tags.Count > maxResults
-    };
-}.Invoke(Workflow_getParameters()[0]);
