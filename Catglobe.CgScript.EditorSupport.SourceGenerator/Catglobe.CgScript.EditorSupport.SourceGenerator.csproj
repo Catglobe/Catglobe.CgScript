@@ -12,6 +12,8 @@
       <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
       <PackageLicenseExpression>MIT</PackageLicenseExpression>
       <PackageReadmeFile>README.md</PackageReadmeFile>
+      <!-- Suppress the default lib/ entry — this assembly has no runtime API surface. -->
+      <IncludeBuildOutput>false</IncludeBuildOutput>
    </PropertyGroup>
 
    <ItemGroup>
@@ -19,6 +21,19 @@
       <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
       <!-- Pack the .props file so NuGet consumers automatically get CompilerVisibleProperty -->
       <None Include="build\**" Pack="true" PackagePath="build\" />
+      <!--
+         Explicitly pack the generator DLL and all its transitive dependencies into
+         analyzers/dotnet/cs so Roslyn loads them when the package is consumed via NuGet.
+         The dependency DLLs are copied to $(OutputPath) by CopyAnalyzerDependencies below.
+      -->
+      <None Include="$(OutputPath)$(AssemblyName).dll"
+            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.Parsing.dll"
+            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="$(OutputPath)Antlr4.Runtime.Standard.dll"
+            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="$(OutputPath)System.Text.Json.dll"
+            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
    </ItemGroup>
 
    <ItemGroup>
