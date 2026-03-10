@@ -155,8 +155,9 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          return VisitChildren(ctx);
       }
 
-      private void TryAdd(ITerminalNode node)
+      private void TryAdd(ITerminalNode? node)
       {
+         if (node is null) return;
          var token = node.Symbol;
          if (!Vars.Add(token.Text))
          {
@@ -182,7 +183,9 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// </summary>
    public override object? VisitClassNameType(CgScriptParser.ClassNameTypeContext ctx)
    {
-      var token = ctx.IDENTIFIER().Symbol;
+      var idNode = ctx.IDENTIFIER();
+      if (idNode is null) return VisitChildren(ctx);
+      var token = idNode.Symbol;
       if (!_knownObjects.Contains(token.Text))
       {
          _diagnostics.Add(new Diagnostic(
@@ -207,7 +210,9 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       // ── Rule 3: new ClassName(...) ──────────────────────────────────────────
       if (ctx.NEW() != null)
       {
-         var token = ctx.IDENTIFIER().Symbol;
+         var idNode2 = ctx.IDENTIFIER();
+         if (idNode2 is null) return VisitChildren(ctx);
+         var token = idNode2.Symbol;
          if (!_knownObjects.Contains(token.Text))
          {
             _diagnostics.Add(new Diagnostic(
@@ -234,7 +239,11 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          if (fpCtx != null)
          {
             foreach (var decl in fpCtx.declaration())
-               newScope.Add(decl.IDENTIFIER().Symbol.Text);
+            {
+               var id = decl.IDENTIFIER();
+               if (id is not null)
+                  newScope.Add(id.Symbol.Text);
+            }
          }
 
          // Also collect local declarations from the function body so that usages of
