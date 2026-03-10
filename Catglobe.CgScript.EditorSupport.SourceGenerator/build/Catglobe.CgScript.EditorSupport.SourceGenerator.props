@@ -1,0 +1,7 @@
+<Project>
+  <!-- Expose MSBuildProjectDirectory to the source generator so it can compute
+       relative paths for namespace derivation and script API names. -->
+  <ItemGroup>
+    <CompilerVisibleProperty Include="MSBuildProjectDirectory" />
+  </ItemGroup>
+</Project>

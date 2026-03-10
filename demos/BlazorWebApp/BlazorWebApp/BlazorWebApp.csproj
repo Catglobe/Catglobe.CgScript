@@ -26,6 +26,12 @@
 
    <!--Added for this demo-->
   <ItemGroup>
+    <!-- Expose MSBuildProjectDirectory to the CgScript source generator (normally done
+         automatically when using the NuGet package; required for project references) -->
+    <CompilerVisibleProperty Include="MSBuildProjectDirectory" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Treated as AdditionalFiles so the source generator can read and analyse them -->
     <AdditionalFiles Include="CgScript\**\*.cgs" />
   </ItemGroup>

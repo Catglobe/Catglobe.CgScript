@@ -7,4 +7,4 @@ Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 CGS010 | CgScript | Error    | Missing or duplicate [CgScriptSerializer] attribute on a JsonSerializerContext
 CGS011 | CgScript | Error    | Missing [JsonSerializable] on the [CgScriptSerializer]-marked context for a script return type
-CGS012 | CgScript | Error    | Parameter with ambiguous CgScript type (array/Dictionary) requires a @param annotation
+CGS013 | CgScript | Error    | Invalid type annotation syntax — brackets must appear as '[]' pairs

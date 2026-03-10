@@ -25,7 +25,10 @@ internal static class WrapperEmitter
    {
       var sb = new StringBuilder();
 
-      var methodName  = ToPascalCase(meta.ScriptName);
+      var lastSlash   = meta.ScriptName.LastIndexOf('/');
+      var methodName  = ToPascalCase(lastSlash >= 0
+                           ? meta.ScriptName.Substring(lastSlash + 1)
+                           : meta.ScriptName);
       var paramsClass = methodName + "Params";
       var returnCs    = meta.ReturnType == "void" ? "object" : meta.ReturnType;
       var hasParams   = meta.Parameters.Count > 0;
@@ -107,7 +110,7 @@ internal static class WrapperEmitter
       sb.AppendLine();
       sb.AppendLine($"namespace {wrapperNamespace}");
       sb.AppendLine("{");
-      sb.AppendLine("    public static partial class CgScriptWrappers");
+      sb.AppendLine("    public static partial class CgScriptExtensions");
       sb.AppendLine("    {");
       sb.AppendLine(body);
       sb.AppendLine("    }");

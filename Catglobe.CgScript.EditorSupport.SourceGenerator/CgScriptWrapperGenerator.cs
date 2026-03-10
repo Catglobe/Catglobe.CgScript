@@ -105,22 +105,61 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
          .Where(static x => x.IsValid)
          .Collect();
 
-      // ── Combine everything: per-file × compilation × context classes ──────────
+      // ── Project directory (for relative-path computation) ────────────────────
+      var projectDirProvider = context.AnalyzerConfigOptionsProvider
+         .Select(static (opts, _) =>
+         {
+            opts.GlobalOptions.TryGetValue("build_property.MSBuildProjectDirectory", out var dir);
+            return dir ?? "";
+         });
+
+      // ── Combine everything: per-file × compilation × context classes × project dir ──
       var combined = cgsFiles
          .Combine(context.CompilationProvider)
-         .Combine(serializerClasses);
+         .Combine(serializerClasses)
+         .Combine(projectDirProvider);
 
       context.RegisterSourceOutput(combined, static (spc, pair) =>
       {
-         var ((file, compilation), ctxClasses) = pair;
+         var (((file, compilation), ctxClasses), projectDir) = pair;
          var text = file.GetText(spc.CancellationToken);
          if (text is null) return;
 
-         var source     = text.ToString();
-         var baseName   = Path.GetFileNameWithoutExtension(file.Path);
-         var hintName   = SanitizeHintName(baseName);
-         // Strip deployer metadata (@NNN[.public]) — same convention as ScriptFromFileOnDisk
-         var scriptName = s_deployerSuffix.Replace(baseName, string.Empty);
+         var source = text.ToString();
+
+         // ── Compute path-relative names ───────────────────────────────────────
+         // Normalise to forward slashes and strip the project-root prefix so we
+         // get a clean relative path like "CgScript/Helpers/MyScript@115.public.cgs"
+         var filePath    = file.Path.Replace('\\', '/');
+         var projDirFwd  = projectDir.Replace('\\', '/').TrimEnd('/');
+         var relPath     = (!string.IsNullOrEmpty(projDirFwd) &&
+                            filePath.StartsWith(projDirFwd, System.StringComparison.OrdinalIgnoreCase))
+                           ? filePath.Substring(projDirFwd.Length).TrimStart('/')
+                           : Path.GetFileName(filePath); // fallback: just file name
+
+         // Strip ".cgs"
+         var relNoExt    = relPath.EndsWith(".cgs", System.StringComparison.OrdinalIgnoreCase)
+                           ? relPath.Substring(0, relPath.Length - 4)
+                           : relPath;
+
+         var lastSlash   = relNoExt.LastIndexOf('/');
+         var dirPart     = lastSlash >= 0 ? relNoExt.Substring(0, lastSlash)  : "";
+         var fileBase    = lastSlash >= 0 ? relNoExt.Substring(lastSlash + 1) : relNoExt;
+
+         // Strip deployer metadata (@NNN[.public]) from the file name only
+         var scriptFile  = s_deployerSuffix.Replace(fileBase, string.Empty);
+
+         // Full script path used when calling the Catglobe API (matches ScriptFromFileOnDisk)
+         var scriptName  = dirPart.Length > 0 ? dirPart + "/" + scriptFile : scriptFile;
+
+         // Hint name: unique within the assembly (path-based, so subfolders are safe)
+         var hintName    = SanitizeHintName(scriptName);
+
+         // Namespace: assembly name + sanitised directory segments
+         var assemblyNs  = compilation.AssemblyName ?? "CgScriptGenerated";
+         var namespaceName = string.IsNullOrEmpty(dirPart)
+                             ? assemblyNs
+                             : assemblyNs + "." + dirPart.Replace('/', '.');
 
          // ── CgScript semantic diagnostics ─────────────────────────────────────
          ReportSemanticDiagnostics(spc, file, text, source);
@@ -146,7 +185,14 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
          var serCtx = ctxClasses[0];
 
          // ── Wrapper code generation ───────────────────────────────────────────
-         var (meta, missingAnnotations) = ScriptParser.TryParse(scriptName, source);
+         var (meta, missingAnnotations, invalidAnnotations) = ScriptParser.TryParse(scriptName, source);
+         foreach (var ann in invalidAnnotations)
+         {
+            spc.ReportDiagnostic(Microsoft.CodeAnalysis.Diagnostic.Create(
+               CgScriptDiagnostics.InvalidTypeAnnotation,
+               Location.None,
+               ann));
+         }
          foreach (var (paramName, csType) in missingAnnotations)
          {
             spc.ReportDiagnostic(Microsoft.CodeAnalysis.Diagnostic.Create(
@@ -182,9 +228,8 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
             }
          }
 
-         var ns         = compilation.AssemblyName ?? "CgScriptGenerated";
-         var body       = WrapperEmitter.Emit(meta, ns, serCtx.FullName);
-         var fullSource = WrapperEmitter.WrapInPartialClass(ns, body);
+         var body       = WrapperEmitter.Emit(meta, namespaceName, serCtx.FullName);
+         var fullSource = WrapperEmitter.WrapInPartialClass(namespaceName, body);
 
          spc.AddSource($"CgScript.{hintName}.g.cs",
             SourceText.From(fullSource, Encoding.UTF8));

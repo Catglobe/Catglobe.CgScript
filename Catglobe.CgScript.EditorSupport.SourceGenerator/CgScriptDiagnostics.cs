@@ -102,7 +102,13 @@ internal static class CgScriptDiagnostics
       defaultSeverity:    DiagnosticSeverity.Error,
       isEnabledByDefault: true);
 
-   /// <summary>Maps a Parsing-project diagnostic severity to a Roslyn DiagnosticSeverity.</summary>
+   public static readonly DiagnosticDescriptor InvalidTypeAnnotation = new(
+      id:                 "CGS013",
+      title:              "Invalid type annotation syntax",
+      messageFormat:      "Invalid C# type annotation '{0}' — brackets must appear as '[]' pairs (e.g. TagItem[] or TagItem[][])",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
    public static DiagnosticSeverity ToRoslyn(Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity s)
       => s == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
          ? DiagnosticSeverity.Error

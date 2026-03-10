@@ -17,6 +17,8 @@
    <ItemGroup>
       <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
       <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+      <!-- Pack the .props file so NuGet consumers automatically get CompilerVisibleProperty -->
+      <None Include="build\**" Pack="true" PackagePath="build\" />
    </ItemGroup>
 
    <ItemGroup>

@@ -97,14 +97,18 @@ internal static class ScriptParser
 
    /// <summary>
    /// Parses a .cgs script file.
-   /// Returns <c>(metadata, empty)</c> on success, <c>(null, missing)</c> when one or more parameters
-   /// use an ambiguous CgScript type (<c>array</c>, <c>Dictionary</c>, etc.) without a
-   /// <c>// @param name CsType</c> annotation — the caller should report CGS012 per missing entry.
-   /// Returns <c>(null, empty)</c> when no recognisable workflow pattern is found.
+   /// Returns <c>(metadata, empty, empty)</c> on success.
+   /// Returns <c>(null, missing, empty)</c> when parameters use ambiguous types without annotation (CGS012).
+   /// Returns <c>(null, empty, invalid)</c> when annotations contain malformed type syntax (CGS013).
+   /// Returns <c>(null, empty, empty)</c> when no recognisable workflow pattern is found.
    /// </summary>
-   public static (ScriptMetadata? Meta, IReadOnlyList<(string Name, string CsType)> MissingAnnotations)
+   public static (ScriptMetadata? Meta,
+                  IReadOnlyList<(string Name, string CsType)> MissingAnnotations,
+                  IReadOnlyList<string> InvalidAnnotations)
       TryParse(string scriptName, string source)
    {
+      List<string>? invalid = null;
+
       // Collect annotations — try C# XML doc format first, fall back to // @ legacy
       var docContent = ExtractTripleSlashContent(source);
       var summary     = ExtractXmlSummary(docContent) ?? ExtractLegacySummary(source);
@@ -122,7 +126,11 @@ internal static class ScriptParser
          var typeStr = m.Groups[2].Value;  // empty string when attribute absent
          var doc     = CollapseWhitespace(m.Groups[3].Value);
          if (typeStr.Length > 0)
-            paramOverrides[name] = AnnotatedToCsType(typeStr);
+         {
+            var csType = TryAnnotatedToCsType(typeStr.AsSpan());
+            if (csType is null) (invalid ??= new List<string>()).Add(typeStr);
+            else paramOverrides[name] = csType;
+         }
          if (doc.Length > 0)
             paramDocs[name] = doc;
       }
@@ -130,14 +138,21 @@ internal static class ScriptParser
       // Overlay with legacy // @param (allows mixing old annotations in new files)
       foreach (Match m in ParamComment.Matches(source))
       {
-         paramOverrides[m.Groups[1].Value] = AnnotatedToCsType(m.Groups[2].Value);
+         var typeStr = m.Groups[2].Value;
+         var csType  = TryAnnotatedToCsType(typeStr.AsSpan());
+         if (csType is null) (invalid ??= new List<string>()).Add(typeStr);
+         else paramOverrides[m.Groups[1].Value] = csType;
          var doc = m.Groups[3].Value.Trim();
          if (doc.Length > 0)
             paramDocs[m.Groups[1].Value] = doc;
       }
 
-      ScriptMetadata Make(IReadOnlyList<ScriptParam> parms, string retType) =>
-         new ScriptMetadata(scriptName, retType, parms, summary, returnDoc);
+      if (invalid != null) return (null, _emptyMissing, invalid);
+
+      string ReturnCs() => TryAnnotatedToCsType((returnType0 ?? "void").AsSpan()) ?? "void";
+
+      ScriptMetadata Make(IReadOnlyList<ScriptParam> parms) =>
+         new ScriptMetadata(scriptName, ReturnCs(), parms, summary, returnDoc);
 
       // ── Pattern C: dictVar = Workflow_getParameters()[0]; type name = dictVar["key"] ──
       var dictAssign = DictAssignDecl.Match(source);
@@ -157,8 +172,8 @@ internal static class ScriptParser
          if (cParams.Count > 0)
          {
             var missing = FindMissingAnnotations(cParams, paramOverrides);
-            if (missing.Count > 0) return (null, missing);
-            return (Make(cParams, AnnotatedToCsType(returnType0 ?? "void")), _empty);
+            if (missing.Count > 0) return (null, missing, _emptyInvalid);
+            return (Make(cParams), _emptyMissing, _emptyInvalid);
          }
       }
 
@@ -178,8 +193,8 @@ internal static class ScriptParser
          if (bParams.Count > 0)
          {
             var missing = FindMissingAnnotations(bParams, paramOverrides);
-            if (missing.Count > 0) return (null, missing);
-            return (Make(bParams, AnnotatedToCsType(returnType0 ?? "void")), _empty);
+            if (missing.Count > 0) return (null, missing, _emptyInvalid);
+            return (Make(bParams), _emptyMissing, _emptyInvalid);
          }
       }
 
@@ -189,15 +204,17 @@ internal static class ScriptParser
       {
          var aParams = ParseFunctionParams(fnMatch.Groups[1].Value, paramOverrides, paramDocs);
          var missing = FindMissingAnnotations(aParams, paramOverrides);
-         if (missing.Count > 0) return (null, missing);
-         return (Make(aParams, AnnotatedToCsType(returnType0 ?? "void")), _empty);
+         if (missing.Count > 0) return (null, missing, _emptyInvalid);
+         return (Make(aParams), _emptyMissing, _emptyInvalid);
       }
 
-      return (null, _empty);
+      return (null, _emptyMissing, _emptyInvalid);
    }
 
-   private static readonly IReadOnlyList<(string Name, string CsType)> _empty =
+   private static readonly IReadOnlyList<(string Name, string CsType)> _emptyMissing =
       new (string, string)[0];
+   private static readonly IReadOnlyList<string> _emptyInvalid =
+      new string[0];
 
    /// <summary>
    /// Returns the subset of <paramref name="parms"/> whose C# type still needs an explicit
@@ -220,7 +237,7 @@ internal static class ScriptParser
             (missing ??= new List<(string, string)>()).Add((p.Name, p.CsType));
          }
       }
-      return missing ?? (IReadOnlyList<(string, string)>)_empty;
+      return missing ?? (IReadOnlyList<(string, string)>)_emptyMissing;
    }
 
    // ── doc extraction helpers ────────────────────────────────────────────────────
@@ -308,17 +325,35 @@ internal static class ScriptParser
       => TypeMap.TryGetValue(cgsType.ToLowerInvariant(), out var cs) ? cs : "object";
 
    /// <summary>
-   /// Maps a type string from a <c>type="…"</c> annotation attribute.
-   /// Known CgScript keywords are mapped (e.g. <c>number</c> → <c>double</c>);
-   /// <c>T[]</c> syntax is recursively converted to <c>IEnumerable&lt;T&gt;</c>
-   /// (so <c>TagItem[][]</c> → <c>IEnumerable&lt;IEnumerable&lt;TagItem&gt;&gt;</c>);
-   /// anything else is passed through as-is.
+   /// Maps a type string from a <c>type="…"</c> annotation attribute using
+   /// <see cref="ReadOnlySpan{T}"/> slicing — no intermediate string allocations for the bracket logic.
+   /// Returns <c>null</c> for syntactically invalid input (e.g. <c>xxx[</c> or <c>xxx[y]</c>).
+   /// Known CgScript keywords are mapped; <c>T[]</c> → <c>IEnumerable&lt;T&gt;</c> recursively.
+   /// </summary>
+   internal static string? TryAnnotatedToCsType(ReadOnlySpan<char> annotated)
+   {
+      // TypeMap lookup (small allocation for the key; keywords are short ASCII strings)
+      if (TypeMap.TryGetValue(annotated.ToString().ToLowerInvariant(), out var cs)) return cs;
+
+      if (annotated.Length >= 2 && annotated[annotated.Length - 1] == ']')
+      {
+         // Must be "T[]" — the char before ']' must be '['
+         if (annotated[annotated.Length - 2] != '[') return null; // e.g. "xxx[y]"
+         var inner = TryAnnotatedToCsType(annotated.Slice(0, annotated.Length - 2));
+         return inner is null ? null : $"IEnumerable<{inner}>";
+      }
+
+      // Any remaining '[' or ']' means malformed (e.g. "xxx[" or "xx]")
+      for (int i = 0; i < annotated.Length; i++)
+         if (annotated[i] == '[' || annotated[i] == ']') return null;
+
+      return annotated.Length == 0 ? null : annotated.ToString();
+   }
+
+   /// <summary>
+   /// Non-nullable wrapper for internal CgScript built-in type mapping (TypeMap keywords only).
+   /// Always succeeds for types derived from the CgScript runtime itself.
    /// </summary>
    internal static string AnnotatedToCsType(string annotated)
-   {
-      if (TypeMap.TryGetValue(annotated.ToLowerInvariant(), out var cs)) return cs;
-      if (annotated.EndsWith("[]"))
-         return $"IEnumerable<{AnnotatedToCsType(annotated.Substring(0, annotated.Length - 2))}>";
-      return annotated;
-   }
+      => TryAnnotatedToCsType(annotated.AsSpan()) ?? annotated;
 }
