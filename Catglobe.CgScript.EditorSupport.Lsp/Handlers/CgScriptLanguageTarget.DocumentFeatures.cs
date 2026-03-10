@@ -1,4 +1,4 @@
-using Antlr4.Runtime;
+﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
 using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Parsing;
@@ -24,22 +24,59 @@ public partial class CgScriptLanguageTarget
    {
       var uri    = p.TextDocument.Uri.ToString();
       var result = _store.GetParseResult(uri);
+      var text   = _store.GetText(uri) ?? string.Empty;
+      var lines  = text.Split('\n');
+      var highlights = new List<DocumentHighlight>();
+
+      // Case 1: cursor on name="xxx" in xmldoc
+      var docParam = TryGetDocParamNameAtCursor(lines, p.Position.Line, p.Position.Character);
+      if (docParam is not null)
+      {
+         // Resolve to code references
+         var codePos = FindParamInFunctionForDocBlock(lines, p.Position.Line, docParam.Value.Name);
+         var refs = (result is not null && codePos is not null)
+            ? ReferenceAnalyzer.FindReferences(result.Tree, codePos.Value.AntlrLine, codePos.Value.Col)
+            : Array.Empty<SymbolRef>();
+         foreach (var r in refs)
+            highlights.Add(new DocumentHighlight { Range = ToRange(r), Kind = r.IsDeclaration ? DocumentHighlightKind.Write : DocumentHighlightKind.Read });
+         // Xmldoc occurrences
+         AddXmlDocHighlights(highlights, lines, p.Position.Line, docParam.Value.Name);
+         return highlights.ToArray();
+      }
+
       if (result is null) return [];
 
-      var refs = ReferenceAnalyzer.FindReferences(
-         result.Tree,
-         cursorLine:   p.Position.Line + 1,
-         cursorColumn: p.Position.Character);
+      // Case 2: cursor in code
+      var codeRefs = ReferenceAnalyzer.FindReferences(result.Tree, p.Position.Line + 1, p.Position.Character);
+      if (codeRefs.Count == 0) return [];
+      foreach (var r in codeRefs)
+         highlights.Add(new DocumentHighlight { Range = ToRange(r), Kind = r.IsDeclaration ? DocumentHighlightKind.Write : DocumentHighlightKind.Read });
 
-      if (refs.Count == 0) return [];
+      var wordAtCursor = GetWordAt(text, GetOffset(text, p.Position.Line, p.Position.Character));
+      if (!string.IsNullOrEmpty(wordAtCursor))
+      {
+         foreach (var occ in FindXmlDocOccurrencesForCodeParam(text, wordAtCursor, codeRefs))
+            highlights.Add(new DocumentHighlight { Range = new LspRange { Start = new Position(occ.LspLine, occ.NameStart), End = new Position(occ.LspLine, occ.NameStart + occ.NameLen) }, Kind = DocumentHighlightKind.Text });
+      }
 
-      return refs
-         .Select(r => new DocumentHighlight
-         {
-            Range = ToRange(r),
-            Kind  = r.IsDeclaration ? DocumentHighlightKind.Write : DocumentHighlightKind.Read,
-         })
-         .ToArray();
+      return highlights.ToArray();
+   }
+
+   /// <summary>Finds xmldoc occurrences and adds them as <see cref="DocumentHighlightKind.Text"/> highlights.</summary>
+   private static void AddXmlDocHighlights(List<DocumentHighlight> highlights, string[] lines, int cursorLine, string paramName)
+   {
+      // Find the function line below the doc block
+      int funcLine = -1;
+      for (int i = cursorLine + 1; i < lines.Length; i++)
+      {
+         var t = lines[i].TrimStart();
+         if (t.StartsWith("///") || t.Length == 0) continue;
+         if (t.IndexOf("function", StringComparison.Ordinal) >= 0) funcLine = i;
+         break;
+      }
+      if (funcLine < 0) return;
+      foreach (var (lspLine, nameStart, nameLen) in FindXmlDocNameOccurrences(lines, funcLine, paramName))
+         highlights.Add(new DocumentHighlight { Range = new LspRange { Start = new Position(lspLine, nameStart), End = new Position(lspLine, nameStart + nameLen) }, Kind = DocumentHighlightKind.Text });
    }
 
    // ── document symbols ──────────────────────────────────────────────────────────

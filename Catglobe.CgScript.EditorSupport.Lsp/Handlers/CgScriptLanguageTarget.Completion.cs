@@ -1,4 +1,4 @@
-using Antlr4.Runtime;
+﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
 using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Parsing;
@@ -21,10 +21,18 @@ public partial class CgScriptLanguageTarget
       var offset      = GetOffset(text, p.Position.Line, p.Position.Character);
 
       // ── Doc comment template trigger: user just typed the third '/' ───────────
-      var docItem = TryGetDocCommentCompletion(text, p.Position.Line, offset);
+      var docItem = TryGetDocCommentCompletion(text, p.Position.Line, offset, _clientSupportsSnippets);
       if (docItem is not null)
          return new SumType<CompletionItem[], CompletionList>(
             new CompletionList { IsIncomplete = false, Items = [docItem] });
+
+      // If we are on a pure doc-comment line but no template was produced (either because
+      // there is no function below or because <summary> already exists), do not pollute
+      // the list with regular code completions — they make no sense inside a comment.
+      var currentLineText = text.Split('\n').ElementAtOrDefault(p.Position.Line) ?? string.Empty;
+      if (IsDocCommentOnlyLine(currentLineText, out _))
+         return new SumType<CompletionItem[], CompletionList>(
+            new CompletionList { IsIncomplete = false, Items = [] });
 
       var prefix      = GetWordPrefix(text, offset);
       int prefixStart = offset - prefix.Length;
@@ -202,63 +210,64 @@ public partial class CgScriptLanguageTarget
       return new CompletionList { IsIncomplete = false, Items = items.ToArray() };
    }
 
-   // ── Doc comment template generation ─────────────────────────────────────────
+   
+   // All language keywords from the lexer grammar.
+   private static readonly string[] Keywords =
+   [
+      "if", "else", "while", "for", "break", "continue", "return",
+      "true", "false", "empty", "new", "switch", "case", "default",
+      "try", "catch", "throw", "where",
+      "bool", "number", "string", "array", "object", "question", "function",
+   ];
 
-   private static readonly System.Text.RegularExpressions.Regex FunctionDeclForDoc =
-      new(@"function\s*\(([^)]*)\)", System.Text.RegularExpressions.RegexOptions.Compiled);
+   // ── Doc comment template generation ─────────────────────────────────────────
 
    /// <summary>
    /// When the cursor is at the end of a line that is just <c>///</c> (optional leading
-   /// whitespace), looks ahead to find the next non-empty, non-comment line.  If that line
-   /// contains a <c>function(...)</c> declaration, returns a completion item that inserts
-   /// the full C# XML doc template as a snippet.
+   /// whitespace, optional trailing whitespace), looks ahead to find the next non-empty,
+   /// non-comment line.  If that line (or continuation lines) contains a
+   /// <c>function(...)</c> declaration, returns a completion item that inserts the full
+   /// C# XML doc template as a snippet.
    /// Returns <c>null</c> if the conditions are not met.
    /// </summary>
-   private static CompletionItem? TryGetDocCommentCompletion(string text, int cursorLine, int offset)
+   private CompletionItem? TryGetDocCommentCompletion(string text, int cursorLine, int offset, bool snippetSupport)
    {
-      // Current line up to cursor must be exactly optional-whitespace + "///"
       var lines    = text.Split('\n');
       if (cursorLine >= lines.Length) return null;
       var lineText = lines[cursorLine];
-      // Strip trailing \r
-      var lineTrimmed = lineText.TrimEnd('\r').TrimStart();
-      if (lineTrimmed != "///") return null;
 
-      // Find next non-empty, non-comment line
-      string? nextLine = null;
-      for (int i = cursorLine + 1; i < lines.Length; i++)
-      {
-         var t = lines[i].TrimEnd('\r').Trim();
-         if (t.Length == 0 || t.StartsWith("//")) continue;
-         nextLine = t;
-         break;
-      }
-      if (nextLine is null) return null;
-
-      // Must be a function declaration
-      var fnMatch = FunctionDeclForDoc.Match(nextLine);
-      if (!fnMatch.Success) return null;
-
-      // Build the snippet
-      var indent   = lineText.Length - lineTrimmed.Length;  // leading spaces/tabs count
+      if (!IsDocCommentOnlyLine(lineText, out int indent)) return null;
       var indentStr = lineText[..indent];
-      var snippet  = BuildDocSnippet(indentStr, fnMatch.Groups[1].Value);
 
-      // The insert range replaces the current "///" on the line
-      var lineStartChar = indent;  // character index of the "///"
+      // Don't offer the template if a <summary> already exists in this doc block.
+      for (int i = cursorLine - 1; i >= 0; i--)
+      {
+         var t = lines[i];
+         if (!t.TrimStart().StartsWith("///")) break;
+         if (t.Contains("<summary>", StringComparison.OrdinalIgnoreCase)) return null;
+      }
+
+      var paramList = FindNextFunctionParams(lines, cursorLine);
+      if (paramList is null) return null;
+
+      var insertText = snippetSupport ? BuildDocSnippet(indentStr, paramList) : BuildDocTemplate(indentStr, paramList);
+
       return new CompletionItem
       {
-         Label           = "/// XML doc comment",
-         Kind            = CompletionItemKind.Snippet,
-         Detail          = "Generate XML doc comment",
-         InsertTextFormat = InsertTextFormat.Snippet,
-         TextEdit        = new TextEdit
+         Label            = "/// XML doc comment",
+         Kind             = CompletionItemKind.Snippet,
+         Detail           = "Generate XML doc comment",
+         Preselect        = true,
+         FilterText       = "///",
+         SortText         = "\x00",
+         InsertTextFormat = snippetSupport ? InsertTextFormat.Snippet : InsertTextFormat.Plaintext,
+         TextEdit         = new TextEdit
          {
-            NewText = snippet,
+            NewText = insertText,
             Range   = new LspRange
             {
-               Start = new Position(cursorLine, lineStartChar),
-               End   = new Position(cursorLine, lineText.TrimEnd('\r').Length),
+               Start = new Position(cursorLine, indent),
+               End   = new Position(cursorLine, lineText.TrimEnd('\r', '\n').Length),
             },
          },
       };
@@ -267,41 +276,170 @@ public partial class CgScriptLanguageTarget
    /// <summary>Builds the LSP snippet text for the XML doc template.</summary>
    private static string BuildDocSnippet(string indent, string paramList)
    {
-      var sb = new System.Text.StringBuilder();
+      var sb         = new System.Text.StringBuilder();
       var paramNames = ParseParamNames(paramList);
 
-      sb.Append($"/// <summary>");
-      sb.Append("$1");
-      sb.AppendLine("</summary>");
+      sb.Append("/// <summary>$1</summary>");
 
       int tabStop = 2;
       foreach (var (cgsType, name) in paramNames)
       {
-         // Ambiguous types get a type attribute placeholder; primitives just get doc text
          bool needsType = cgsType is "array" or "object" or "question" or "number";
+         sb.AppendLine();
          if (needsType)
             sb.Append($"{indent}/// <param name=\"{name}\" type=\"${tabStop++}\">${tabStop++}</param>");
          else
             sb.Append($"{indent}/// <param name=\"{name}\">${tabStop++}</param>");
-         sb.AppendLine();
       }
 
+      sb.AppendLine();
       sb.Append($"{indent}/// <returns type=\"${tabStop++}\">${tabStop}</returns>");
       return sb.ToString();
    }
 
-   /// <summary>Parses <c>type name, type name</c> pairs from a function parameter list.</summary>
-   private static IReadOnlyList<(string Type, string Name)> ParseParamNames(string paramList)
+   /// <summary>Builds a plain-text doc-comment template (no snippet syntax) for clients that do not support snippets.</summary>
+   private static string BuildDocTemplate(string indent, string paramList)
+   {
+      var sb         = new System.Text.StringBuilder();
+      var paramNames = ParseParamNames(paramList);
+
+      sb.Append("/// <summary></summary>");
+
+      foreach (var (cgsType, name) in paramNames)
+      {
+         sb.AppendLine();
+         bool needsType = cgsType is "array" or "object" or "question" or "number";
+         if (needsType)
+            sb.Append($"{indent}/// <param name=\"{name}\" type=\"\"></param>");
+         else
+            sb.Append($"{indent}/// <param name=\"{name}\"></param>");
+      }
+
+      sb.AppendLine();
+      sb.Append($"{indent}/// <returns></returns>");
+      return sb.ToString();
+   }
+
+   // ── Shared doc-comment helpers (also used by onTypeFormatting) ─────────────────
+
+   /// <summary>
+   /// Returns <c>true</c> when <paramref name="lineText"/> contains only optional
+   /// whitespace followed by <c>///</c> (and optional trailing whitespace / <c>\r</c>).
+   /// Outputs the number of leading whitespace characters as <paramref name="indent"/>.
+   /// </summary>
+   internal static bool IsDocCommentOnlyLine(string lineText, out int indent)
+   {
+      var stripped = lineText.TrimEnd('\r', '\n', ' ', '\t');
+      var content  = stripped.TrimStart();
+      indent       = stripped.Length - content.Length;
+      return content == "///";
+   }
+
+   /// <summary>
+   /// Searches forward from <paramref name="cursorLine"/> for the next non-empty,
+   /// non-comment line that starts a <c>function(...)</c> declaration, accumulating
+   /// continuation lines so that multi-line parameter lists are handled correctly.
+   /// Returns <c>null</c> if no matching declaration is found.
+   /// </summary>
+   internal static string? FindNextFunctionParams(string[] lines, int cursorLine)
+   {
+      var accumulated  = new System.Text.StringBuilder();
+      bool foundStart  = false;
+
+      for (int i = cursorLine + 1; i < lines.Length; i++)
+      {
+         var t = lines[i].TrimEnd('\r').Trim();
+         if (t.Length == 0 || t.StartsWith("//")) continue;
+
+         if (!foundStart)
+         {
+            // First non-empty line must contain "function" keyword (case-sensitive)
+            if (t.IndexOf("function", StringComparison.Ordinal) < 0) return null;
+            foundStart = true;
+         }
+
+         accumulated.Append(' ').Append(t);
+
+         var result = ExtractFunctionParams(accumulated.ToString());
+         if (result != null) return result;
+
+         // Guard against runaway accumulation (e.g. malformed code)
+         if (i - cursorLine > 15) return null;
+      }
+      return null;
+   }
+
+   /// <summary>
+   /// Extracts the top-level parameter list from a <c>function(...)</c> token in
+   /// <paramref name="line"/>, correctly handling nested parentheses such as
+   /// <c>new StringBuilder()</c> in default values.
+   /// Returns <c>null</c> when no <c>function(</c> is found.
+   /// </summary>
+   internal static string? ExtractFunctionParams(string line)
+   {
+      int fi = line.IndexOf("function", StringComparison.Ordinal);
+      if (fi < 0) return null;
+      int pi = line.IndexOf('(', fi + "function".Length);
+      if (pi < 0) return null;
+
+      int depth = 0, start = pi + 1;
+      for (int i = pi; i < line.Length; i++)
+      {
+         if (line[i] == '(') depth++;
+         else if (line[i] == ')')
+         {
+            if (--depth == 0) return line[start..i];
+         }
+      }
+      return null; // unmatched parenthesis
+   }
+
+   /// <summary>
+   /// Parses <c>type name[, type name ...]</c> pairs from a function parameter list,
+   /// splitting on commas at depth 0 to correctly handle nested parentheses in default
+   /// values like <c>new StringBuilder()</c>.
+   /// </summary>
+   internal static IReadOnlyList<(string Type, string Name)> ParseParamNames(string paramList)
    {
       var result = new List<(string, string)>();
       if (string.IsNullOrWhiteSpace(paramList)) return result;
-      foreach (var part in paramList.Split(','))
+
+      int depth = 0, start = 0;
+      for (int i = 0; i <= paramList.Length; i++)
       {
-         var tokens = part.Trim().Split(new[] { ' ', '\t' },
-            System.StringSplitOptions.RemoveEmptyEntries);
-         if (tokens.Length >= 2)
-            result.Add((tokens[0], tokens[1]));
+         char c = i < paramList.Length ? paramList[i] : ',';
+         if (c == '(' || c == '[') depth++;
+         else if (c == ')' || c == ']') depth--;
+         else if (c == ',' && depth == 0)
+         {
+            AddParsedParam(result, paramList.AsSpan(start, i - start));
+            start = i + 1;
+         }
       }
       return result;
+   }
+
+   private static void AddParsedParam(List<(string, string)> result, ReadOnlySpan<char> part)
+   {
+      // Strip default value (everything from '=' onward)
+      int eq = part.IndexOf('=');
+      if (eq >= 0) part = part[..eq].TrimEnd();
+      part = part.Trim();
+
+      // First whitespace-delimited token = type
+      int wsStart = 0;
+      while (wsStart < part.Length && !char.IsWhiteSpace(part[wsStart])) wsStart++;
+      if (wsStart >= part.Length) return;
+
+      var type = part[..wsStart].ToString();
+      var rest = part[wsStart..].TrimStart();
+
+      // Second token = name (identifier characters only)
+      int nameEnd = 0;
+      while (nameEnd < rest.Length && (char.IsLetterOrDigit(rest[nameEnd]) || rest[nameEnd] == '_'))
+         nameEnd++;
+      if (nameEnd == 0) return;
+
+      result.Add((type, rest[..nameEnd].ToString()));
    }
 }

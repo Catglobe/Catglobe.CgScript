@@ -1,4 +1,4 @@
-using Antlr4.Runtime;
+﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
 using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Parsing;
@@ -31,6 +31,7 @@ public partial class CgScriptLanguageTarget
 
    // ── Client capability flags (set during Initialize) ───────────────────────────
    private bool _clientSupportsMarkdownHover;
+   private bool _clientSupportsSnippets;
 
    public CgScriptLanguageTarget(DocumentStore store, DefinitionLoader definitions)
    {
@@ -38,21 +39,13 @@ public partial class CgScriptLanguageTarget
       _definitions = definitions;
    }
 
-   // All language keywords from the lexer grammar.
-   private static readonly string[] Keywords =
-   [
-      "if", "else", "while", "for", "break", "continue", "return",
-      "true", "false", "empty", "new", "switch", "case", "default",
-      "try", "catch", "throw", "where",
-      "bool", "number", "string", "array", "object", "question", "function",
-   ];
-
    // ── initialize ──────────────────────────────────────────────────────────────
 
    public InitializeResult Initialize(InitializeParams? p = null)
    {
       var hoverFormats = p?.Capabilities?.TextDocument?.Hover?.ContentFormat;
       _clientSupportsMarkdownHover = hoverFormats?.Contains(MarkupKind.Markdown) ?? false;
+      _clientSupportsSnippets        = p?.Capabilities?.TextDocument?.Completion?.CompletionItem?.SnippetSupport ?? false;
       return new InitializeResult
       {
          Capabilities = new ServerCapabilities
@@ -60,7 +53,7 @@ public partial class CgScriptLanguageTarget
             TextDocumentSync = new TextDocumentSyncOptions
             {
                OpenClose = true,
-               Change    = TextDocumentSyncKind.Full,
+               Change    = TextDocumentSyncKind.Incremental,
             },
             CompletionProvider = new CompletionOptions
             {
@@ -108,8 +101,11 @@ public partial class CgScriptLanguageTarget
 
    public void OnDidChange(DidChangeTextDocumentParams p)
    {
-      var text = p.ContentChanges?.LastOrDefault()?.Text ?? string.Empty;
-      _store.Update(p.TextDocument.Uri.ToString(), text);
+      var uri     = p.TextDocument.Uri.ToString();
+      var changes = p.ContentChanges ?? [];
+      // Apply incremental changes to build the new document text.
+      var newText = changes.Aggregate(_store.GetText(uri) ?? string.Empty, ApplyChange);
+      _store.Update(uri, newText);
       _ = PublishDiagnosticsAsync(p.TextDocument.Uri);
    }
 
@@ -152,6 +148,37 @@ public partial class CgScriptLanguageTarget
             },
          Source = "cgscript",
          }).ToArray();
+
+      // ── CGS014: warn on empty type="" attributes in XML doc comments ──────────────
+      var text = _store.GetText(uri.ToString());
+      if (text is not null)
+      {
+         var xmlDocDiags = new List<LspDiagnostic>();
+         var lines       = text.Split('\n');
+         for (int i = 0; i < lines.Length; i++)
+         {
+            var lineText = lines[i];
+            if (!lineText.TrimStart().StartsWith("///")) continue;
+
+            int col = lineText.IndexOf("type=\"\"", StringComparison.Ordinal);
+            if (col < 0) continue;
+
+            xmlDocDiags.Add(new LspDiagnostic
+            {
+               Severity = Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Warning,
+               Code     = new SumType<int, string>("CGS014"),
+               Message  = "XML doc comment 'type' attribute should not be empty - specify the parameter type (for example 'number', 'string', 'array')",
+               Range    = new LspRange
+               {
+                  Start = new Position(i, col),
+                  End   = new Position(i, col + "type=\"\"".Length),
+               },
+               Source = "cgscript",
+            });
+         }
+         if (xmlDocDiags.Count > 0)
+            diags = diags.Concat(xmlDocDiags).ToArray();
+      }
 
       return Rpc.NotifyWithParameterObjectAsync(Methods.TextDocumentPublishDiagnosticsName,
          new PublishDiagnosticParams { Uri = uri, Diagnostics = diags });

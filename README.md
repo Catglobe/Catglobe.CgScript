@@ -1,8 +1,61 @@
 # Editor Support
 
-The CgScript editor extensions provide IntelliSense, completions, hover documentation, diagnostics and semantic highlighting for `.cgs` files.
+The CgScript editor extensions bring a full editing experience to `.cgs` files in both Visual Studio and Visual Studio Code.
 
 Download the latest `.vsix` files from the [GitHub Releases](https://github.com/Catglobe/Catglobe.CgScript/releases) page.
+
+## Features
+
+### Syntax coloring
+Keywords, strings, numbers, comments, function names, and variable declarations are each colored differently so the structure of your script is immediately obvious.
+
+### Error and warning squiggles
+Problems are underlined as you type — red for errors, yellow for warnings. Hover over the underline to see the message, or open the Problems / Error List panel to see all issues at once. Examples of things that are caught:
+- Syntax errors (missing brackets, unexpected tokens, …)
+- Using a variable before it is declared, or declaring the same variable twice
+- Calling a function or using a type that does not exist
+- Leaving a `type=""` attribute empty in an XML doc comment
+
+### Code completion
+Press `Ctrl+Space` (or just start typing) to get a list of suggestions. The extension suggests:
+- Variables and functions that are in scope
+- Built-in functions and type names
+- Members of an object after you type `.`
+
+### Hover documentation
+Hover the mouse over any built-in function or type to read its documentation without leaving the editor.
+
+### Parameter hints
+When you open the parentheses of a function call — or type a comma between arguments — a tooltip shows the expected parameter names and types.
+
+### Jump to definition
+Press `F12` (or right-click → Go to Definition) on any variable or function to jump straight to where it was declared.
+
+### Find all references
+Right-click a variable or function and choose Find All References to see every place it is used in the file. Results in XML doc comment `name=` attributes are included alongside code references.
+
+### Rename
+Press `F2` on any variable or function to rename it everywhere it appears — including occurrences in XML doc comment `name=` attributes.
+
+### Highlight occurrences
+Place the cursor on a name and every other use of that name in the file is highlighted, including matching `name=` attributes in doc comments.
+
+### Document outline
+Open the Outline panel (VS Code) or the document drop-down (Visual Studio) to see a structured list of all functions and top-level variables in the file and jump to any of them quickly.
+
+### Code folding
+Blocks of code — `if`, `while`, `for`, `function`, etc. — can be collapsed and expanded in the editor gutter.
+
+### XML doc comment generation
+Type `///` on the line immediately above a `function(…)` declaration and press `Tab` (or accept the completion) to automatically insert a documentation template:
+
+```
+/// <summary></summary>
+/// <param name="paramName"></param>
+/// <returns></returns>
+```
+
+Parameters that use generic types (`array`, `object`, `question`, `number`) also get a `type=""` attribute to fill in. If a doc comment already exists for the function, the template is not offered again.
 
 ## Visual Studio Code
 

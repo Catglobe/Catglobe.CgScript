@@ -51,6 +51,18 @@ public partial class CgScriptLanguageTarget
    private static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_';
 
    /// <summary>
+   /// Applies a single incremental <see cref="TextDocumentContentChangeEvent"/> to <paramref name="text"/>.
+   /// When <c>Range</c> is <see langword="null"/> the event is treated as a full-document replacement.
+   /// </summary>
+   private static string ApplyChange(string text, TextDocumentContentChangeEvent change)
+   {
+      if (change.Range is null) return change.Text; // full-document replace fallback
+      int start = GetOffset(text, change.Range.Start.Line, change.Range.Start.Character);
+      int end   = GetOffset(text, change.Range.End.Line,   change.Range.End.Character);
+      return text[..start] + change.Text + text[end..];
+   }
+
+   /// <summary>
    /// Returns the identifier immediately to the left of <paramref name="pos"/>,
    /// skipping any leading whitespace. Returns <c>null</c> if none found.
    /// </summary>
