@@ -8,7 +8,7 @@ namespace Catglobe.CgScript.EditorSupport.Parsing;
 /// <para>
 /// <b>Pass 1</b> walks the parse tree to collect every globally-scoped variable name
 /// (skipping inside <c>function</c> literal bodies) and for-each loop variables.
-/// Duplicate declarations are reported as <see cref="DiagnosticSeverity.Error"/>.
+/// Duplicate declarations are reported as <see cref="DiagnosticSeverity.Warning"/> (CGS001).
 /// </para>
 /// <para>
 /// <b>Pass 2</b> walks the tree again to validate identifier usages against the
@@ -91,7 +91,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             analyzer._diagnostics.Add(new Diagnostic(
                DiagnosticSeverity.Warning,
                $"Variable '{name}' is declared but never used",
-               line, 0, name.Length));
+               line, 0, name.Length,
+               "CGS009"));
          }
       }
 
@@ -160,11 +161,12 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          if (!Vars.Add(token.Text))
          {
             Diagnostics.Add(new Diagnostic(
-               DiagnosticSeverity.Error,
+               DiagnosticSeverity.Warning,
                $"Illegal variable re-declaration: {token.Text}",
                token.Line,
                token.Column,
-               token.Text.Length));
+               token.Text.Length,
+               "CGS001"));
          }
          else
          {
@@ -188,7 +190,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             $"Unknown type '{token.Text}'",
             token.Line,
             token.Column,
-            token.Text.Length));
+            token.Text.Length,
+            "CGS002"));
       }
       return VisitChildren(ctx);
    }
@@ -212,7 +215,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                $"Unknown type '{token.Text}'",
                token.Line,
                token.Column,
-               token.Text.Length));
+               token.Text.Length,
+               "CGS003"));
          }
          return VisitChildren(ctx);
       }
@@ -274,7 +278,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                $"Undefined variable '{name}'",
                token.Line,
                token.Column,
-               token.Text.Length));
+               token.Text.Length,
+               "CGS005"));
          }
          else
          {
@@ -297,7 +302,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                   $"Variable '{name}' used before its declaration on line {declLine}",
                   token.Line,
                   token.Column,
-                  token.Text.Length));
+                  token.Text.Length,
+                  "CGS008"));
             }
          }
          // IDENTIFIER and optional INC/DEC are terminals — nothing further to visit
@@ -337,7 +343,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                      $"Unknown function '{token.Text}'",
                      token.Line,
                      token.Column,
-                     token.Text.Length));
+                     token.Text.Length,
+                     "CGS004"));
                }
             }
          }
@@ -359,7 +366,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          "Empty statement has no effect",
          token.Line,
          token.Column,
-         token.Text.Length));
+         token.Text.Length,
+         "CGS006"));
       return null;
    }
 
@@ -443,7 +451,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                "Unreachable code",
                token.Line,
                token.Column,
-               token.Text.Length));
+               token.Text.Length,
+               "CGS007"));
             // Report only the first unreachable statement to avoid cascading noise
             break;
          }
