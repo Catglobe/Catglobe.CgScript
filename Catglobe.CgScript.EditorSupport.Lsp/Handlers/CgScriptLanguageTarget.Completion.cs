@@ -286,7 +286,7 @@ public partial class CgScriptLanguageTarget
          sb.AppendLine();
       }
 
-      sb.Append($"{indent}/// <returns>${tabStop}</returns>");
+      sb.Append($"{indent}/// <returns type=\"${tabStop++}\">${tabStop}</returns>");
       return sb.ToString();
    }
 
