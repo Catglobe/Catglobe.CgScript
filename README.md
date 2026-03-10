@@ -390,6 +390,151 @@ If you want to use roles in your app, you need to request roles from oidc:
 },
 ```
 
+---
+
+# Migrating hand-coded `Execute` calls to the source generator
+
+Version 2.3.0 ships a Roslyn source generator (`Catglobe.CgScript.EditorSupport.SourceGenerator`) that reads your `.cgs` files at compile time and emits a strongly-typed extension method for each script. This eliminates hand-written request records, manual `[JsonSerializable]` registrations for parameter types, and the repetitive `Execute(path, new(…), callType, returnType)` pattern.
+
+## What gets generated
+
+For every `.cgs` file the generator can parse, it emits a `public static partial class CgScriptExtensions` inside a namespace derived from your assembly name and the script's folder path:
+
+| Script path (relative to project) | Generated namespace | Generated method |
+|------------------------------------|---------------------|-----------------|
+| `CgScript/Company/GetCompanyId.cgs` | `YourApp.CgScript.Company` | `GetCompanyId(…)` |
+| `CgScript/Payment/CreateOrder.cgs` | `YourApp.CgScript.Payment` | `CreateOrder(…)` |
+| `CgScript/User/DetermineRoles.cgs`  | `YourApp.CgScript.User`    | `DetermineRoles(…)` |
+
+The method is an extension on `ICgScriptApiClient` and returns `Task<ScriptResult<TReturn>>`, so existing `.GetValueOrThrowError()` calls require no change.
+
+## Step 1 — Upgrade packages
+
+In your `.csproj`, upgrade to **2.3.0** and add the source generator as an analyzer-only reference (it is compile-time only; no runtime dependency):
+
+```xml
+<PackageReference Include="Catglobe.CgScript.Deployment" Version="2.3.0" />
+<PackageReference Include="Catglobe.CgScript.Runtime" Version="2.3.0" />
+<PackageReference Include="Catglobe.CgScript.EditorSupport.SourceGenerator" Version="2.3.0">
+  <PrivateAssets>all</PrivateAssets>
+  <IncludeAssets>analyzers</IncludeAssets>
+</PackageReference>
+```
+
+## Step 2 — Expose `.cgs` files to the generator
+
+The generator reads scripts via MSBuild `AdditionalFiles`. Keep your existing `<None>` entry (it controls deployment); add a parallel `<AdditionalFiles>` entry:
+
+```xml
+<ItemGroup>
+  <AdditionalFiles Include="CgScript\**\*.cgs" />
+  <None Include="CgScript\**\*.cgs" CopyToPublishDirectory="PreserveNewest" />
+</ItemGroup>
+```
+
+## Step 3 — Mark your JSON serializer context
+
+Add `[CgScriptSerializer]` to your `JsonSerializerContext` subclass. Exactly one class per assembly may carry this attribute. The generator uses it to resolve return-type `JsonTypeInfo` properties.
+
+```csharp
+using Catglobe.CgScript;
+
+[CgScriptSerializer]
+[JsonSerializable(typeof(MyReturnType))]
+// … one entry per non-primitive return type …
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+internal partial class CgScriptSerializer : JsonSerializerContext;
+```
+
+**You no longer need `[JsonSerializable]` entries for parameter/request types** — the generator emits inline serialization for those.
+
+## Step 4 — Annotate `.cgs` scripts
+
+The generator needs to know the C# types of parameters and return values. CgScript's `number`, `array`, `object`, and `question` are ambiguous; `string` and `bool` are unambiguous and need no annotation. Add XML doc comments at the very top of each script:
+
+```cgscript
+/// <summary>Finds a company by name and returns its resource ID.</summary>
+/// <param name="companyFolderId" type="int">Root folder ID.</param>
+/// <returns type="int">Company resource ID.</returns>
+function(number companyFolderId, string companyName) {
+    …
+}.Invoke(Workflow_getParameters()[0]);
+```
+
+### Type annotation reference
+
+| CgScript type | Annotation needed? | Example annotation |
+|---------------|-------------------|--------------------|
+| `string`      | No                | —                  |
+| `bool`        | No                | —                  |
+| `number`      | **Yes**           | `type="int"`, `type="double"`, `type="Guid"` |
+| `array`       | **Yes**           | `type="IReadOnlyCollection<MyType>"`, `type="Guid[]"` |
+| `object` / `Dictionary` | **Yes** | `type="MyRecord"`, `type="object"` |
+| `question`    | **Yes**           | `type="MyType"` |
+| void (no `return`) | No          | omit `<returns>` entirely |
+
+The three supported parameter-passing patterns are all detected automatically:
+
+- **Pattern A** — `function(type name, …) { }.Invoke(Workflow_getParameters()[0])`
+- **Pattern B** — `params[0]["key"]` dict reads
+- **Pattern C** — `var dict = Workflow_getParameters()[0]; type name = dict["key"]`
+
+### Build diagnostics
+
+If an annotation is missing or wrong the build emits a diagnostic rather than silently generating bad code:
+
+| Code   | Meaning |
+|--------|---------|
+| CGS010 | No `[CgScriptSerializer]` class found (or more than one) |
+| CGS011 | Return or parameter type not registered with `[JsonSerializable]` |
+| CGS012 | Ambiguous parameter type — annotation required |
+| CGS013 | Invalid type syntax in annotation |
+
+## Step 5 — Replace `Execute(…)` calls
+
+For each storage/service method, replace the three-line boilerplate with a single generated call:
+
+```csharp
+// Before
+var callType   = CgScriptSerializer.Default.GetCompanyIdRequest;
+var returnType = CgScriptSerializer.Default.Int32;
+var result     = await cgScriptClient.Execute(
+    "Company/GetCompanyId", new(resources.Value.CompanyFolderId, companyName),
+    callType, returnType);
+return result.GetValueOrThrowError();
+
+// After  (add `using YourApp.CgScript.Company;` at the top of the file)
+var result = await cgScriptClient.GetCompanyId(resources.Value.CompanyFolderId, companyName);
+return result.GetValueOrThrowError();
+```
+
+The generated method takes the same individual parameters the script declares, in declaration order. Any parameter that was previously bundled into a request record is now passed directly.
+
+### Adding `using` directives
+
+The generated class lives in `{AssemblyName}.{ScriptFolder}` (dots instead of slashes). Each storage class needs a `using` for the folders it calls:
+
+```csharp
+using YourApp.CgScript.Company;   // in CompanyStorage.cs
+using YourApp.CgScript.Payment;   // in PaymentStorage.cs
+using YourApp.CgScript.Project;   // in ProjectStorage.cs
+using YourApp.CgScript.Report;    // in ReportStorage.cs
+using YourApp.CgScript.User;      // in DetermineRoles.cs, CompanyContext.cs
+using YourApp.CgScript.MediaApi;  // in MediaApi.cs
+```
+
+## Step 6 — Clean up what's no longer needed
+
+Once all `Execute(…)` calls are replaced:
+
+- **Delete internal request records** that were only used as the `new(…)` argument — e.g. `CompanyRequest`, `VoucherValidationRequest`, `PaymentStatusRequest`, etc. Any record used as a *return type* or by UI code outside the CgScript folder must be kept.
+- **Remove `[JsonSerializable]` entries** for those same input/request types from the serializer context.
+- Do **not** remove `[JsonSerializable]` for return types — the generator still needs them to resolve the `JsonTypeInfo` property for deserialization.
+
+## Scripts the generator skips
+
+The generator only produces a wrapper when it can detect a recognised workflow parameter pattern. Scripts that are called only from other CgScripts (automation helpers, internal subroutines) and scripts with no parameters at all will not get wrappers — this is expected and harmless. Leave those scripts unannotated; they are ignored without a build error.
+
 Next, you need to make a script that detect the users roles:
 
 ```cgscript
