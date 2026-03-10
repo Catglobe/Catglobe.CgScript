@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 
 namespace Catglobe.CgScript.EditorSupport.SourceGenerator;
 
@@ -91,7 +91,7 @@ internal static class CgScriptDiagnostics
       title:              "Missing [JsonSerializable] on CgScript serializer context",
       messageFormat:      "The [CgScriptSerializer] context must declare [JsonSerializable(typeof({0}))] — required by script '{1}'",
       category:           Category,
-      defaultSeverity:    DiagnosticSeverity.Error,
+      defaultSeverity:    DiagnosticSeverity.Warning,
       isEnabledByDefault: true);
 
    public static readonly DiagnosticDescriptor MissingParamAnnotation = new(

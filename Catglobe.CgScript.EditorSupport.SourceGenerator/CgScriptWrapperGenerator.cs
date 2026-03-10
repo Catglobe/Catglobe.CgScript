@@ -212,7 +212,6 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
                CgScriptDiagnostics.MissingJsonSerializable,
                serCtx.Location,
                csReturnType, meta.ScriptName));
-            return;
          }
 
          foreach (var p in meta.Parameters)
@@ -224,14 +223,13 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
                   CgScriptDiagnostics.MissingJsonSerializable,
                   serCtx.Location,
                   p.CsType, meta.ScriptName));
-               return;
             }
          }
 
          var body       = WrapperEmitter.Emit(meta, namespaceName, serCtx.FullName);
          var fullSource = WrapperEmitter.WrapInPartialClass(namespaceName, body);
 
-         spc.AddSource($"CgScript.{hintName}.g.cs",
+         spc.AddSource($"{hintName}.g.cs",
             SourceText.From(fullSource, Encoding.UTF8));
       });
    }

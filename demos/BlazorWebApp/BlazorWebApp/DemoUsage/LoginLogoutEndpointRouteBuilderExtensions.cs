@@ -20,6 +20,7 @@ internal static class LoginLogoutEndpointRouteBuilderExtensions
                                                                                       [CookieAuthenticationDefaults.AuthenticationScheme, SetupRuntime.SCHEMENAME]));
 
       return group;
+      //CgScriptJsonContext.Default.IEnumerableTagItem
       //CgScriptWrappers.TestWarnings(client, new TagItem[], 42);
    }
 
