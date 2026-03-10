@@ -10,22 +10,31 @@
       <Company>Voxmeter A/S</Company>
       <Description>Roslyn source generator that reads .cgs script files and emits typed C# wrapper methods.</Description>
       <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+      <IsRoslynComponent>true</IsRoslynComponent>
       <PackageLicenseExpression>MIT</PackageLicenseExpression>
       <PackageReadmeFile>README.md</PackageReadmeFile>
-      <!-- Suppress the default lib/ entry — this assembly has no runtime API surface. -->
       <IncludeBuildOutput>false</IncludeBuildOutput>
+      <NoWarn>$(NoWarn);NU5128</NoWarn>
    </PropertyGroup>
+
+   <ItemDefinitionGroup>
+      <PackageReference>
+         <PrivateAssets>all</PrivateAssets>
+      </PackageReference>
+      <ProjectReference>
+         <PrivateAssets>all</PrivateAssets>
+      </ProjectReference>
+   </ItemDefinitionGroup>
 
    <ItemGroup>
       <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
       <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
-      <!-- Pack the .props file so NuGet consumers automatically get CompilerVisibleProperty -->
       <None Include="build\**" Pack="true" PackagePath="build\" />
-      <!--
-         Explicitly pack the generator DLL and all its transitive dependencies into
-         analyzers/dotnet/cs so Roslyn loads them when the package is consumed via NuGet.
-         The dependency DLLs are copied to $(OutputPath) by CopyAnalyzerDependencies below.
-      -->
+      <Content Include="../README.md" Pack="true" PackagePath="" />
+   </ItemGroup>
+
+   <!-- Generator DLL + transitive deps → analyzers/dotnet/cs only -->
+   <ItemGroup>
       <None Include="$(OutputPath)$(AssemblyName).dll"
             Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
       <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.Parsing.dll"
@@ -36,30 +45,34 @@
             Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
    </ItemGroup>
 
+   <!-- Attributes DLL → both analyzers/dotnet/cs (so generator sees it) and lib/ (so consumers get the real type) -->
    <ItemGroup>
-      <Content Include="../README.md">
-         <Pack>true</Pack>
-         <PackagePath></PackagePath>
-      </Content>
+      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.dll"
+            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.xml"
+            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.pdb"
+            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.dll"
+            Pack="true" PackagePath="lib\netstandard2.0" Visible="true" />
+      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.xml"
+            Pack="true" PackagePath="lib\netstandard2.0" Visible="true" />
+      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.pdb"
+            Pack="true" PackagePath="lib\netstandard2.0" Visible="true" />
    </ItemGroup>
 
    <ItemGroup>
-      <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
-      <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
-      <!-- Transitive deps of the Parsing project; must land in the output dir for Roslyn to load them -->
-      <PackageReference Include="Antlr4.Runtime.Standard" Version="4.13.1" PrivateAssets="all" GeneratePathProperty="true" />
-      <PackageReference Include="System.Text.Json" Version="9.0.9" PrivateAssets="all" GeneratePathProperty="true" />
+      <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
+      <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
+      <PackageReference Include="Antlr4.Runtime.Standard" Version="4.13.1" GeneratePathProperty="true" />
+      <PackageReference Include="System.Text.Json" Version="9.0.9" GeneratePathProperty="true" />
    </ItemGroup>
 
    <ItemGroup>
-      <ProjectReference Include="..\Catglobe.CgScript.EditorSupport.Parsing\Catglobe.CgScript.EditorSupport.Parsing.csproj"
-                        PrivateAssets="all" />
+      <ProjectReference Include="..\Catglobe.CgScript.EditorSupport.Parsing\Catglobe.CgScript.EditorSupport.Parsing.csproj" />
+      <ProjectReference Include="..\Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes\Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.csproj" />
    </ItemGroup>
 
-   <!--
-      Copy dependency DLLs next to the generator DLL so Roslyn can load them when the
-      generator is consumed as an <Analyzer> project reference.
-   -->
    <Target Name="CopyAnalyzerDependencies" AfterTargets="Build">
       <Copy SourceFiles="$(PkgAntlr4_Runtime_Standard)\lib\netstandard2.0\Antlr4.Runtime.Standard.dll"
             DestinationFolder="$(OutputPath)"
@@ -69,15 +82,14 @@
             SkipUnchangedFiles="true" />
    </Target>
 
-   <!--
-      Advertise the extra DLLs to consuming projects so they are passed to the compiler
-      alongside the generator DLL itself.
-   -->
    <PropertyGroup>
       <GetTargetPathDependsOn>$(GetTargetPathDependsOn);GetAnalyzerDependencies</GetTargetPathDependsOn>
    </PropertyGroup>
    <Target Name="GetAnalyzerDependencies">
       <ItemGroup>
+         <TargetPathWithTargetPlatformMoniker
+            Include="$(MSBuildProjectDirectory)\$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.dll"
+            IncludeRuntimeDependency="false" />
          <TargetPathWithTargetPlatformMoniker
             Include="$(MSBuildProjectDirectory)\$(OutputPath)Catglobe.CgScript.EditorSupport.Parsing.dll"
             IncludeRuntimeDependency="false" />
@@ -90,3 +102,4 @@
       </ItemGroup>
    </Target>
 </Project>
+
