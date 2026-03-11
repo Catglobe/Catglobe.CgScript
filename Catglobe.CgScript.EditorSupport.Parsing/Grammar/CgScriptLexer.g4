@@ -75,7 +75,7 @@ NUM_DOUBLE: (DIGIT+ '.' DIGIT* | '.' DIGIT+) EXPONENT?;
 NUM_INT:     DIGIT+;
 
 CHAR_LITERAL:   '\'' (~['\\\r\n] | ESC) '\'';
-STRING_LITERAL: '"'  (~["\\\r\n] | ESC)* '"';
+STRING_LITERAL: '"'  (~["\\] | ESC)* '"';
 
 IDENTIFIER: [a-zA-Z_][a-zA-Z0-9_]*;
 

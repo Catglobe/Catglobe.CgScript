@@ -253,7 +253,8 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
    /// without explicit registration.
    /// </summary>
    private static bool NeedsJsonSerializableCheck(string csType) =>
-      csType != "string"
+      csType != "object"
+      && csType != "string"
       && csType != "double"
       && csType != "float"
       && csType != "bool"

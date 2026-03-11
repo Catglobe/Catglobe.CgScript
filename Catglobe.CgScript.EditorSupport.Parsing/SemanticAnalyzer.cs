@@ -135,13 +135,9 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          return VisitChildren(ctx);
       }
 
-      // for-each loop variable is treated as a global declaration
+      // for-each loop variable is loop-scoped (runtime saves/restores it) — not a global declaration
       public override object? VisitForEachControl(CgScriptParser.ForEachControlContext ctx)
-      {
-         if (_depth == 0)
-            TryAdd(ctx.IDENTIFIER());
-         return VisitChildren(ctx);
-      }
+         => VisitChildren(ctx);
 
       // classic for-loop init declaration is also global
       public override object? VisitForClassicControl(CgScriptParser.ForClassicControlContext ctx)
@@ -233,8 +229,12 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          var savedDepth  = _functionDepth;
          var savedLocals = _extraLocals;
 
-         // Collect declared parameter names
+         // Collect declared parameter names — start from the outer scope for closure semantics
          var newScope = new HashSet<string>(StringComparer.Ordinal);
+         // Inherit outer function's parameters and catch-var locals so closures can reference them
+         if (_functionParams != null)
+            newScope.UnionWith(_functionParams);
+         newScope.UnionWith(_extraLocals);
          var fpCtx = ctx.functionParameters();
          if (fpCtx != null)
          {
@@ -323,7 +323,36 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    }
 
    /// <summary>
-   /// Rule 4 — direct call on an unknown identifier emits "Unknown function 'name'".
+   /// For-each loop: the loop variable is loop-scoped (the runtime saves/restores it),
+   /// so it is NOT in global scope. Push it as a temporary extra local for the loop body.
+   /// Classic for-init declarations remain global scope.
+   /// </summary>
+   public override object? VisitForStatement(CgScriptParser.ForStatementContext ctx)
+   {
+      if (ctx.forControl() is CgScriptParser.ForEachControlContext feCtx)
+      {
+         // Visit the iteration expressions in the current (outer) scope
+         Visit(feCtx.expression(0));
+         Visit(feCtx.expression(1));
+
+         var idNode = feCtx.IDENTIFIER();
+         if (idNode is not null)
+         {
+            var varName = idNode.Symbol.Text;
+            _extraLocals.Add(varName);
+            Visit(ctx.statement());
+            _extraLocals.Remove(varName);
+         }
+         else
+         {
+            Visit(ctx.statement());
+         }
+         return null;
+      }
+      return VisitChildren(ctx);
+   }
+
+   /// <summary>
    /// Only fires when the callee is a simple IDENTIFIER (no chained postfix operators).
    /// </summary>
    public override object? VisitPostfixExpr(CgScriptParser.PostfixExprContext ctx)
