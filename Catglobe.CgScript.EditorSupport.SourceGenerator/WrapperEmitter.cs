@@ -126,6 +126,10 @@ internal static class WrapperEmitter
          "double" or "float"                    => $"                    w.WriteNumber(\"{jsonKey}\", v.{propName});",
          "int" or "long" or "short" or "byte"   => $"                    w.WriteNumber(\"{jsonKey}\", v.{propName});",
          "bool"                                 => $"                    w.WriteBoolean(\"{jsonKey}\", v.{propName});",
+         // Dynamic object type — use reflection-based serialization (not AOT-safe, but object is genuinely dynamic)
+         "object"                               =>
+            $"                    w.WritePropertyName(\"{jsonKey}\");\n" +
+            $"                    global::System.Text.Json.JsonSerializer.Serialize(w, v.{propName});",
          _ =>
             $"                    w.WritePropertyName(\"{jsonKey}\");\n" +
             $"                    global::System.Text.Json.JsonSerializer.Serialize(w, v.{propName}, ctx.{ToStjPropertyName(csType)});",

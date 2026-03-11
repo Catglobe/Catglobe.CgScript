@@ -63,10 +63,6 @@ internal static class ScriptParser
    private static readonly Regex ParamComment =
       new(@"//\s*@param\s+(\w+)\s+(\S+)(.*)", RegexOptions.Compiled);
 
-   // @skip — opt out of C# wrapper generation (for internal helpers called only from other .cgs files)
-   private static readonly Regex SkipComment =
-      new(@"//\s*@skip\b", RegexOptions.Compiled);
-
    private static readonly Regex FunctionDecl =
       new(@"function\s*\(([^)]*)\)\s*\{", RegexOptions.Compiled);
 
@@ -101,21 +97,19 @@ internal static class ScriptParser
 
    /// <summary>
    /// Parses a .cgs script file.
-   /// Returns <c>(metadata, empty, empty)</c> on success.
-   /// Returns <c>(null, missing, empty)</c> when parameters use ambiguous types without annotation (CGS012).
-   /// Returns <c>(null, empty, invalid)</c> when annotations contain malformed type syntax (CGS013).
-   /// Returns <c>(null, empty, empty)</c> when no recognisable workflow pattern is found.
+   /// Returns <c>(metadata, empty, empty, empty)</c> on success with no dynamic params.
+   /// Returns <c>(metadata, empty, dynamic, empty)</c> when some parameters use dynamic <c>object</c> type (CGS014).
+   /// Returns <c>(null, missing, empty, empty)</c> when parameters use ambiguous numeric/collection types without annotation (CGS012).
+   /// Returns <c>(null, empty, empty, invalid)</c> when annotations contain malformed type syntax (CGS013).
+   /// Returns <c>(null, empty, empty, empty)</c> when no recognisable workflow pattern is found.
    /// </summary>
    public static (ScriptMetadata? Meta,
                   IReadOnlyList<(string Name, string CsType)> MissingAnnotations,
+                  IReadOnlyList<(string Name, string CsType)> DynamicParams,
                   IReadOnlyList<string> InvalidAnnotations)
       TryParse(string scriptName, string source)
    {
       List<string>? invalid = null;
-
-      // @skip — opt out of wrapper generation entirely (e.g. internal helpers called only from other .cgs files)
-      if (SkipComment.IsMatch(source))
-         return (null, _emptyMissing, _emptyInvalid);
 
       // Collect annotations — try C# XML doc format first, fall back to // @ legacy
       var docContent = ExtractTripleSlashContent(source);
@@ -155,7 +149,7 @@ internal static class ScriptParser
             paramDocs[m.Groups[1].Value] = doc;
       }
 
-      if (invalid != null) return (null, _emptyMissing, invalid);
+      if (invalid != null) return (null, _emptyMissing, _emptyMissing, invalid);
 
       string ReturnCs() => TryAnnotatedToCsType((returnType0 ?? "void").AsSpan()) ?? "void";
 
@@ -179,9 +173,9 @@ internal static class ScriptParser
          }
          if (cParams.Count > 0)
          {
-            var missing = FindMissingAnnotations(cParams, paramOverrides);
-            if (missing.Count > 0) return (null, missing, _emptyInvalid);
-            return (Make(cParams), _emptyMissing, _emptyInvalid);
+            var (missing, dynamic) = FindAnnotationIssues(cParams, paramOverrides);
+            if (missing.Count > 0) return (null, missing, _emptyMissing, _emptyInvalid);
+            return (Make(cParams), _emptyMissing, dynamic, _emptyInvalid);
          }
       }
 
@@ -200,9 +194,9 @@ internal static class ScriptParser
 
          if (bParams.Count > 0)
          {
-            var missing = FindMissingAnnotations(bParams, paramOverrides);
-            if (missing.Count > 0) return (null, missing, _emptyInvalid);
-            return (Make(bParams), _emptyMissing, _emptyInvalid);
+            var (missing, dynamic) = FindAnnotationIssues(bParams, paramOverrides);
+            if (missing.Count > 0) return (null, missing, _emptyMissing, _emptyInvalid);
+            return (Make(bParams), _emptyMissing, dynamic, _emptyInvalid);
          }
       }
 
@@ -211,12 +205,12 @@ internal static class ScriptParser
       if (fnMatch.Success && source.Contains(".Invoke("))
       {
          var aParams = ParseFunctionParams(fnMatch.Groups[1].Value, paramOverrides, paramDocs);
-         var missing = FindMissingAnnotations(aParams, paramOverrides);
-         if (missing.Count > 0) return (null, missing, _emptyInvalid);
-         return (Make(aParams), _emptyMissing, _emptyInvalid);
+         var (missing, dynamic) = FindAnnotationIssues(aParams, paramOverrides);
+         if (missing.Count > 0) return (null, missing, _emptyMissing, _emptyInvalid);
+         return (Make(aParams), _emptyMissing, dynamic, _emptyInvalid);
       }
 
-      return (null, _emptyMissing, _emptyInvalid);
+      return (null, _emptyMissing, _emptyMissing, _emptyInvalid);
    }
 
    private static readonly IReadOnlyList<(string Name, string CsType)> _emptyMissing =
@@ -225,27 +219,31 @@ internal static class ScriptParser
       new string[0];
 
    /// <summary>
-   /// Returns the subset of <paramref name="parms"/> whose C# type still needs an explicit
-   /// annotation because the CgScript type is ambiguous:
+   /// Partitions parameters into two groups:
    /// <list type="bullet">
-   ///   <item><c>object</c> / <c>IEnumerable&lt;object&gt;</c> — from <c>object</c>, <c>question</c>, <c>array</c></item>
-   ///   <item><c>double</c> — from <c>number</c> (could be int, float, etc.)</item>
+   ///   <item><b>missing</b> (CGS012): <c>double</c> or <c>IEnumerable&lt;object&gt;</c> — numeric/collection types where the caller should specify a concrete C# type.</item>
+   ///   <item><b>dynamic</b> (CGS014): <c>object</c> — genuinely dynamic/unknown types where reflection-based serialization will be used.</item>
    /// </list>
+   /// Parameters that have been overridden by an annotation are excluded from both lists.
    /// </summary>
-   private static IReadOnlyList<(string Name, string CsType)> FindMissingAnnotations(
-      IReadOnlyList<ScriptParam> parms,
-      Dictionary<string, string> paramOverrides)
+   private static (IReadOnlyList<(string Name, string CsType)> Missing,
+                   IReadOnlyList<(string Name, string CsType)> Dynamic)
+      FindAnnotationIssues(
+         IReadOnlyList<ScriptParam> parms,
+         Dictionary<string, string> paramOverrides)
    {
       List<(string, string)>? missing = null;
+      List<(string, string)>? dynamic = null;
       foreach (var p in parms)
       {
-         if ((p.CsType is "object" or "IEnumerable<object>" or "double") &&
-             !paramOverrides.ContainsKey(p.Name))
-         {
+         if (paramOverrides.ContainsKey(p.Name)) continue;
+         if (p.CsType is "double" or "IEnumerable<object>")
             (missing ??= new List<(string, string)>()).Add((p.Name, p.CsType));
-         }
+         else if (p.CsType == "object")
+            (dynamic ??= new List<(string, string)>()).Add((p.Name, p.CsType));
       }
-      return missing ?? (IReadOnlyList<(string, string)>)_emptyMissing;
+      return (missing  ?? (IReadOnlyList<(string, string)>)_emptyMissing,
+              dynamic  ?? (IReadOnlyList<(string, string)>)_emptyMissing);
    }
 
    // ── doc extraction helpers ────────────────────────────────────────────────────

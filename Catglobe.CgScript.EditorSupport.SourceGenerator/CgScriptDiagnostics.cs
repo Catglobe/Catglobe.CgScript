@@ -109,6 +109,14 @@ internal static class CgScriptDiagnostics
       category:           Category,
       defaultSeverity:    DiagnosticSeverity.Error,
       isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor DynamicParamType = new(
+      id:                 "CGS014",
+      title:              "CgScript parameter has dynamic object type",
+      messageFormat:      "Parameter '{0}' in script '{1}' has dynamic type 'object'. The wrapper will use reflection-based JSON serialization for this parameter, which is not AOT-safe. Consider annotating with '// @param {0} YourCsType' if the concrete type is known.",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Info,
+      isEnabledByDefault: true);
    public static DiagnosticSeverity ToRoslyn(Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity s)
       => s == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
          ? DiagnosticSeverity.Error

@@ -166,7 +166,7 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
          var serCtx = ctxClasses[0];
 
          // ── Wrapper code generation ───────────────────────────────────────────
-         var (meta, missingAnnotations, invalidAnnotations) = ScriptParser.TryParse(scriptName, source);
+         var (meta, missingAnnotations, dynamicParams, invalidAnnotations) = ScriptParser.TryParse(scriptName, source);
          foreach (var ann in invalidAnnotations)
          {
             spc.ReportDiagnostic(Microsoft.CodeAnalysis.Diagnostic.Create(
@@ -182,6 +182,14 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
                paramName, csType));
          }
          if (meta is null) return;
+
+         foreach (var (paramName, _) in dynamicParams)
+         {
+            spc.ReportDiagnostic(Microsoft.CodeAnalysis.Diagnostic.Create(
+               CgScriptDiagnostics.DynamicParamType,
+               FileLocation(file, text, source, paramName),
+               paramName, meta.ScriptName));
+         }
 
          // ── CGS011: check [JsonSerializable] for non-primitive return + param types ──
          // Map void→object (WrapperEmitter uses object as the return type for void scripts)
