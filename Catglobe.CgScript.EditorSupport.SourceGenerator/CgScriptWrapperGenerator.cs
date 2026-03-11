@@ -86,23 +86,26 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
          .Where(static x => x.IsValid)
          .Collect();
 
-      // ── Project directory (for relative-path computation) ────────────────────
-      var projectDirProvider = context.AnalyzerConfigOptionsProvider
+      // ── Project directory + CgScript root folder ──────────────────────────────
+      var projectInfoProvider = context.AnalyzerConfigOptionsProvider
          .Select(static (opts, _) =>
          {
             opts.GlobalOptions.TryGetValue("build_property.MSBuildProjectDirectory", out var dir);
-            return dir ?? "";
+            opts.GlobalOptions.TryGetValue("build_property.CgScriptRootFolder", out var root);
+            return (Dir: dir ?? "", Root: root ?? "CgScript");
          });
 
-      // ── Combine everything: per-file × compilation × context classes × project dir ──
+      // ── Combine everything: per-file × compilation × context classes × project info ──
       var combined = cgsFiles
          .Combine(context.CompilationProvider)
          .Combine(serializerClasses)
-         .Combine(projectDirProvider);
+         .Combine(projectInfoProvider);
 
       context.RegisterSourceOutput(combined, static (spc, pair) =>
       {
-         var (((file, compilation), ctxClasses), projectDir) = pair;
+         var (((file, compilation), ctxClasses), projectInfo) = pair;
+         var projectDir   = projectInfo.Dir;
+         var cgScriptRoot = projectInfo.Root;
          var text = file.GetText(spc.CancellationToken);
          if (text is null) return;
 
@@ -130,11 +133,17 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
          // Strip deployer metadata (@NNN[.public]) from the file name only
          var scriptFile  = s_deployerSuffix.Replace(fileBase, string.Empty);
 
-         // Full script path used when calling the Catglobe API (matches ScriptFromFileOnDisk)
-         var scriptName  = dirPart.Length > 0 ? dirPart + "/" + scriptFile : scriptFile;
+         // Full relative path (used for hint name / namespace computation)
+         var fullRelPath = dirPart.Length > 0 ? dirPart + "/" + scriptFile : scriptFile;
+
+         // Strip CgScriptRootFolder prefix from the script name passed to Execute()
+         var rootPrefix  = cgScriptRoot.TrimEnd('/') + "/";
+         var scriptName  = fullRelPath.StartsWith(rootPrefix, System.StringComparison.OrdinalIgnoreCase)
+                           ? fullRelPath.Substring(rootPrefix.Length)
+                           : fullRelPath;
 
          // Hint name: unique within the assembly (path-based, so subfolders are safe)
-         var hintName    = SanitizeHintName(scriptName);
+         var hintName    = SanitizeHintName(fullRelPath);
 
          // Namespace: assembly name + sanitised directory segments
          var assemblyNs  = compilation.AssemblyName ?? "CgScriptGenerated";

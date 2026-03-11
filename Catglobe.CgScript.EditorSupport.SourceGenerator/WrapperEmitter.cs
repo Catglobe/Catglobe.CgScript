@@ -29,7 +29,8 @@ internal static class WrapperEmitter
                            ? meta.ScriptName.Substring(lastSlash + 1)
                            : meta.ScriptName);
       var paramsClass = methodName + "Params";
-      var returnCs    = meta.ReturnType == "void" ? "object" : meta.ReturnType;
+      var isVoid      = meta.ReturnType == "void";
+      var returnCs    = isVoid ? "object" : meta.ReturnType;
       var hasParams   = meta.Parameters.Count > 0;
 
       // ── XML doc comment ──────────────────────────────────────────────────────
@@ -44,7 +45,10 @@ internal static class WrapperEmitter
       }
       if (meta.ReturnDoc != null)
          sb.AppendLine($"    /// <returns>{XmlEscape(meta.ReturnDoc)}</returns>");
-      sb.Append($"    public static global::System.Threading.Tasks.Task<global::Catglobe.CgScript.Runtime.ScriptResult<{returnCs}>> {methodName}(");
+      if (isVoid)
+         sb.Append($"    public static async global::System.Threading.Tasks.Task {methodName}(");
+      else
+         sb.Append($"    public static async global::System.Threading.Tasks.Task<{returnCs}> {methodName}(");
       sb.Append("this global::Catglobe.CgScript.Runtime.ICgScriptApiClient client");
       foreach (var p in meta.Parameters)
       {
@@ -84,10 +88,13 @@ internal static class WrapperEmitter
       // type is not registered with [JsonSerializable], and CGS011 explains why.
       sb.AppendLine($"        var resultInfo = ctx.{ToStjPropertyName(returnCs)};");
 
-      if (hasParams)
-         sb.AppendLine($"        return client.Execute<{paramsClass}, {returnCs}>(\"{meta.ScriptName}\", new {paramsClass}({string.Join(", ", meta.Parameters.Select(p => ToCamelCase(p.Name)))}), paramsInfo, resultInfo, cancellationToken: ct);");
+      var executeExpr = hasParams
+         ? $"client.Execute<{paramsClass}, {returnCs}>(\"{meta.ScriptName}\", new {paramsClass}({string.Join(", ", meta.Parameters.Select(p => ToCamelCase(p.Name)))}), paramsInfo, resultInfo, cancellationToken: ct)"
+         : $"client.Execute<{returnCs}>(\"{meta.ScriptName}\", resultInfo, cancellationToken: ct)";
+      if (isVoid)
+         sb.AppendLine($"        (await {executeExpr}).GetValueOrThrowError();");
       else
-         sb.AppendLine($"        return client.Execute<{returnCs}>(\"{meta.ScriptName}\", resultInfo, cancellationToken: ct);");
+         sb.AppendLine($"        return (await {executeExpr}).GetValueOrThrowError();");
 
       sb.AppendLine("    }");
       sb.AppendLine();
