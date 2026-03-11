@@ -72,12 +72,28 @@ internal static class ScriptParser
           RegexOptions.Compiled | RegexOptions.Multiline);
 
    // Pattern C: dictVar = Workflow_getParameters()[0]; type name = dictVar["key"]
+   // Also handles 2-step: Array pVar = Workflow_getParameters(); dictVar = pVar[0]
    private static readonly Regex DictAssignDecl =
       new(@"\b(\w+)\s*=\s*Workflow_getParameters\s*\(\s*\)\s*\[\s*0\s*\]",
           RegexOptions.Compiled);
 
+   // Matches the intermediate params variable in 2-step form: pVar = Workflow_getParameters()
+   private static readonly Regex ParamsVarAssign =
+      new(@"\b(\w+)\s*=\s*Workflow_getParameters\s*\(\s*\)",
+          RegexOptions.Compiled);
+
+   // Matches assignment of dictVar from a known array variable: dictVar = arrayVar[0]
+   private static readonly Regex DictFromParamsVar =
+      new(@"\b(\w+)\s*=\s*(\w+)\s*\[\s*0\s*\]",
+          RegexOptions.Compiled);
+
    private static readonly Regex DictRead =
       new(@"(?m)^\s*(\w+)\s+(\w+)\s*=\s*(\w+)\s*\[\s*""(\w+)""\s*\]",
+          RegexOptions.Compiled | RegexOptions.Multiline);
+
+   // Matches optional-param access pattern: type var = dictVar.TryGetValue("key")
+   private static readonly Regex DictTryGetRead =
+      new(@"(?m)^\s*(\w+)\s+(\w+)\s*=\s*(\w+)\.TryGetValue\s*\(\s*""(\w+)""\s*\)",
           RegexOptions.Compiled | RegexOptions.Multiline);
 
    // CgScript → C# type map
@@ -157,20 +173,48 @@ internal static class ScriptParser
          new ScriptMetadata(scriptName, ReturnCs(), parms, summary, returnDoc);
 
       // ── Pattern C: dictVar = Workflow_getParameters()[0]; type name = dictVar["key"] ──
+      // Also handles 2-step: Array pVar = Workflow_getParameters(); dictVar = pVar[0]; type name = dictVar["key"]
+      string? cDictVar = null;
       var dictAssign = DictAssignDecl.Match(source);
       if (dictAssign.Success)
       {
-         var dictVar = dictAssign.Groups[1].Value;
-         var cParams = new List<ScriptParam>();
-         foreach (Match m in DictRead.Matches(source))
+         cDictVar = dictAssign.Groups[1].Value;
+      }
+      else
+      {
+         var paramsVarMatch = ParamsVarAssign.Match(source);
+         if (paramsVarMatch.Success)
          {
-            if (m.Groups[3].Value == dictVar)
+            var paramsVar = paramsVarMatch.Groups[1].Value;
+            foreach (Match m in DictFromParamsVar.Matches(source))
             {
-               var name   = m.Groups[4].Value;
-               var csType = paramOverrides.TryGetValue(name, out var ov) ? ov : ToCsType(m.Groups[1].Value);
-               cParams.Add(new ScriptParam(csType, name, paramDocs.TryGetValue(name, out var d) ? d : null));
+               if (m.Groups[2].Value == paramsVar)
+               {
+                  cDictVar = m.Groups[1].Value;
+                  break;
+               }
             }
          }
+      }
+
+      if (cDictVar != null)
+      {
+         var seen    = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+         var cParams = new List<ScriptParam>();
+
+         void AddParam(string cgsType, string key)
+         {
+            if (!seen.Add(key)) return;
+            var csType = paramOverrides.TryGetValue(key, out var ov) ? ov : ToCsType(cgsType);
+            cParams.Add(new ScriptParam(csType, key, paramDocs.TryGetValue(key, out var d) ? d : null));
+         }
+
+         foreach (Match m in DictRead.Matches(source))
+            if (m.Groups[3].Value == cDictVar) AddParam(m.Groups[1].Value, m.Groups[4].Value);
+
+         foreach (Match m in DictTryGetRead.Matches(source))
+            if (m.Groups[3].Value == cDictVar) AddParam(m.Groups[1].Value, m.Groups[4].Value);
+
          if (cParams.Count > 0)
          {
             var (missing, dynamic) = FindAnnotationIssues(cParams, paramOverrides);
