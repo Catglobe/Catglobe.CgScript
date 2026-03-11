@@ -85,8 +85,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       {
          var name = kvp.Key;
          var line = kvp.Value;
-         if (!name.StartsWith("_", StringComparison.Ordinal)
-             && !analyzer._readVars.Contains(name))
+         if (!analyzer._readVars.Contains(name))
          {
             analyzer._diagnostics.Add(new Diagnostic(
                DiagnosticSeverity.Warning,
