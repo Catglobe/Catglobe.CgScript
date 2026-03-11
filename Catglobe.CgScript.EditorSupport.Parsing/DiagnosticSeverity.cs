@@ -8,4 +8,7 @@ public enum DiagnosticSeverity
 
    /// <summary>A warning that does not prevent parsing from continuing.</summary>
    Warning,
+
+   /// <summary>An informational hint that does not affect correctness.</summary>
+   Information,
 }

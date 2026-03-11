@@ -328,6 +328,18 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// </summary>
    public override object? VisitForStatement(CgScriptParser.ForStatementContext ctx)
    {
+      if (ctx.forControl() is CgScriptParser.ForClassicControlContext)
+      {
+         var token = ctx.Start;
+         _diagnostics.Add(new Diagnostic(
+            DiagnosticSeverity.Information,
+            "C-style for loop can be converted to native CgScript style: for(<var> for <from>; <to>)",
+            token.Line,
+            token.Column,
+            token.Text.Length,
+            "CGS015"));
+      }
+
       if (ctx.forControl() is CgScriptParser.ForEachControlContext feCtx)
       {
          // Visit the iteration expressions in the current (outer) scope

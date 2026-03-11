@@ -138,6 +138,8 @@ public partial class CgScriptLanguageTarget
          {
             Severity = d.Severity == Parsing.DiagnosticSeverity.Error
                ? Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Error
+               : d.Severity == Parsing.DiagnosticSeverity.Information
+               ? Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Information
                : Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Warning,
             Code    = string.IsNullOrEmpty(d.Code) ? default : new SumType<int, string>(d.Code),
             Message = d.Message,

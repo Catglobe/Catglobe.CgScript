@@ -120,6 +120,8 @@ internal static class CgScriptDiagnostics
    public static DiagnosticSeverity ToRoslyn(Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity s)
       => s == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
          ? DiagnosticSeverity.Error
+         : s == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Information
+         ? DiagnosticSeverity.Info
          : DiagnosticSeverity.Warning;
 
    /// <summary>
