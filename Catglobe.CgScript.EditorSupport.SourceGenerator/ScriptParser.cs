@@ -63,6 +63,10 @@ internal static class ScriptParser
    private static readonly Regex ParamComment =
       new(@"//\s*@param\s+(\w+)\s+(\S+)(.*)", RegexOptions.Compiled);
 
+   // @skip — opt out of C# wrapper generation (for internal helpers called only from other .cgs files)
+   private static readonly Regex SkipComment =
+      new(@"//\s*@skip\b", RegexOptions.Compiled);
+
    private static readonly Regex FunctionDecl =
       new(@"function\s*\(([^)]*)\)\s*\{", RegexOptions.Compiled);
 
@@ -108,6 +112,10 @@ internal static class ScriptParser
       TryParse(string scriptName, string source)
    {
       List<string>? invalid = null;
+
+      // @skip — opt out of wrapper generation entirely (e.g. internal helpers called only from other .cgs files)
+      if (SkipComment.IsMatch(source))
+         return (null, _emptyMissing, _emptyInvalid);
 
       // Collect annotations — try C# XML doc format first, fall back to // @ legacy
       var docContent = ExtractTripleSlashContent(source);
