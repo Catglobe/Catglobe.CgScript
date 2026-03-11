@@ -520,7 +520,7 @@ With this setting `CgScript/Company/GetCompanyId.cgs` will call `Execute("Compan
 
 ### Build diagnostics
 
-The source generator emits build-time diagnostics covering both CgScript language issues (CGS001–CGS009) and C# wrapper generation issues (CGS010–CGS014):
+The source generator emits build-time diagnostics covering both CgScript language issues (CGS001–CGS009, CGS015) and C# wrapper generation issues (CGS010–CGS014):
 
 | Code   | Severity | Meaning |
 |--------|----------|---------|
@@ -538,6 +538,7 @@ The source generator emits build-time diagnostics covering both CgScript languag
 | CGS012 | Error    | Ambiguous parameter type — `type=""` annotation required |
 | CGS013 | Error    | Invalid C# type syntax in annotation |
 | CGS014 | Info     | Parameter uses dynamic `object` type — not AOT-safe; annotate if concrete type is known |
+| CGS015 | Info     | C-style `for` loop detected — quick fix available to convert to native `for(<var> for <from>; <to>)` style |
 
 ## Step 5 — Replace `Execute(…)` calls
 
