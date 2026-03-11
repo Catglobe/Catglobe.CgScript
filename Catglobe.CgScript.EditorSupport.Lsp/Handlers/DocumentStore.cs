@@ -21,7 +21,8 @@ public sealed class DocumentStore
 
    public void Update(string uri, string text)
    {
-      var result     = CgScriptParseService.Parse(text);
+      var (cleanedText, _) = PreprocessorScanner.Strip(text);
+      var result     = CgScriptParseService.Parse(cleanedText);
       var extraDiags = SemanticAnalyzer.Analyze(
          result.Tree,
          _definitions.Functions.Keys,

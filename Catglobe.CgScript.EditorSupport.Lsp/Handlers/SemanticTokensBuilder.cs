@@ -25,6 +25,7 @@ public static class SemanticTokensBuilder
    private const int TypeParameter  = 9;
    private const int TypeMethod     = 10;
    private const int TypeProperty   = 11;
+   private const int TypeMacro      = 12;
 
    // ── Token modifier bit positions ──────────────────────────────────────────────
    private const int ModDeclaration    = 1 << 0; // bit 0
@@ -45,6 +46,7 @@ public static class SemanticTokensBuilder
       SemanticTokenTypes.Parameter,  // 9
       SemanticTokenTypes.Method,     // 10
       SemanticTokenTypes.Property,   // 11
+      SemanticTokenTypes.Macro,      // 12
    ];
 
    /// <summary>Token modifier names (bit position == index in this array).</summary>
@@ -105,7 +107,10 @@ public static class SemanticTokensBuilder
          : knownConstants is not null              ? new HashSet<string>(knownConstants)
                                                    : null;
 
-      var lexer  = new CgScriptLexer(CharStreams.fromString(text));
+      // Strip preprocessor directives before lexing so ANTLR doesn't see bare '#'.
+      var (cleanedText, preprocDirectives) = PreprocessorScanner.Strip(text);
+
+      var lexer  = new CgScriptLexer(CharStreams.fromString(cleanedText));
       var stream = new CommonTokenStream(lexer);
       stream.Fill();
 
@@ -190,11 +195,18 @@ public static class SemanticTokensBuilder
          }
       }
 
+      // Add a macro-type token for each preprocessor directive line.
+      foreach (var (line0, col, length) in preprocDirectives)
+         result.Add(new RawToken(line0, col, length, TypeMacro, 0));
+
+      // Ensure tokens are sorted by line then column for correct delta encoding.
+      result.Sort((a, b) => a.Line != b.Line ? a.Line - b.Line : a.Col - b.Col);
+
       return result;
    }
 
    /// <summary>
-   /// Classifies an IDENTIFIER token using the 9-rule priority chain described in
+   /// Classifies an IDENTIFIER tokenusing the 9-rule priority chain described in
    /// the LSP capability specification.
    /// </summary>
    private static (int TypeIdx, int Modifier) ClassifyIdentifier(

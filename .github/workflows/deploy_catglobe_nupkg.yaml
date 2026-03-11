@@ -35,6 +35,8 @@ jobs:
           node-version: 'lts/*'
       - name: Install dependencies
         run: npm clean-install
+      - name: Test
+        run: dotnet test
       - name: NuGet login (OIDC → temp API key)
         uses: NuGet/login@v1
         id: nuget

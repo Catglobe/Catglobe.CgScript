@@ -3,6 +3,7 @@
   "name": "CgScript",
   "scopeName": "source.cgs",
   "patterns": [
+    { "include": "#preprocessor" },
     { "include": "#comments" },
     { "include": "#strings" },
     { "include": "#char-literal" },
@@ -15,6 +16,18 @@
     { "include": "#operators" }
   ],
   "repository": {
+    "preprocessor": {
+      "patterns": [
+        {
+          "name": "keyword.control.preprocessor.cgs",
+          "match": "^\\s*#IF\\s+(?:Development|Production|Staging)\\b.*$"
+        },
+        {
+          "name": "keyword.control.preprocessor.cgs",
+          "match": "^\\s*#ENDIF\\b.*$"
+        }
+      ]
+    },
     "comments": {
       "patterns": [
         {

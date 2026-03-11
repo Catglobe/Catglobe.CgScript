@@ -23,6 +23,10 @@
    </PropertyGroup>
 
    <ItemGroup>
+      <InternalsVisibleTo Include="Catglobe.CgScript.EditorSupport.Lsp.Tests" />
+   </ItemGroup>
+
+   <ItemGroup>
       <ProjectReference Include="..\Catglobe.CgScript.EditorSupport.Parsing\Catglobe.CgScript.EditorSupport.Parsing.csproj" />
    </ItemGroup>
 

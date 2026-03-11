@@ -1,0 +1,27 @@
+// TestPreprocessor.cgs — demonstrates #IF/#ENDIF environment-conditional blocks.
+//
+// BaseCgScriptMaker keeps only the block whose label matches the active
+// deployment environment.  In the editor ALL blocks remain visible so that
+// code assistance, diagnostics, and semantic highlighting work inside every
+// conditional section.
+//
+/// <summary>Returns a greeting adjusted for the deployment environment.</summary>
+/// <param name="name" type="string">The recipient's name.</param>
+/// <returns type="string">The environment-specific greeting.</returns>
+function(string name) {
+    string prefix;
+
+    #IF Development
+    prefix = "[DEV] ";
+    #ENDIF
+
+    #IF Staging
+    prefix = "[STAGING] ";
+    #ENDIF
+
+    #IF Production
+    prefix = "";
+    #ENDIF
+
+    return prefix + "Hello, " + name + "!";
+}.Invoke(Workflow_getParameters()[0]);
