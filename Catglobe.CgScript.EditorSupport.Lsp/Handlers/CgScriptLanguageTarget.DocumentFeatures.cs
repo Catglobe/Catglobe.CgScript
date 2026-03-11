@@ -273,6 +273,44 @@ public partial class CgScriptLanguageTarget
          }));
       }
 
+      // ── refactor: convert C-style for loop to native CgScript for loop ────────
+      // Matches: for(type? name = start; name < end; name++) { … }
+      // Emits:   for(name for start; end) { … }
+      var forText   = _store.GetText(uri);
+      var cursorLine = p.Range.Start.Line;
+      if (forText is not null)
+      {
+         var forLines = forText.Split('\n');
+         if (cursorLine < forLines.Length)
+         {
+            var line = forLines[cursorLine];
+            var nativeFor = TryConvertCStyleFor(line);
+            if (nativeFor is not null)
+            {
+               var lineEnd = line.TrimEnd('\r').Length;
+               actions.Add(new SumType<Command, CodeAction>(new CodeAction
+               {
+                  Title = "Use CgScript native for loop",
+                  Kind  = CodeActionKind.Refactor,
+                  Edit  = new WorkspaceEdit
+                  {
+                     Changes = new Dictionary<string, TextEdit[]>
+                     {
+                        [uri] =
+                        [
+                           new TextEdit
+                           {
+                              Range   = new LspRange { Start = new Position(cursorLine, 0), End = new Position(cursorLine, lineEnd) },
+                              NewText = nativeFor,
+                           },
+                        ],
+                     },
+                  },
+               }));
+            }
+         }
+      }
+
       // ── refactor: extract expression to variable (parse-tree based) ─────────
       // Cursor = normalised range start (works regardless of selection direction).
       var rawA   = p.Range.Start;
@@ -330,6 +368,29 @@ public partial class CgScriptLanguageTarget
       }
 
       return actions.ToArray();
+   }
+
+   /// <summary>
+   /// Attempts to convert a C-style for loop header on the given line to a CgScript native for loop.
+   /// Handles: <c>for(type? name = start; name &lt; end; name++) {</c>
+   /// Returns the converted line text, or null if the pattern does not match.
+   /// </summary>
+   private static string? TryConvertCStyleFor(string line)
+   {
+      // Match: optional-indent for ( optional-type name = start ; name < end ; name++ ) optional-brace
+      // Groups: (1)=indent (2)=varName (3)=start (4)=end (5)=trailingBrace
+      var m = System.Text.RegularExpressions.Regex.Match(line,
+         @"^(\s*)for\s*\(\s*(?:\w+\s+)?(\w+)\s*=\s*([^;]+?)\s*;\s*\2\s*<\s*([^;]+?)\s*;\s*\2\s*\+\+\s*\)(.*)",
+         System.Text.RegularExpressions.RegexOptions.None);
+      if (!m.Success) return null;
+
+      var indent  = m.Groups[1].Value;
+      var varName = m.Groups[2].Value;
+      var start   = m.Groups[3].Value.Trim();
+      var end     = m.Groups[4].Value.Trim();
+      var tail    = m.Groups[5].Value; // e.g. " {" or ""
+
+      return $"{indent}for({varName} for {start}; {end}){tail}";
    }
 
    /// <summary>Extracts the raw text covered by an LSP range.</summary>
