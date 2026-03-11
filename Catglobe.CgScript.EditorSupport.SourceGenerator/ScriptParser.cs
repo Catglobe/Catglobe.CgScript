@@ -6,7 +6,7 @@ namespace Catglobe.CgScript.EditorSupport.SourceGenerator;
 /// <summary>
 /// Detected parameter from a .cgs script.
 /// </summary>
-internal sealed record ScriptParam(string CsType, string Name, string? Doc = null);
+internal sealed record ScriptParam(string CsType, string Name, string? Doc = null, bool IsOptional = false);
 
 /// <summary>
 /// Extracted metadata from a .cgs script file.
@@ -202,18 +202,18 @@ internal static class ScriptParser
          var seen    = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
          var cParams = new List<ScriptParam>();
 
-         void AddParam(string cgsType, string key)
+         void AddParam(string cgsType, string key, bool isOptional = false)
          {
             if (!seen.Add(key)) return;
             var csType = paramOverrides.TryGetValue(key, out var ov) ? ov : ToCsType(cgsType);
-            cParams.Add(new ScriptParam(csType, key, paramDocs.TryGetValue(key, out var d) ? d : null));
+            cParams.Add(new ScriptParam(csType, key, paramDocs.TryGetValue(key, out var d) ? d : null, isOptional));
          }
 
          foreach (Match m in DictRead.Matches(source))
             if (m.Groups[3].Value == cDictVar) AddParam(m.Groups[1].Value, m.Groups[4].Value);
 
          foreach (Match m in DictTryGetRead.Matches(source))
-            if (m.Groups[3].Value == cDictVar) AddParam(m.Groups[1].Value, m.Groups[4].Value);
+            if (m.Groups[3].Value == cDictVar) AddParam(m.Groups[1].Value, m.Groups[4].Value, isOptional: true);
 
          if (cParams.Count > 0)
          {
@@ -354,13 +354,18 @@ internal static class ScriptParser
 
       foreach (var part in paramList.Split(','))
       {
-         var tokens = part.Trim().Split(new[] { ' ', '\t' },
+         var trimmed    = part.Trim();
+         var eqIdx      = trimmed.IndexOf('=');
+         var isOptional = eqIdx >= 0;
+         var decl       = isOptional ? trimmed.Substring(0, eqIdx).TrimEnd() : trimmed;
+
+         var tokens = decl.Split(new[] { ' ', '\t' },
             System.StringSplitOptions.RemoveEmptyEntries);
          if (tokens.Length >= 2)
          {
             var name   = tokens[1];
             var csType = paramOverrides.TryGetValue(name, out var ov) ? ov : ToCsType(tokens[0]);
-            result.Add(new ScriptParam(csType, name, paramDocs.TryGetValue(name, out var d) ? d : null));
+            result.Add(new ScriptParam(csType, name, paramDocs.TryGetValue(name, out var d) ? d : null, isOptional));
          }
       }
 

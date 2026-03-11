@@ -47,7 +47,12 @@ internal static class WrapperEmitter
       sb.Append($"    public static global::System.Threading.Tasks.Task<global::Catglobe.CgScript.Runtime.ScriptResult<{returnCs}>> {methodName}(");
       sb.Append("this global::Catglobe.CgScript.Runtime.ICgScriptApiClient client");
       foreach (var p in meta.Parameters)
-         sb.Append($", {p.CsType} {ToCamelCase(p.Name)}");
+      {
+         if (p.IsOptional)
+            sb.Append($", {MakeNullable(p.CsType)} {ToCamelCase(p.Name)} = null");
+         else
+            sb.Append($", {p.CsType} {ToCamelCase(p.Name)}");
+      }
       sb.AppendLine(", global::System.Threading.CancellationToken ct = default)");
       sb.AppendLine("    {");
       sb.AppendLine($"        var ctx = global::{contextFullName}.Default;");
@@ -67,7 +72,7 @@ internal static class WrapperEmitter
          {
             var prop    = ToPascalCase(p.Name);
             var jsonKey = p.Name;
-            sb.AppendLine(WritePropertyLine(jsonKey, prop, p.CsType));
+            sb.AppendLine(WritePropertyLine(jsonKey, prop, p.CsType, p.IsOptional));
          }
          sb.AppendLine("                    w.WriteEndObject();");
          sb.AppendLine("                }");
@@ -91,7 +96,10 @@ internal static class WrapperEmitter
       if (hasParams)
       {
          sb.Append($"    private record {paramsClass}(");
-         sb.Append(string.Join(", ", meta.Parameters.Select(p => $"{p.CsType} {ToPascalCase(p.Name)}")));
+         sb.Append(string.Join(", ", meta.Parameters.Select(p =>
+            p.IsOptional
+               ? $"{MakeNullable(p.CsType)} {ToPascalCase(p.Name)} = null"
+               : $"{p.CsType} {ToPascalCase(p.Name)}")));
          sb.AppendLine(");");
       }
 
@@ -119,23 +127,51 @@ internal static class WrapperEmitter
 
    // ── Utf8JsonWriter call per C# param type ────────────────────────────────
 
-   private static string WritePropertyLine(string jsonKey, string propName, string csType) =>
+   private static string WritePropertyLine(string jsonKey, string propName, string csType, bool isOptional)
+   {
+      const string I = "                    "; // 20 spaces
+
+      if (!isOptional)
+         return BuildPropertyWriteContent(jsonKey, $"v.{propName}", csType, I);
+
+      // Optional param: wrap write in a null check.
+      // Value types (bool, int, …) use .HasValue/.Value; reference types use != null.
+      bool isValueType = IsKnownValueType(csType);
+      string condition  = isValueType ? $"v.{propName}.HasValue" : $"v.{propName} != null";
+      string valueExpr  = isValueType ? $"v.{propName}.Value"    : $"v.{propName}!";
+      string content    = BuildPropertyWriteContent(jsonKey, valueExpr, csType, I + "    ");
+
+      return $"{I}if ({condition})\n{I}{{\n{content}\n{I}}}";
+   }
+
+   private static string BuildPropertyWriteContent(string jsonKey, string valueExpr, string csType, string indent) =>
       csType.ToLowerInvariant() switch
       {
-         "string"                               => $"                    w.WriteString(\"{jsonKey}\", v.{propName});",
-         "double" or "float"                    => $"                    w.WriteNumber(\"{jsonKey}\", v.{propName});",
-         "int" or "long" or "short" or "byte"   => $"                    w.WriteNumber(\"{jsonKey}\", v.{propName});",
-         "bool"                                 => $"                    w.WriteBoolean(\"{jsonKey}\", v.{propName});",
+         "string"                               => $"{indent}w.WriteString(\"{jsonKey}\", {valueExpr});",
+         "double" or "float"                    => $"{indent}w.WriteNumber(\"{jsonKey}\", {valueExpr});",
+         "int" or "long" or "short" or "byte"   => $"{indent}w.WriteNumber(\"{jsonKey}\", {valueExpr});",
+         "bool"                                 => $"{indent}w.WriteBoolean(\"{jsonKey}\", {valueExpr});",
          // Dynamic object type — use reflection-based serialization (not AOT-safe, but object is genuinely dynamic)
          "object"                               =>
-            $"                    w.WritePropertyName(\"{jsonKey}\");\n" +
-            $"                    global::System.Text.Json.JsonSerializer.Serialize(w, v.{propName});",
+            $"{indent}w.WritePropertyName(\"{jsonKey}\");\n" +
+            $"{indent}global::System.Text.Json.JsonSerializer.Serialize(w, {valueExpr});",
          _ =>
-            $"                    w.WritePropertyName(\"{jsonKey}\");\n" +
-            $"                    global::System.Text.Json.JsonSerializer.Serialize(w, v.{propName}, ctx.{ToStjPropertyName(csType)});",
+            $"{indent}w.WritePropertyName(\"{jsonKey}\");\n" +
+            $"{indent}global::System.Text.Json.JsonSerializer.Serialize(w, {valueExpr}, ctx.{ToStjPropertyName(csType)});",
       };
 
-   private static string CsType(ScriptParam p) => p.CsType;
+   private static string MakeNullable(string csType)
+   {
+      if (csType.EndsWith("?")) return csType;
+      return csType + "?";
+   }
+
+   /// <summary>
+   /// Returns true for C# value types that require <c>.HasValue</c>/<c>.Value</c>
+   /// when made nullable, rather than the <c>!= null</c> reference-type pattern.
+   /// </summary>
+   private static bool IsKnownValueType(string csType) =>
+      csType is "bool" or "int" or "double" or "float" or "long" or "short" or "byte" or "Guid";
 
    /// <summary>
    /// Converts a C# type name to the property name generated by the STJ source generator on a
