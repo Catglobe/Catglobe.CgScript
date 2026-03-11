@@ -38,9 +38,8 @@
 
   <ItemGroup>
     <!-- Source generator: emits typed C# wrappers and reports CgScript diagnostics -->
-    <ProjectReference Include="..\..\..\Catglobe.CgScript.EditorSupport.SourceGenerator\Catglobe.CgScript.EditorSupport.SourceGenerator.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\..\Catglobe.CgScript.EditorSupport.SourceGenerator\Catglobe.CgScript.EditorSupport.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\..\Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes\Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.csproj" />
   </ItemGroup>
    <!--end Added for this demo-->
 

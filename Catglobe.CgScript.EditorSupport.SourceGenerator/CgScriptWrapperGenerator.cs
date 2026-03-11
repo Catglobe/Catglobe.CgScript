@@ -171,14 +171,14 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
          {
             spc.ReportDiagnostic(Microsoft.CodeAnalysis.Diagnostic.Create(
                CgScriptDiagnostics.InvalidTypeAnnotation,
-               Location.None,
+               FileLocation(file, text, source, ann),
                ann));
          }
          foreach (var (paramName, csType) in missingAnnotations)
          {
             spc.ReportDiagnostic(Microsoft.CodeAnalysis.Diagnostic.Create(
                CgScriptDiagnostics.MissingParamAnnotation,
-               Location.None,
+               FileLocation(file, text, source, paramName),
                paramName, csType));
          }
          if (meta is null) return;
@@ -308,6 +308,18 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
       var col  = System.Math.Min(d.Column, line.Span.Length);
       var len  = System.Math.Min(d.Length, line.Span.Length - col);
       var span = new TextSpan(line.Start + col, System.Math.Max(len, 0));
+      return Location.Create(file.Path, span, text.Lines.GetLinePositionSpan(span));
+   }
+
+   /// <summary>
+   /// Creates a file location pointing at the first occurrence of <paramref name="token"/>
+   /// in the source, falling back to line 1 col 0 of the file.
+   /// </summary>
+   private static Location FileLocation(AdditionalText file, SourceText text, string source, string token)
+   {
+      var idx = source.IndexOf(token, System.StringComparison.Ordinal);
+      if (idx < 0) idx = 0;
+      var span = new TextSpan(idx, token.Length);
       return Location.Create(file.Path, span, text.Lines.GetLinePositionSpan(span));
    }
 }

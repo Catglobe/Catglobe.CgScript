@@ -14,4 +14,16 @@ namespace BlazorWebApp;
 [JsonSerializable(typeof(IEnumerable<object>))]
 [JsonSerializable(typeof(IEnumerable<TagItem>))]
 [JsonSerializable(typeof(TagSummary))]
+[JsonSerializable(typeof(ProjectForEdit))]
+[JsonSerializable(typeof(IEnumerable<ProjectQuotaSetupItem>))] 
+[JsonSerializable(typeof(int?))]
+[JsonSerializable(typeof(int?))]
+[JsonSerializable(typeof(IEnumerable<string>))] 
+[JsonSerializable(typeof(IEnumerable<string>))] 
 internal partial class CgScriptJsonContext : System.Text.Json.Serialization.JsonSerializerContext;
+
+//dummy
+public record ProjectQuotaSetupItem { }
+
+//dummy
+public record ProjectForEdit { }

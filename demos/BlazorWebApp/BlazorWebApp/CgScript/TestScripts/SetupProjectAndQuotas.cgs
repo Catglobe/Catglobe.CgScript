@@ -1,0 +1,93 @@
+/// <summary>Saves a project, sets up quotas and target groups, sends confirmation emails.</summary>
+/// <param name="projectModel" type="ProjectForEdit">Project model to save.</param>
+/// <param name="quotas" type="IEnumerable<ProjectQuotaSetupItem>">Quota configuration items.</param>
+/// <param name="targetGroup" type="int?">Target group resource ID, or null.</param>
+/// <param name="segmentGroup" type="int?">Segment group resource ID, or null.</param>
+/// <param name="libraryId" type="int">Bunny library ID.</param>
+/// <param name="projectQuestionnaireId" type="int">Project questionnaire resource ID.</param>
+/// <param name="dcsId" type="int">DCS resource ID.</param>
+/// <param name="emailTemplateId" type="int">Email template resource ID.</param>
+/// <param name="recipientEmails" type="string[]">Recipient email addresses.</param>
+/// <param name="invoiceApprovalRecipients" type="string[]">Invoice approval recipient emails.</param>
+/// <returns type="bool">True on success.</returns>
+function(Dictionary projectModel, array quotas, number targetGroup, number segmentGroup, number libraryId, number projectQuestionnaireId, number dcsId, string voucherCode,
+  number emailTemplateId, string supportFromEmail, string emailSubject, string emailBody, array recipientEmails,
+  string invoiceApprovalSubject, string invoiceApprovalBody, array invoiceApprovalRecipients) {
+  // First, save/update the project using proper WorkflowScript syntax
+  WorkflowScript createOrSaveScript = new WorkflowScript("Project/CreateOrSave");
+  createOrSaveScript.Call({
+    "projectModel": projectModel,
+    "libraryId": libraryId,
+    "projectQuestionnaireId": projectQuestionnaireId,
+    "dcsId": dcsId
+  });
+  
+  QAS qas = new QAS(projectModel["Id"]);
+  Dictionary questions = Question_loadQuestions({ "Qnaire_Id" }, qas);
+
+  // Then setup quotas if project was saved successfully and quotas exist
+  WorkflowScript setupQuotasScript = new WorkflowScript("Project/SetupCollectionQuotas");
+  setupQuotasScript.Call({
+    "qnaireId": questions["Qnaire_Id"],
+    "quotas": quotas
+  });
+
+  // Then setup target group if provided
+  number newTargetGroupId = empty;
+  WorkflowScript setupTargetGroupScript = new WorkflowScript("Project/SetupTargetGroup");
+  if (targetGroup != empty) {
+    newTargetGroupId = setupTargetGroupScript.Call({
+      "qnaireId": questions["Qnaire_Id"],
+      "targetGroupId": targetGroup,
+      "included": false
+    });
+  }
+
+  number newSegmentTargetGroupId = empty;
+  if (segmentGroup != empty) {
+    newSegmentTargetGroupId = setupTargetGroupScript.Call({
+      "qnaireId": questions["Qnaire_Id"],
+      "targetGroupId": segmentGroup,
+      "included": true
+    });
+  }
+
+  // Use voucher if provided
+  if (!isEmpty(voucherCode) && voucherCode.Length > 1) {
+    WorkflowScript useVoucherScript = new WorkflowScript("Payment/UseVoucher");
+    useVoucherScript.Call({
+      "voucherCode": voucherCode
+    });
+  }
+
+  // Send order confirmation emails
+  Function orderCallbackMethod = function (string subject, string message){
+     return {emailSubject, emailBody};
+  };
+
+  // Disabled send recipient emails before finish
+  //for(i for 0; recipientEmails.Count) {
+  // EmailTemplate_send(emailTemplateId, false, recipientEmails[i], "", projectQuestionnaireId, supportFromEmail, orderCallbackMethod);
+  //}
+
+  // Send invoice approval emails if provided
+  if (invoiceApprovalRecipients.Count > 0) {
+
+    Function invoiceCallbackMethod = function (string subject, string message){
+       return {invoiceApprovalSubject, invoiceApprovalBody};
+    };
+
+    for(i for 0; invoiceApprovalRecipients.Count) {
+     EmailTemplate_send(emailTemplateId, false, invoiceApprovalRecipients[i], "", projectQuestionnaireId, supportFromEmail, invoiceCallbackMethod);
+    }
+  }
+
+  Question_saveQuestions({
+     "Quota_Status": 1,
+     "Group_Id": newTargetGroupId,
+     "Group_Segment_Id": newSegmentTargetGroupId
+  }, qas);
+  qas.Save();
+
+  return true;
+}.Invoke(Workflow_getParameters()[0])

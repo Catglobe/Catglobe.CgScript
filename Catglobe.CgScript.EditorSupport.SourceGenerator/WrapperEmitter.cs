@@ -140,6 +140,10 @@ internal static class WrapperEmitter
    /// </summary>
    internal static string ToStjPropertyName(string csType)
    {
+      // Nullable value types: "T?" → "NullableT" (e.g. "int?" → "NullableInt32")
+      if (csType.EndsWith("?"))
+         return "Nullable" + ToStjPropertyName(csType.Substring(0, csType.Length - 1));
+
       // C# keyword aliases → CLR names used by STJ
       switch (csType)
       {
