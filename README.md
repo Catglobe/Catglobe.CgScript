@@ -406,16 +406,16 @@ For every `.cgs` file the generator can parse, it emits a `public static partial
 | `CgScript/Payment/CreateOrder.cgs` | `YourApp.CgScript.Payment` | `CreateOrder(…)` |
 | `CgScript/User/DetermineRoles.cgs`  | `YourApp.CgScript.User`    | `DetermineRoles(…)` |
 
-The method is an extension on `ICgScriptApiClient` and returns `Task<ScriptResult<TReturn>>`, so existing `.GetValueOrThrowError()` calls require no change.
+The method is an extension on `ICgScriptApiClient` and returns `Task<TReturn>`. Errors are thrown as exceptions — no `.GetValueOrThrowError()` needed.
 
 ## Step 1 — Upgrade packages
 
-In your `.csproj`, upgrade to **2.3.0** and add the source generator as an analyzer-only reference (it is compile-time only; no runtime dependency):
+In your `.csproj`, add the source generator as an analyzer-only reference (it is compile-time only; no runtime dependency):
 
 ```xml
-<PackageReference Include="Catglobe.CgScript.Deployment" Version="2.3.0" />
-<PackageReference Include="Catglobe.CgScript.Runtime" Version="2.3.0" />
-<PackageReference Include="Catglobe.CgScript.EditorSupport.SourceGenerator" Version="2.3.0">
+<PackageReference Include="Catglobe.CgScript.Deployment" Version="2.*" />
+<PackageReference Include="Catglobe.CgScript.Runtime" Version="2.*" />
+<PackageReference Include="Catglobe.CgScript.EditorSupport.SourceGenerator" Version="2.*">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>analyzers</IncludeAssets>
 </PackageReference>
@@ -473,22 +473,71 @@ function(number companyFolderId, string companyName) {
 | `question`    | **Yes**           | `type="MyType"` |
 | void (no `return`) | No          | omit `<returns>` entirely |
 
+**Enum types** use the C# enum name directly in the `type=""` attribute — no special treatment needed. Enums are serialized as integers by default, which is what the CgScript `number` type maps to:
+
+```cgscript
+/// <param name="status" type="PaymentStatus">Payment status to set.</param>
+/// <returns type="PaymentState">Current payment state.</returns>
+```
+
+You must also add `[JsonSerializable(typeof(YourEnum))]` to your `[CgScriptSerializer]` context for each enum type used as a return value.
+
+### Optional parameters
+
+Parameters that have a default value in the CgScript `function(…)` declaration, or that are read via `cfg.TryGetValue(…)` in Pattern B/C, are emitted as nullable optional parameters in the generated wrapper:
+
+```cgscript
+function(number qnaireId, bool included = false) { … }
+```
+
+generates:
+
+```csharp
+public static async Task<…> MyScript(
+    this ICgScriptApiClient client,
+    int qnaireId,
+    bool? included = null,   // ← optional, matches CgScript default
+    CancellationToken ct = default)
+```
+
 The three supported parameter-passing patterns are all detected automatically:
 
 - **Pattern A** — `function(type name, …) { }.Invoke(Workflow_getParameters()[0])`
 - **Pattern B** — `params[0]["key"]` dict reads
 - **Pattern C** — `var dict = Workflow_getParameters()[0]; type name = dict["key"]`
 
+### Controlling the script path in `Execute()`
+
+By default the script name passed to `Execute()` is the file path relative to the project root (e.g. `CgScript/Company/GetCompanyId`). If all your scripts live under a common subfolder you can strip that prefix by setting `CgScriptRootFolder` in your `.csproj`:
+
+```xml
+<PropertyGroup>
+  <CgScriptRootFolder>CgScript</CgScriptRootFolder>
+</PropertyGroup>
+```
+
+With this setting `CgScript/Company/GetCompanyId.cgs` will call `Execute("Company/GetCompanyId", …)` instead of `Execute("CgScript/Company/GetCompanyId", …)`.
+
 ### Build diagnostics
 
-If an annotation is missing or wrong the build emits a diagnostic rather than silently generating bad code:
+The source generator emits build-time diagnostics covering both CgScript language issues (CGS001–CGS009) and C# wrapper generation issues (CGS010–CGS014):
 
-| Code   | Meaning |
-|--------|---------|
-| CGS010 | No `[CgScriptSerializer]` class found (or more than one) |
-| CGS011 | Return or parameter type not registered with `[JsonSerializable]` |
-| CGS012 | Ambiguous parameter type — annotation required |
-| CGS013 | Invalid type syntax in annotation |
+| Code   | Severity | Meaning |
+|--------|----------|---------|
+| CGS001 | Warning  | Duplicate variable declaration |
+| CGS002 | Error    | Unknown type used in script |
+| CGS003 | Error    | Unknown type in `new` expression |
+| CGS004 | Warning  | Unknown function call |
+| CGS005 | Warning  | Undefined variable reference |
+| CGS006 | Warning  | Empty statement has no effect (e.g. `;;`) |
+| CGS007 | Warning  | Unreachable code after `return`/`throw`/`break` |
+| CGS008 | Warning  | Variable used before its declaration |
+| CGS009 | Warning  | Variable declared but never used |
+| CGS010 | Error    | No `[CgScriptSerializer]` class found, or more than one |
+| CGS011 | Warning  | Return or parameter type not registered with `[JsonSerializable]` |
+| CGS012 | Error    | Ambiguous parameter type — `type=""` annotation required |
+| CGS013 | Error    | Invalid C# type syntax in annotation |
+| CGS014 | Info     | Parameter uses dynamic `object` type — not AOT-safe; annotate if concrete type is known |
 
 ## Step 5 — Replace `Execute(…)` calls
 
@@ -504,11 +553,10 @@ var result     = await cgScriptClient.Execute(
 return result.GetValueOrThrowError();
 
 // After  (add `using YourApp.CgScript.Company;` at the top of the file)
-var result = await cgScriptClient.GetCompanyId(resources.Value.CompanyFolderId, companyName);
-return result.GetValueOrThrowError();
+return await cgScriptClient.GetCompanyId(resources.Value.CompanyFolderId, companyName);
 ```
 
-The generated method takes the same individual parameters the script declares, in declaration order. Any parameter that was previously bundled into a request record is now passed directly.
+The generated method takes the same individual parameters the script declares, in declaration order. Errors are thrown as exceptions — the `ScriptResult<T>` wrapper is unwrapped automatically. Any parameter that was previously bundled into a request record is now passed directly.
 
 ### Adding `using` directives
 
