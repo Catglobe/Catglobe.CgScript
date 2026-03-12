@@ -31,7 +31,8 @@ public partial class CgScriptLanguageTarget
          text,
          _definitions.Functions,
          _definitions.Objects,
-         _definitions.Constants).Data;
+         _definitions.Constants,
+         _definitions.GlobalVariables).Data;
 
       var resultId = Interlocked.Increment(ref _semanticResultIdCounter).ToString();
       _semanticCache[uri] = (data, resultId);
@@ -55,7 +56,8 @@ public partial class CgScriptLanguageTarget
          text,
          _definitions.Functions,
          _definitions.Objects,
-         _definitions.Constants).Data;
+         _definitions.Constants,
+         _definitions.GlobalVariables).Data;
       var resultId = Interlocked.Increment(ref _semanticResultIdCounter).ToString();
 
       if (_semanticCache.TryGetValue(uri, out var cached)
@@ -127,7 +129,8 @@ public partial class CgScriptLanguageTarget
          endLine0:   p.Range.End.Line,
          _definitions.Functions,
          _definitions.Objects,
-         _definitions.Constants);
+         _definitions.Constants,
+         _definitions.GlobalVariables);
    }
 
    // ── parse-tree → LSP range ────────────────────────────────────────────────────

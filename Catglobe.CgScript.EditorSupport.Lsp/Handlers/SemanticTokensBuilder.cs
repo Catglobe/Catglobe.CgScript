@@ -66,11 +66,12 @@ public static class SemanticTokensBuilder
    /// </summary>
    public static SemanticTokens Build(
       string text,
-      IReadOnlyDictionary<string, FunctionDefinition>? knownFunctions = null,
-      IReadOnlyDictionary<string, ObjectDefinition>?   knownObjects   = null,
-      IReadOnlyCollection<string>?                     knownConstants = null)
+      IReadOnlyDictionary<string, FunctionDefinition>? knownFunctions  = null,
+      IReadOnlyDictionary<string, ObjectDefinition>?   knownObjects    = null,
+      IReadOnlyCollection<string>?                     knownConstants  = null,
+      IReadOnlyDictionary<string, string>?             globalVariables = null)
    {
-      var raw = BuildRawTokens(text, knownFunctions, knownObjects, knownConstants);
+      var raw = BuildRawTokens(text, knownFunctions, knownObjects, knownConstants, globalVariables);
       return new SemanticTokens { Data = EncodeTokens(raw) };
    }
 
@@ -84,11 +85,12 @@ public static class SemanticTokensBuilder
       string text,
       int    startLine0,
       int    endLine0,
-      IReadOnlyDictionary<string, FunctionDefinition>? knownFunctions = null,
-      IReadOnlyDictionary<string, ObjectDefinition>?   knownObjects   = null,
-      IReadOnlyCollection<string>?                     knownConstants = null)
+      IReadOnlyDictionary<string, FunctionDefinition>? knownFunctions  = null,
+      IReadOnlyDictionary<string, ObjectDefinition>?   knownObjects    = null,
+      IReadOnlyCollection<string>?                     knownConstants  = null,
+      IReadOnlyDictionary<string, string>?             globalVariables = null)
    {
-      var filtered = BuildRawTokens(text, knownFunctions, knownObjects, knownConstants)
+      var filtered = BuildRawTokens(text, knownFunctions, knownObjects, knownConstants, globalVariables)
                         .Where(t => t.Line >= startLine0 && t.Line <= endLine0);
       return new SemanticTokens { Data = EncodeTokens(filtered) };
    }
@@ -99,7 +101,8 @@ public static class SemanticTokensBuilder
       string                                           text,
       IReadOnlyDictionary<string, FunctionDefinition>? knownFunctions,
       IReadOnlyDictionary<string, ObjectDefinition>?   knownObjects,
-      IReadOnlyCollection<string>?                     knownConstants)
+      IReadOnlyCollection<string>?                     knownConstants,
+      IReadOnlyDictionary<string, string>?             globalVariables)
    {
       // Materialise constants into a set for O(1) Contains.
       IReadOnlySet<string>? constantsSet =
@@ -183,7 +186,7 @@ public static class SemanticTokensBuilder
 
             var (typeIdx, modifier) = ClassifyIdentifier(
                token, di, defaultTokens, paramIndices,
-               knownFunctions, knownObjects, constantsSet);
+               knownFunctions, knownObjects, constantsSet, globalVariables);
 
             result.Add(new RawToken(line, col, length, typeIdx, modifier));
          }
@@ -216,7 +219,8 @@ public static class SemanticTokensBuilder
       HashSet<int>                                     paramIndices,
       IReadOnlyDictionary<string, FunctionDefinition>? knownFunctions,
       IReadOnlyDictionary<string, ObjectDefinition>?   knownObjects,
-      IReadOnlySet<string>?                            constantsSet)
+      IReadOnlySet<string>?                            constantsSet,
+      IReadOnlyDictionary<string, string>?             globalVariables)
    {
       int dCount  = defaultTokens.Count;
       string name = token.Text;
@@ -272,6 +276,10 @@ public static class SemanticTokensBuilder
       if (constantsSet is not null && constantsSet.Contains(name))
          return (TypeEnumMember, ModDefaultLibrary);
 
+      // Rule 8b: name is a known global variable pre-declared by the runtime
+      if (globalVariables is not null && globalVariables.ContainsKey(name))
+         return (TypeVariable, ModDefaultLibrary);
+
       // Rule 9: unresolved identifier — treat as variable reference
       return (TypeVariable, 0);
    }
@@ -323,12 +331,14 @@ public static class SemanticTokensBuilder
 
    private static int GetSimpleTypeIndex(int t) => t switch
    {
-      // Keywords
+      // Primitive type keywords — coloured as class types (they are classes in the runtime)
       CgScriptLexer.BOOL or CgScriptLexer.NUMBER or CgScriptLexer.STRING
-      or CgScriptLexer.ARRAY or CgScriptLexer.QUESTION or CgScriptLexer.IF
-      or CgScriptLexer.ELSE or CgScriptLexer.WHILE or CgScriptLexer.FOR
+      or CgScriptLexer.ARRAY or CgScriptLexer.OBJECT or CgScriptLexer.QUESTION => TypeClass,
+
+      // Control-flow and other keywords
+      CgScriptLexer.IF or CgScriptLexer.ELSE or CgScriptLexer.WHILE or CgScriptLexer.FOR
       or CgScriptLexer.BREAK or CgScriptLexer.CONTINUE or CgScriptLexer.RETURN
-      or CgScriptLexer.WHERE or CgScriptLexer.OBJECT or CgScriptLexer.NEW
+      or CgScriptLexer.WHERE or CgScriptLexer.NEW
       or CgScriptLexer.SWITCH or CgScriptLexer.DEFAULT or CgScriptLexer.CASE
       or CgScriptLexer.TRY or CgScriptLexer.CATCH or CgScriptLexer.THROW
       or CgScriptLexer.FUNCTION or CgScriptLexer.TRUE or CgScriptLexer.FALSE

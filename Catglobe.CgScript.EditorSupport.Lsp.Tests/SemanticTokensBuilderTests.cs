@@ -99,13 +99,13 @@ public class SemanticTokensBuilderTests
    [Fact]
    public void Build_ContentInsideBlock_StillHighlighted()
    {
-      // The 'number' keyword on line 1 should produce a keyword token.
-      const int TypeKeyword = 0;
+      // The 'number' type keyword on line 1 should produce a class token (primitives are classes).
+      const int TypeClass = 7;
       const string src = "#IF Development\nnumber x = 1;\n#ENDIF";
       var data = SemanticTokensBuilder.Build(src).Data;
 
-      Assert.True(CountTokensOfType(data, TypeKeyword) > 0,
-         "Expected at least one keyword token for the content inside the #IF block.");
+      Assert.True(CountTokensOfType(data, TypeClass) > 0,
+         "Expected at least one class token for the content inside the #IF block.");
    }
 
    // ── Helpers ───────────────────────────────────────────────────────────────

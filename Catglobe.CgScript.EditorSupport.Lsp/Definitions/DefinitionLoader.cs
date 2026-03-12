@@ -69,26 +69,32 @@ public class DefinitionLoader
    public IReadOnlyDictionary<string, ObjectDefinition>   Objects   { get; protected init; }
    /// <summary>Known constant names (e.g. enum value names).</summary>
    public IReadOnlyCollection<string>                     Constants { get; protected init; }
+   /// <summary>Global variables pre-declared by the runtime, mapped to their type name (e.g. "Catglobe" → "GlobalNamespace").</summary>
+   public IReadOnlyDictionary<string, string>             GlobalVariables { get; protected init; }
 
    /// <summary>Loads definitions from the embedded JSON resources.</summary>
    public DefinitionLoader()
    {
-      Functions = Load<Dictionary<string, FunctionDefinition>>("CgScriptFunctionDefinitions.json")
-                  ?? new Dictionary<string, FunctionDefinition>();
-      Objects   = Load<Dictionary<string, ObjectDefinition>>("CgScriptObjectDefinitions.json")
-                  ?? new Dictionary<string, ObjectDefinition>();
-      Constants = Load<string[]>("CgScriptConstants.json") ?? [];
+      Functions       = Load<Dictionary<string, FunctionDefinition>>("CgScriptFunctionDefinitions.json")
+                        ?? new Dictionary<string, FunctionDefinition>();
+      Objects         = Load<Dictionary<string, ObjectDefinition>>("CgScriptObjectDefinitions.json")
+                        ?? new Dictionary<string, ObjectDefinition>();
+      Constants       = Load<string[]>("CgScriptConstants.json") ?? [];
+      GlobalVariables = Load<Dictionary<string, string>>("CgScriptGlobalVariables.json")
+                        ?? new Dictionary<string, string>();
    }
 
    /// <summary>Protected constructor for subclasses that supply their own definitions.</summary>
    protected DefinitionLoader(
       Dictionary<string, FunctionDefinition> functions,
       Dictionary<string, ObjectDefinition>   objects,
-      IReadOnlyCollection<string>            constants)
+      IReadOnlyCollection<string>            constants,
+      Dictionary<string, string>             globalVariables)
    {
-      Functions = functions;
-      Objects   = objects;
-      Constants = constants;
+      Functions       = functions;
+      Objects         = objects;
+      Constants       = constants;
+      GlobalVariables = globalVariables;
    }
 
    private static T? Load<T>(string resourceFileName)

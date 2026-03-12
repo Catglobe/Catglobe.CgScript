@@ -153,6 +153,9 @@ public partial class CgScriptLanguageTarget
          if (rest.StartsWith(varName) && (rest.Length == varName.Length || rest[varName.Length] is ' ' or '='))
             return trimmed[..spaceIdx];
       }
+      // Global variables pre-declared by the runtime
+      if (_definitions.GlobalVariables.TryGetValue(varName, out var globalType))
+         return globalType;
       return null;
    }
 
@@ -217,7 +220,7 @@ public partial class CgScriptLanguageTarget
       "if", "else", "while", "for", "break", "continue", "return",
       "true", "false", "empty", "new", "switch", "case", "default",
       "try", "catch", "throw", "where",
-      "bool", "number", "string", "array", "object", "question", "function",
+      "object", "function",
    ];
 
    // ── Doc comment template generation ─────────────────────────────────────────
