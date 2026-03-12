@@ -12,5 +12,5 @@ public sealed record Diagnostic(
    string             Message,
    int                Line,
    int                Column,
-   int                Length = 0,
-   string             Code   = "CGS019");
+   int                Length,
+   string             Code);
