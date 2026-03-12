@@ -411,8 +411,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    }
 
    /// <summary>
-   /// Only fires when the callee is a simple IDENTIFIER (no chained postfix operators).
-   /// Also validates property and method access against known object type definitions.
+   /// Validates function calls and member access (property and method) against known
+   /// object type definitions, including chained access like <c>Catglobe.Json.Parse()</c>.
    /// </summary>
    public override object? VisitPostfixExpr(CgScriptParser.PostfixExprContext ctx)
    {
@@ -574,19 +574,39 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       if (baseCtx == null) return null;
 
       var primary = baseCtx.primaryExpr();
-      if (primary == null) return null; // Intermediate postfix operation — type unknown
+      if (primary != null)
+      {
+         var idNode = primary.IDENTIFIER();
+         if (idNode == null) return null; // Not a bare identifier
 
-      var idNode = primary.IDENTIFIER();
-      if (idNode == null) return null; // Not a bare identifier
+         var varName = idNode.Symbol.Text;
 
-      var varName = idNode.Symbol.Text;
+         // If the variable is shadowed by a function parameter or catch variable,
+         // its type is unknown in this scope.
+         if (_functionParams != null && _functionParams.Contains(varName)) return null;
+         if (_extraLocals.Contains(varName)) return null;
 
-      // If the variable is shadowed by a function parameter or catch variable,
-      // its type is unknown in this scope.
-      if (_functionParams != null && _functionParams.Contains(varName)) return null;
-      if (_extraLocals.Contains(varName)) return null;
+         return _varTypes.TryGetValue(varName, out var typeName) ? typeName : null;
+      }
 
-      return _varTypes.TryGetValue(varName, out var typeName) ? typeName : null;
+      // Multi-level: baseCtx is itself a property access (e.g. Catglobe.Json)
+      if (baseCtx.DOT() != null && baseCtx.LPAREN() == null && _objectDefinitions != null)
+      {
+         var propName = baseCtx.IDENTIFIER()?.Symbol.Text;
+         if (propName != null)
+         {
+            var innerType = TryResolveBaseType(baseCtx.postfixExpr());
+            if (innerType != null
+                && _objectDefinitions.TryGetValue(innerType, out var innerMembers)
+                && innerMembers.PropertyReturnTypes.TryGetValue(propName, out var returnType)
+                && !string.IsNullOrEmpty(returnType))
+            {
+               return returnType;
+            }
+         }
+      }
+
+      return null;
    }
 
    /// <summary>

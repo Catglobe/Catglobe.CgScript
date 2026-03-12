@@ -107,4 +107,28 @@ public class SemanticAnalyzerTests
       Assert.Equal(2, d.Column);  // after 'a.'
       Assert.Equal(4, d.Length);  // "test"
    }
+
+   // ── Multi-level member access (e.g. Catglobe.Json.Parse) ─────────────────
+
+   [Fact]
+   public void MultiLevel_KnownMethod_NoCGS017()
+   {
+      // Catglobe is a global variable of type GlobalNamespace;
+      // GlobalNamespace.Json has return type JsonNamespace;
+      // JsonNamespace has a method Parse — so no error expected.
+      var diags = Analyze("Catglobe.Json.Parse(\"ok\");");
+      Assert.DoesNotContain(diags, d => d.Code == "CGS017");
+   }
+
+   [Fact]
+   public void MultiLevel_UnknownMethod_ReportsCGS017()
+   {
+      // JsonNamespace does not have a method Read — expect CGS017.
+      var diags = Analyze("Catglobe.Json.Read(\"ok\");");
+      var d = FindByCode(diags, "CGS017");
+      Assert.NotNull(d);
+      Assert.Equal(DiagnosticSeverity.Error, d.Severity);
+      Assert.Contains("JsonNamespace", d.Message);
+      Assert.Contains("Read", d.Message);
+   }
 }

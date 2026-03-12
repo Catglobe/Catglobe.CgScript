@@ -56,8 +56,9 @@ public static class KnownNamesLoader
 
          foreach (var typeProp in doc.RootElement.EnumerateObject())
          {
-            var properties = new Dictionary<string, bool>(StringComparer.Ordinal);
-            var methods    = new List<string>();
+            var properties       = new Dictionary<string, bool>(StringComparer.Ordinal);
+            var propertyRetTypes = new Dictionary<string, string>(StringComparer.Ordinal);
+            var methods          = new List<string>();
 
             if (typeProp.Value.TryGetProperty("Properties", out var propsEl))
             {
@@ -66,7 +67,15 @@ public static class KnownNamesLoader
                   var name      = p.GetProperty("Name").GetString() ?? "";
                   var hasSetter = p.TryGetProperty("HasSetter", out var hse) && hse.GetBoolean();
                   if (!string.IsNullOrEmpty(name))
+                  {
                      properties[name] = hasSetter;
+                     if (p.TryGetProperty("ReturnType", out var rt))
+                     {
+                        var retType = rt.GetString() ?? "";
+                        if (!string.IsNullOrEmpty(retType))
+                           propertyRetTypes[name] = retType;
+                     }
+                  }
                }
             }
 
@@ -80,7 +89,7 @@ public static class KnownNamesLoader
                }
             }
 
-            result[typeProp.Name] = new ObjectMemberInfo(properties, methods);
+            result[typeProp.Name] = new ObjectMemberInfo(properties, methods, propertyRetTypes);
          }
 
          return result;
