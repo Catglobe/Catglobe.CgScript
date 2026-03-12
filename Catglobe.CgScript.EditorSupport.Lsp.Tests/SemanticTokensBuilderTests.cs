@@ -108,6 +108,19 @@ public class SemanticTokensBuilderTests
          "Expected at least one class token for the content inside the #IF block.");
    }
 
+   // ── Comments inside blocks ────────────────────────────────────────────────
+
+   [Fact]
+   public void Build_CommentsInsideBlock_AreHighlighted()
+   {
+      const int TypeComment = 3;
+      const string src = "number a = 1;\n{\n// comment\n}";
+      var data = SemanticTokensBuilder.Build(src).Data;
+
+      Assert.True(CountTokensOfType(data, TypeComment) > 0,
+         "Expected comment tokens to be highlighted inside a block.");
+   }
+
    // ── Helpers ───────────────────────────────────────────────────────────────
 
    private static int CountTokensOfType(int[] data, int typeIdx)

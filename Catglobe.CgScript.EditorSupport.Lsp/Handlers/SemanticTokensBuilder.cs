@@ -120,7 +120,7 @@ public static class SemanticTokensBuilder
       var allTokens = stream.GetTokens();
 
       // ── Step 1: collect default-channel tokens and build an index map ──────────
-      // Default channel == 0; hidden channel (WS, comments) == 2.
+      // Default channel == 0; hidden channel (WS, comments) == 1.
       var defaultTokens    = new List<IToken>(allTokens.Count);
       var tokenToDefaultIdx = new Dictionary<int, int>(allTokens.Count);
 
