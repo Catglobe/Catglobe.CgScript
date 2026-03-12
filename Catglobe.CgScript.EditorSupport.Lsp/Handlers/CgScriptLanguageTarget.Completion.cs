@@ -248,7 +248,8 @@ public partial class CgScriptLanguageTarget
       ("for-in statement",    "for",    "for (${1:item} for ${2:collection}; ${3:count}) {\n\t$0\n}"),
       ("for-var statement",   "for",    "for (${1:number} ${2:i} = ${3:0}; ${4:condition}; ${2:i} = ${2:i} + 1) {\n\t$0\n}"),
       ("switch statement",    "switch", "switch (${1:expression}) {\n\tcase ${2:value}:\n\t\t$0\n\t\tbreak;\n\tdefault:\n\t\tbreak;\n}"),
-      ("try-catch statement", "try",    "try {\n\t$1\n} catch (${2:e}) {\n\t$0\n}"),
+      ("try-catch statement", "try",      "try {\n\t$1\n} catch (${2:e}) {\n\t$0\n}"),
+      ("function expression", "function", "Function ${1:name} = function(${2:params}) {\n\t$0\n};"),
    ];
 
    // ── Doc comment template generation ─────────────────────────────────────────

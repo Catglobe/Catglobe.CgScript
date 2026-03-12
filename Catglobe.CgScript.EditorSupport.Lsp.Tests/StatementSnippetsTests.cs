@@ -19,6 +19,7 @@ public class StatementSnippetsTests
    [InlineData("for-var statement",   "for")]
    [InlineData("switch statement",    "switch")]
    [InlineData("try-catch statement", "try")]
+   [InlineData("function expression", "function")]
    public void StatementSnippets_ContainsExpectedEntry(string label, string filter)
    {
       Assert.Contains(CgScriptLanguageTarget.StatementSnippets,
