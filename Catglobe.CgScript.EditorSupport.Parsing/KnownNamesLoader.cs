@@ -27,6 +27,9 @@ public static class KnownNamesLoader
    /// <summary>Global variables pre-declared by the runtime, mapped to their type name.</summary>
    public static IReadOnlyDictionary<string, string> GlobalVariableTypes { get; } = LoadStringDictionary("CgScriptGlobalVariables.json");
 
+   /// <summary>Names of all known built-in global variables pre-declared by the runtime (e.g. "Catglobe").</summary>
+   public static IReadOnlyList<string> GlobalVariableNames { get; } = LoadObjectKeys("CgScriptGlobalVariables.json");
+
    // ── helpers ──────────────────────────────────────────────────────────────────
 
    private static IReadOnlyList<string> LoadObjectKeys(string fileName)

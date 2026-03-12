@@ -22,6 +22,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    private readonly HashSet<string> _knownFunctions;
    private readonly HashSet<string> _knownObjects;
    private readonly HashSet<string> _knownConstants;
+   private readonly HashSet<string> _knownGlobalVariables;
 
    // ── Object member definitions for property/method validation ────────────────
    private readonly IReadOnlyDictionary<string, ObjectMemberInfo>? _objectDefinitions;
@@ -48,17 +49,21 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
    /// <summary>
    /// Initialises a new <see cref="SemanticAnalyzer"/>.
-   /// All three name collections may be empty but must not be <c>null</c>.
+   /// All name collections may be empty but must not be <c>null</c>.
    /// </summary>
    public SemanticAnalyzer(
       IEnumerable<string> knownFunctions,
       IEnumerable<string> knownObjects,
       IEnumerable<string> knownConstants,
-      IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions = null)
+      IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions = null,
+      IEnumerable<string>? knownGlobalVariables = null)
    {
       _knownFunctions    = new HashSet<string>(knownFunctions, StringComparer.Ordinal);
       _knownObjects      = new HashSet<string>(knownObjects,   StringComparer.Ordinal);
       _knownConstants    = new HashSet<string>(knownConstants, StringComparer.Ordinal);
+      _knownGlobalVariables = knownGlobalVariables is null
+         ? new HashSet<string>(StringComparer.Ordinal)
+         : new HashSet<string>(knownGlobalVariables, StringComparer.Ordinal);
       _objectDefinitions = objectDefinitions;
    }
 
@@ -93,7 +98,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       collector.Visit(tree);
 
       // ── Pass 2: check usages ─────────────────────────────────────────────────
-      var analyzer = new SemanticAnalyzer(knownFunctions, knownObjects, knownConstants, objectDefinitions);
+      var analyzer = new SemanticAnalyzer(knownFunctions, knownObjects, knownConstants, objectDefinitions, globalVariableTypes?.Keys);
       analyzer._globalVars     = collector.Vars;
       analyzer._globalVarLines = collector.VarLines;
       analyzer._diagnostics.AddRange(collector.Diagnostics);
@@ -561,7 +566,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       || _extraLocals.Contains(name)
       || _knownFunctions.Contains(name)
       || _knownObjects.Contains(name)
-      || _knownConstants.Contains(name);
+      || _knownConstants.Contains(name)
+      || _knownGlobalVariables.Contains(name);
 
    /// <summary>
    /// Resolves the declared type of the base expression in a member-access chain.
