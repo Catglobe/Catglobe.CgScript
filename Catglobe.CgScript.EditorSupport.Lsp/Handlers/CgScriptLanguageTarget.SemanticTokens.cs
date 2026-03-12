@@ -82,7 +82,8 @@ public partial class CgScriptLanguageTarget
 
    /// <summary>
    /// Computes a minimal single-edit delta between two token data arrays by
-   /// trimming a common prefix and a common suffix.
+   /// trimming a common prefix and a common suffix, snapped to 5-integer token
+   /// boundaries so the edit never splits a token in half.
    /// </summary>
    private static (SemanticTokensEdit Edit, bool HasChanges) ComputeSemanticEdit(
       int[] oldData, int[] newData)
@@ -94,11 +95,15 @@ public partial class CgScriptLanguageTarget
       while (prefixLen < oldLen && prefixLen < newLen
              && oldData[prefixLen] == newData[prefixLen])
          prefixLen++;
+      // Snap to a token boundary (5 ints per token) so the edit never starts mid-token.
+      prefixLen = (prefixLen / 5) * 5;
 
       int suffixLen = 0;
       while (suffixLen < (oldLen - prefixLen) && suffixLen < (newLen - prefixLen)
              && oldData[oldLen - 1 - suffixLen] == newData[newLen - 1 - suffixLen])
          suffixLen++;
+      // Snap suffix too.
+      suffixLen = (suffixLen / 5) * 5;
 
       int deleteCount = oldLen - prefixLen - suffixLen;
       int insertEnd   = newLen - suffixLen;

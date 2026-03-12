@@ -21,6 +21,11 @@ public sealed class DocumentStore
 
    public void Update(string uri, string text)
    {
+      // Expose the new text immediately so concurrent readers (hover, semantic tokens, etc.)
+      // never see a stale version while the parse is running.
+      if (_docs.TryGetValue(uri, out var existing))
+         _docs[uri] = (text, existing.Result);
+
       var (cleanedText, _) = PreprocessorScanner.Strip(text);
       var result     = CgScriptParseService.Parse(cleanedText);
       var extraDiags = SemanticAnalyzer.Analyze(
