@@ -20,14 +20,14 @@ public partial class CgScriptLanguageTarget
    /// Checks built-in functions, object types, and constants in that order before
    /// falling back to a declaration look-up in the parse tree.
    /// </summary>
-   public Hover? OnHover(TextDocumentPositionParams p)
+   public Hover OnHover(TextDocumentPositionParams p)
    {
       var text = _store.GetText(p.TextDocument.Uri.ToString());
-      if (text is null) return null;
+      if (text is null) return new Hover();
 
       var offset = GetOffset(text, p.Position.Line, p.Position.Character);
       var word   = GetWordAt(text, offset);
-      if (string.IsNullOrEmpty(word)) return null;
+      if (string.IsNullOrEmpty(word)) return new Hover();
 
       // ── Method / property on a known object type (cursor after a dot) ──────────
       int wordStart = offset;
@@ -139,7 +139,7 @@ public partial class CgScriptLanguageTarget
          }
       }
 
-      return null;
+      return new Hover();
    }
 
    // ── string builders ───────────────────────────────────────────────────────────

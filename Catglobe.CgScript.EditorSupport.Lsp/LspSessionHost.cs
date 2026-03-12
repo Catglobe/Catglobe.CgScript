@@ -1,4 +1,4 @@
-﻿using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
+using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 using StreamJsonRpc;
 using System.IO.Pipelines;
@@ -127,3 +127,5 @@ file static class JsonRpcLspExtensions
             handler.Method, handler.Target,
             new JsonRpcMethodAttribute(notification.Name) { UseSingleObjectParameterDeserialization = true });
 }
+
+
