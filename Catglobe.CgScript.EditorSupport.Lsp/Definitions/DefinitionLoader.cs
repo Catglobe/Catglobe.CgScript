@@ -51,7 +51,7 @@ public sealed record PropertyDefinition(
 public sealed record ObjectDefinition(
    string Name,
    string? Doc,
-   object[]? Constructors,
+   MethodDefinition[]? Constructors,
    MethodDefinition[]? Methods,
    MethodDefinition[]? StaticMethods,
    PropertyDefinition[]? Properties);

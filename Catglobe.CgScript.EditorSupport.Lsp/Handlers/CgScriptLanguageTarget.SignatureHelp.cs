@@ -39,13 +39,25 @@ public partial class CgScriptLanguageTarget
          else if (c == '(' && depth == 0)
          {
             // Found the call-opening paren. The identifier immediately to its
-            // left is the function name.
+            // left is the function name (or constructor type name).
             var funcName = GetIdentifierBefore(text, i);
             if (funcName is null) return null;
 
-            if (!_definitions.Functions.TryGetValue(funcName, out var fn)) return null;
+            SignatureInformation[]? signatures = null;
 
-            var signatures = BuildSignatureInfoList(funcName, fn);
+            if (_definitions.Functions.TryGetValue(funcName, out var fn))
+            {
+               signatures = BuildSignatureInfoList(funcName, fn);
+            }
+            else if (_definitions.Objects.TryGetValue(funcName, out var obj)
+                     && obj.Constructors?.Length > 0
+                     && IsConstructorCall(text, i, funcName))
+            {
+               signatures = BuildConstructorSignatureInfoList(funcName, obj.Constructors);
+            }
+
+            if (signatures is null) return null;
+
             return new SignatureHelp
             {
                Signatures      = signatures,
