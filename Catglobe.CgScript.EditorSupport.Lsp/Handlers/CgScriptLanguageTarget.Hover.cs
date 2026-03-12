@@ -309,8 +309,7 @@ public partial class CgScriptLanguageTarget
          isStatic = true;
       else
       {
-         var typeName = ResolveVariableType(receiverName, text, tree);
-         if (typeName != null) _definitions.Objects.TryGetValue(typeName, out objDef);
+         objDef = ResolveReceiverObjectAtDot(text, pos - 1, tree);
       }
 
       if (objDef is null) return null;
