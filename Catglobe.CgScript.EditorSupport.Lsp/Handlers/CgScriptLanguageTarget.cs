@@ -69,6 +69,7 @@ public partial class CgScriptLanguageTarget
             DocumentSymbolProvider     = new SumType<bool, DocumentSymbolOptions>(true),
             FoldingRangeProvider       = new SumType<bool, FoldingRangeOptions>(true),
             CodeActionProvider         = new SumType<bool, CodeActionOptions>(true),
+            DocumentFormattingProvider = true,
             SemanticTokensOptions = new SemanticTokensOptions
             {
                Full  = new SemanticTokensFullOptions { Delta = true },

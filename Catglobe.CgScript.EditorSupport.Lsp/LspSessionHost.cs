@@ -86,6 +86,7 @@ public static class LspSessionHost
       rpc.AddLspHandler("textDocument/selectionRange",
          (Func<SelectionRangeParams, CgSelectionRange[]?>)t.OnSelectionRange);
       rpc.AddLspHandler(Methods.TextDocumentCodeAction,             t.OnCodeAction);
+      rpc.AddLspHandler(Methods.TextDocumentFormatting,            t.OnDocumentFormatting);
    }
 }
 
