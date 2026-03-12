@@ -149,25 +149,26 @@ internal static class CgScriptDiagnostics
          : DiagnosticSeverity.Warning;
 
    /// <summary>
-   /// Returns the <see cref="DiagnosticDescriptor"/> that corresponds to a Parsing diagnostic message.
-   /// Falls back to <see cref="UndefinedVariable"/> for unrecognised patterns.
+   /// Returns the <see cref="DiagnosticDescriptor"/> that corresponds to a Parsing diagnostic code.
+   /// Falls back to <see cref="UndefinedVariable"/> (warning) or <see cref="UnknownType"/> (error)
+   /// for unrecognised codes.
    /// </summary>
    public static DiagnosticDescriptor DescriptorFor(Catglobe.CgScript.EditorSupport.Parsing.Diagnostic d)
-   {
-      if (d.Code == "CGS016") return UnknownProperty;
-      if (d.Code == "CGS017") return UnknownMethod;
-      if (d.Code == "CGS018") return ReadonlyProperty;
-      var msg = d.Message;
-      if (msg.StartsWith("Illegal variable re-declaration")) return DuplicateDeclaration;
-      if (msg.StartsWith("Unknown type '") && !msg.Contains("new "))  return UnknownType;
-      if (msg.StartsWith("Unknown type '"))                           return UnknownNewType;
-      if (msg.StartsWith("Unknown function "))                        return UnknownFunction;
-      if (msg.StartsWith("Undefined variable "))                      return UndefinedVariable;
-      if (msg.StartsWith("Empty statement "))                         return EmptyStatement;
-      if (msg.StartsWith("Unreachable code"))                         return UnreachableCode;
-      if (msg.StartsWith("Variable '") && msg.Contains("before its")) return UseBeforeDefine;
-      if (msg.StartsWith("Variable '") && msg.Contains("never used")) return UnusedVariable;
-      return d.Severity == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
-         ? DuplicateDeclaration : UndefinedVariable;
-   }
+      => d.Code switch
+      {
+         "CGS001" => DuplicateDeclaration,
+         "CGS002" => UnknownType,
+         "CGS003" => UnknownNewType,
+         "CGS004" => UnknownFunction,
+         "CGS005" => UndefinedVariable,
+         "CGS006" => EmptyStatement,
+         "CGS007" => UnreachableCode,
+         "CGS008" => UseBeforeDefine,
+         "CGS009" => UnusedVariable,
+         "CGS016" => UnknownProperty,
+         "CGS017" => UnknownMethod,
+         "CGS018" => ReadonlyProperty,
+         _ => d.Severity == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
+              ? UnknownType : UndefinedVariable,
+      };
 }
