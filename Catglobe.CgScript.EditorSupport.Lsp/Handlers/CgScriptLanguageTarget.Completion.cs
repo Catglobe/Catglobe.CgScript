@@ -26,11 +26,10 @@ public partial class CgScriptLanguageTarget
          return new SumType<CompletionItem[], CompletionList>(
             new CompletionList { IsIncomplete = false, Items = [docItem] });
 
-      // If we are on a pure doc-comment line but no template was produced (either because
-      // there is no function below or because <summary> already exists), do not pollute
-      // the list with regular code completions — they make no sense inside a comment.
+      // Inside any comment line (// or ///) no code completions make sense.
+      // For '///' lines, TryGetDocCommentCompletion() already handled the template above.
       var currentLineText = text.Split('\n').ElementAtOrDefault(p.Position.Line) ?? string.Empty;
-      if (IsDocCommentOnlyLine(currentLineText, out _))
+      if (currentLineText.TrimStart().StartsWith("//"))
          return new SumType<CompletionItem[], CompletionList>(
             new CompletionList { IsIncomplete = false, Items = [] });
 
