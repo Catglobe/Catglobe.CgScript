@@ -38,9 +38,10 @@ public partial class CgScriptLanguageTarget
       int prefixStart = offset - prefix.Length;
       bool afterDot   = prefixStart > 0 && text[prefixStart - 1] == '.';
 
+      var parseResult = _store.GetParseResult(p.TextDocument.Uri.ToString());
       var list = afterDot
-         ? MemberCompletions(text, prefixStart - 1, prefix, _store.GetParseResult(p.TextDocument.Uri.ToString())?.Tree)
-         : TopLevelCompletions(prefix);
+         ? MemberCompletions(text, prefixStart - 1, prefix, parseResult?.Tree)
+         : TopLevelCompletions(prefix, text, parseResult?.Tree);
       return new SumType<CompletionItem[], CompletionList>(list);
    }
 
@@ -160,13 +161,31 @@ public partial class CgScriptLanguageTarget
    }
 
    /// <summary>
-   /// Returns top-level completions (functions, types, keywords, constants) filtered
-   /// by whatever identifier prefix the user has already typed.
+   /// Returns top-level completions (functions, types, keywords, constants, and local
+   /// variables) filtered by whatever identifier prefix the user has already typed.
    /// </summary>
-   private CompletionList TopLevelCompletions(string prefix)
+   private CompletionList TopLevelCompletions(string prefix, string text = "", IParseTree? tree = null)
    {
       bool all = prefix.Length == 0;
       var items = new List<CompletionItem>();
+
+      // Local variables declared in this document
+      var localVars = tree != null
+         ? DocumentSymbolCollector.CollectAll(tree)
+         : CollectVariablesFromText(text);
+      foreach (var sym in localVars)
+      {
+         if (sym.Kind != "variable") continue;
+         if (!all && !sym.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+         items.Add(new CompletionItem
+         {
+            Label      = sym.Name,
+            FilterText = sym.Name,
+            InsertText = sym.Name,
+            Kind       = CompletionItemKind.Variable,
+            Detail     = sym.TypeName,
+         });
+      }
 
       foreach (var (name, fn) in _definitions.Functions)
       {
@@ -212,7 +231,56 @@ public partial class CgScriptLanguageTarget
       return new CompletionList { IsIncomplete = false, Items = items.ToArray() };
    }
 
-   
+   /// <summary>
+   /// Text-based fallback: collects variable declarations by scanning each line for the
+   /// pattern <c>TypeName varName</c>.  Used when no parse tree is available.
+   /// </summary>
+   private static IReadOnlyList<DocumentSymbolInfo> CollectVariablesFromText(string text)
+   {
+      var result = new List<DocumentSymbolInfo>();
+      var lines  = text.Split('\n');
+      for (int lineIdx = 0; lineIdx < lines.Length; lineIdx++)
+      {
+         var trimmed  = lines[lineIdx].TrimStart();
+         var spaceIdx = trimmed.IndexOf(' ');
+         if (spaceIdx <= 0) continue;
+         var typeName = trimmed[..spaceIdx];
+         // Reject lines that start with a control-flow keyword (if/for/while/return/…)
+         if (Array.IndexOf(Keywords, typeName) >= 0) continue;
+         // typeName must be a valid identifier (letters, digits, underscore; starts with letter or underscore)
+         if (!IsValidIdentifier(typeName)) continue;
+         var rest     = trimmed[(spaceIdx + 1)..].TrimStart();
+         // Extract identifier: stop at space, '=', ';', ','
+         int nameEnd = 0;
+         while (nameEnd < rest.Length && rest[nameEnd] is not ' ' and not '=' and not ';' and not ',')
+            nameEnd++;
+         if (nameEnd == 0) continue;
+         var varName = rest[..nameEnd];
+         if (!IsValidIdentifier(varName)) continue;
+         result.Add(new DocumentSymbolInfo(
+            Name:        varName,
+            Kind:        "variable",
+            TypeName:    typeName,
+            StartLine:   lineIdx + 1,
+            StartColumn: 0,
+            EndLine:     lineIdx + 1,
+            EndColumn:   0,
+            NameLine:    lineIdx + 1,
+            NameColumn:  spaceIdx + 1,
+            NameLength:  varName.Length));
+      }
+      return result;
+   }
+
+   private static bool IsValidIdentifier(string s)
+   {
+      if (s.Length == 0) return false;
+      if (!char.IsLetter(s[0]) && s[0] != '_') return false;
+      foreach (var c in s.AsSpan(1))
+         if (!char.IsLetterOrDigit(c) && c != '_') return false;
+      return true;
+   }
+
    // All language keywords from the lexer grammar.
    private static readonly string[] Keywords =
    [
