@@ -193,7 +193,6 @@ public partial class CgScriptLanguageTarget
             {
                Label         = name,
                Kind          = CompletionItemKind.Class,
-               Detail        = obj.Doc,
                Documentation = obj.Doc,
             });
       }
