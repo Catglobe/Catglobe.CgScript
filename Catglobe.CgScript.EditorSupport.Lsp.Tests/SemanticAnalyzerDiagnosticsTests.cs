@@ -1,4 +1,5 @@
 using Catglobe.CgScript.EditorSupport.Parsing;
+using System.Linq;
 
 namespace Catglobe.CgScript.EditorSupport.Lsp.Tests;
 
@@ -16,12 +17,16 @@ public class SemanticAnalyzerDiagnosticsTests
       IEnumerable<string>? globalVariables = null)
    {
       var result = CgScriptParseService.Parse(source);
+      var globalVarTypes = globalVariables is null
+         ? null
+         : (IReadOnlyDictionary<string, string>)globalVariables
+              .ToDictionary(v => v, _ => (string)"", StringComparer.Ordinal);
       return SemanticAnalyzer.Analyze(
          result.Tree,
          functions       ?? [],
          objects         ?? [],
          constants       ?? [],
-         globalVariables ?? []);
+         globalVariableTypes: globalVarTypes);
    }
 
    // ── Known constants are not reported as undefined ─────────────────────────

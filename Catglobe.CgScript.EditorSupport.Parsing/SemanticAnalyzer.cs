@@ -24,9 +24,15 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    private readonly HashSet<string> _knownConstants;
    private readonly HashSet<string> _knownGlobalVariables;
 
+   // ── Object member definitions for property/method validation ────────────────
+   private readonly IReadOnlyDictionary<string, ObjectMemberInfo>? _objectDefinitions;
+
    // ── Pass-1 result (populated before Pass 2 begins) ──────────────────────────
    private HashSet<string>         _globalVars  = new(StringComparer.Ordinal);
    private Dictionary<string, int> _globalVarLines = new(StringComparer.Ordinal);
+
+   // ── Variable type tracking (var name → declared type name) ──────────────────
+   private Dictionary<string, string> _varTypes = new(StringComparer.Ordinal);
 
    // ── Pass-2 scope state ───────────────────────────────────────────────────────
    private int              _functionDepth;
@@ -49,14 +55,16 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       IEnumerable<string> knownFunctions,
       IEnumerable<string> knownObjects,
       IEnumerable<string> knownConstants,
+      IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions = null,
       IEnumerable<string>? knownGlobalVariables = null)
    {
-      _knownFunctions       = new HashSet<string>(knownFunctions, StringComparer.Ordinal);
-      _knownObjects         = new HashSet<string>(knownObjects,   StringComparer.Ordinal);
-      _knownConstants       = new HashSet<string>(knownConstants, StringComparer.Ordinal);
+      _knownFunctions    = new HashSet<string>(knownFunctions, StringComparer.Ordinal);
+      _knownObjects      = new HashSet<string>(knownObjects,   StringComparer.Ordinal);
+      _knownConstants    = new HashSet<string>(knownConstants, StringComparer.Ordinal);
       _knownGlobalVariables = knownGlobalVariables is null
          ? new HashSet<string>(StringComparer.Ordinal)
          : new HashSet<string>(knownGlobalVariables, StringComparer.Ordinal);
+      _objectDefinitions = objectDefinitions;
    }
 
    // ── Static entry point ───────────────────────────────────────────────────────
@@ -68,23 +76,41 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// <param name="knownFunctions">Names of built-in/runtime functions.</param>
    /// <param name="knownObjects">Names of built-in/runtime object types.</param>
    /// <param name="knownConstants">Names of built-in/runtime constants.</param>
-   /// <param name="knownGlobalVariables">Names of built-in/runtime global variables pre-declared by the runtime.</param>
+   /// <param name="objectDefinitions">
+   /// Optional member definitions for object types, used to validate property/method
+   /// access and detect assignments to read-only properties.
+   /// </param>
+   /// <param name="globalVariableTypes">
+   /// Optional map of pre-declared runtime global variables to their type names
+   /// (e.g. <c>"Catglobe" → "GlobalNamespace"</c>), used to validate member access
+   /// on those variables.
+   /// </param>
    public static IReadOnlyList<Diagnostic> Analyze(
-      IParseTree           tree,
-      IEnumerable<string>  knownFunctions,
-      IEnumerable<string>  knownObjects,
-      IEnumerable<string>  knownConstants,
-      IEnumerable<string>? knownGlobalVariables = null)
+      IParseTree          tree,
+      IEnumerable<string> knownFunctions,
+      IEnumerable<string> knownObjects,
+      IEnumerable<string> knownConstants,
+      IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions = null,
+      IReadOnlyDictionary<string, string>?           globalVariableTypes = null)
    {
       // ── Pass 1: collect global declarations ──────────────────────────────────
       var collector = new ScopeCollector();
       collector.Visit(tree);
 
       // ── Pass 2: check usages ─────────────────────────────────────────────────
-      var analyzer = new SemanticAnalyzer(knownFunctions, knownObjects, knownConstants, knownGlobalVariables);
+      var analyzer = new SemanticAnalyzer(knownFunctions, knownObjects, knownConstants, objectDefinitions, globalVariableTypes?.Keys);
       analyzer._globalVars     = collector.Vars;
       analyzer._globalVarLines = collector.VarLines;
       analyzer._diagnostics.AddRange(collector.Diagnostics);
+
+      // Seed variable types from declarations and pre-declared global variables
+      foreach (var kvp in collector.VarTypes)
+         analyzer._varTypes[kvp.Key] = kvp.Value;
+      if (globalVariableTypes != null)
+         foreach (var kvp in globalVariableTypes)
+            if (!analyzer._varTypes.ContainsKey(kvp.Key))
+               analyzer._varTypes[kvp.Key] = kvp.Value;
+
       analyzer.Visit(tree);
 
       // ── Post-pass: unused variable check ────────────────────────────────────
@@ -117,6 +143,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
       public HashSet<string>              Vars     { get; } = new HashSet<string>(StringComparer.Ordinal);
       public Dictionary<string, int>      VarLines { get; } = new Dictionary<string, int>(StringComparer.Ordinal);
+      public Dictionary<string, string>   VarTypes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
       public List<Diagnostic>             Diagnostics { get; } = new List<Diagnostic>();
 
       // Skip inside function-literal bodies by tracking nesting depth
@@ -137,7 +164,16 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          CgScriptParser.DeclarationStatementContext ctx)
       {
          if (_depth == 0)
+         {
             TryAdd(ctx.declaration().IDENTIFIER());
+            // Track the declared class type for member access validation
+            if (ctx.declaration().typeSpec() is CgScriptParser.ClassNameTypeContext classType)
+            {
+               var varName = ctx.declaration().IDENTIFIER()?.Symbol.Text;
+               if (varName != null)
+                  VarTypes[varName] = classType.IDENTIFIER().Symbol.Text;
+            }
+         }
          return VisitChildren(ctx);
       }
 
@@ -152,7 +188,16 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          {
             var decl = ctx.declaration();
             if (decl != null)
+            {
                TryAdd(decl.IDENTIFIER());
+               // Track the declared class type for member access validation
+               if (decl.typeSpec() is CgScriptParser.ClassNameTypeContext classType)
+               {
+                  var varName = decl.IDENTIFIER()?.Symbol.Text;
+                  if (varName != null)
+                     VarTypes[varName] = classType.IDENTIFIER().Symbol.Text;
+               }
+            }
          }
          return VisitChildren(ctx);
       }
@@ -371,7 +416,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    }
 
    /// <summary>
-   /// Only fires when the callee is a simple IDENTIFIER (no chained postfix operators).
+   /// Validates function calls and member access (property and method) against known
+   /// object type definitions, including chained access like <c>Catglobe.Json.Parse()</c>.
    /// </summary>
    public override object? VisitPostfixExpr(CgScriptParser.PostfixExprContext ctx)
    {
@@ -401,6 +447,63 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                      token.Column,
                      token.Text.Length,
                      "CGS004"));
+               }
+            }
+         }
+      }
+
+      // Pattern: postfixExpr DOT IDENTIFIER (LPAREN ...)?  (member access)
+      if (ctx.DOT() != null && _objectDefinitions != null)
+      {
+         var memberIdNode = ctx.IDENTIFIER();
+         if (memberIdNode != null)
+         {
+            var baseType = TryResolveBaseType(ctx.postfixExpr());
+            if (baseType != null && _objectDefinitions.TryGetValue(baseType, out var members))
+            {
+               var memberName  = memberIdNode.Symbol.Text;
+               bool isCallExpr = ctx.LPAREN() != null;
+
+               if (isCallExpr)
+               {
+                  if (!members.HasMethod(memberName))
+                  {
+                     _diagnostics.Add(new Diagnostic(
+                        DiagnosticSeverity.Error,
+                        $"'{baseType}' does not have a method named '{memberName}'",
+                        memberIdNode.Symbol.Line,
+                        memberIdNode.Symbol.Column,
+                        memberName.Length,
+                        "CGS017"));
+                  }
+               }
+               else
+               {
+                  if (!members.Properties.ContainsKey(memberName))
+                  {
+                     _diagnostics.Add(new Diagnostic(
+                        DiagnosticSeverity.Error,
+                        $"'{baseType}' does not have a property named '{memberName}'",
+                        memberIdNode.Symbol.Line,
+                        memberIdNode.Symbol.Column,
+                        memberName.Length,
+                        "CGS016"));
+                  }
+                  else
+                  {
+                     if (members.Properties.TryGetValue(memberName, out var hasSetter)
+                         && !hasSetter
+                         && IsLhsOfAssignment(ctx))
+                     {
+                        _diagnostics.Add(new Diagnostic(
+                           DiagnosticSeverity.Error,
+                           $"'{memberName}' is read-only",
+                           memberIdNode.Symbol.Line,
+                           memberIdNode.Symbol.Column,
+                           memberName.Length,
+                           "CGS018"));
+                     }
+                  }
                }
             }
          }
@@ -465,6 +568,75 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       || _knownObjects.Contains(name)
       || _knownConstants.Contains(name)
       || _knownGlobalVariables.Contains(name);
+
+   /// <summary>
+   /// Resolves the declared type of the base expression in a member-access chain.
+   /// Returns the type name when the base is a simple, undecorated global variable
+   /// whose type was recorded at declaration time, or <c>null</c> when the type
+   /// cannot be determined (chained access, function parameter, etc.).
+   /// </summary>
+   private string? TryResolveBaseType(CgScriptParser.PostfixExprContext? baseCtx)
+   {
+      if (baseCtx == null) return null;
+
+      var primary = baseCtx.primaryExpr();
+      if (primary != null)
+      {
+         var idNode = primary.IDENTIFIER();
+         if (idNode == null) return null; // Not a bare identifier
+
+         var varName = idNode.Symbol.Text;
+
+         // If the variable is shadowed by a function parameter or catch variable,
+         // its type is unknown in this scope.
+         if (_functionParams != null && _functionParams.Contains(varName)) return null;
+         if (_extraLocals.Contains(varName)) return null;
+
+         return _varTypes.TryGetValue(varName, out var typeName) ? typeName : null;
+      }
+
+      // Multi-level: baseCtx is itself a property access (e.g. Catglobe.Json)
+      if (baseCtx.DOT() != null && baseCtx.LPAREN() == null && _objectDefinitions != null)
+      {
+         var propName = baseCtx.IDENTIFIER()?.Symbol.Text;
+         if (propName != null)
+         {
+            var innerType = TryResolveBaseType(baseCtx.postfixExpr());
+            if (innerType != null
+                && _objectDefinitions.TryGetValue(innerType, out var innerMembers)
+                && innerMembers.PropertyReturnTypes.TryGetValue(propName, out var returnType)
+                && !string.IsNullOrEmpty(returnType))
+            {
+               return returnType;
+            }
+         }
+      }
+
+      return null;
+   }
+
+   /// <summary>
+   /// Returns <c>true</c> when <paramref name="ctx"/> is the direct left-hand side
+   /// of an assignment expression (<c>exprOrAssign: expression ASSIGN expression</c>).
+   /// </summary>
+   private static bool IsLhsOfAssignment(CgScriptParser.PostfixExprContext ctx)
+   {
+      Antlr4.Runtime.Tree.IParseTree? node = ctx;
+      while (node?.Parent != null)
+      {
+         var parent = node.Parent;
+         if (parent is CgScriptParser.ExprOrAssignContext assignCtx)
+         {
+            if (assignCtx.ASSIGN() == null) return false;
+            // node is the direct child of exprOrAssign; it is the LHS when it matches expression(0)
+            return node == assignCtx.expression(0);
+         }
+         // Stop searching beyond a statement boundary
+         if (parent is CgScriptParser.StatementContext) return false;
+         node = parent;
+      }
+      return false;
+   }
 
    /// <summary>
    /// Returns <see langword="true"/> when the identifier in <paramref name="ctx"/>

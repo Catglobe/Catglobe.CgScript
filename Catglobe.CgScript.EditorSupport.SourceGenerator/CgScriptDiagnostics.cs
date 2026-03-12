@@ -117,6 +117,46 @@ internal static class CgScriptDiagnostics
       category:           Category,
       defaultSeverity:    DiagnosticSeverity.Info,
       isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor CStyleForLoop = new(
+      id:                 "CGS015",
+      title:              "C-style for loop",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Info,
+      isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor UnknownProperty = new(
+      id:                 "CGS016",
+      title:              "Unknown property name",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor UnknownMethod = new(
+      id:                 "CGS017",
+      title:              "Unknown method name",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor ReadonlyProperty = new(
+      id:                 "CGS018",
+      title:              "Assignment to read-only property",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor SyntaxError = new(
+      id:                 "CGS019",
+      title:              "Syntax error",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
    public static DiagnosticSeverity ToRoslyn(Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity s)
       => s == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
          ? DiagnosticSeverity.Error
@@ -125,22 +165,25 @@ internal static class CgScriptDiagnostics
          : DiagnosticSeverity.Warning;
 
    /// <summary>
-   /// Returns the <see cref="DiagnosticDescriptor"/> that corresponds to a Parsing diagnostic message.
-   /// Falls back to <see cref="UndefinedVariable"/> for unrecognised patterns.
+   /// Returns the <see cref="DiagnosticDescriptor"/> that corresponds to a Parsing diagnostic code.
    /// </summary>
    public static DiagnosticDescriptor DescriptorFor(Catglobe.CgScript.EditorSupport.Parsing.Diagnostic d)
-   {
-      var msg = d.Message;
-      if (msg.StartsWith("Illegal variable re-declaration")) return DuplicateDeclaration;
-      if (msg.StartsWith("Unknown type '") && !msg.Contains("new "))  return UnknownType;
-      if (msg.StartsWith("Unknown type '"))                           return UnknownNewType;
-      if (msg.StartsWith("Unknown function "))                        return UnknownFunction;
-      if (msg.StartsWith("Undefined variable "))                      return UndefinedVariable;
-      if (msg.StartsWith("Empty statement "))                         return EmptyStatement;
-      if (msg.StartsWith("Unreachable code"))                         return UnreachableCode;
-      if (msg.StartsWith("Variable '") && msg.Contains("before its")) return UseBeforeDefine;
-      if (msg.StartsWith("Variable '") && msg.Contains("never used")) return UnusedVariable;
-      return d.Severity == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
-         ? DuplicateDeclaration : UndefinedVariable;
-   }
+      => d.Code switch
+      {
+         "CGS001" => DuplicateDeclaration,
+         "CGS002" => UnknownType,
+         "CGS003" => UnknownNewType,
+         "CGS004" => UnknownFunction,
+         "CGS005" => UndefinedVariable,
+         "CGS006" => EmptyStatement,
+         "CGS007" => UnreachableCode,
+         "CGS008" => UseBeforeDefine,
+         "CGS009" => UnusedVariable,
+         "CGS015" => CStyleForLoop,
+         "CGS016" => UnknownProperty,
+         "CGS017" => UnknownMethod,
+         "CGS018" => ReadonlyProperty,
+         "CGS019" => SyntaxError,
+         _ => throw new ArgumentOutOfRangeException(nameof(d), d.Code, "Unknown diagnostic code"),
+      };
 }

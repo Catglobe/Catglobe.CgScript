@@ -64,10 +64,8 @@ public partial class CgScriptLanguageTarget
          }
          else
          {
-            // Resolve the variable name to its declared type
-            var typeName = ResolveVariableType(receiverName, text, tree);
-            if (typeName != null)
-               _definitions.Objects.TryGetValue(typeName, out exact);
+            // Resolve variable or chained property expression (e.g. Catglobe.Json)
+            exact = ResolveReceiverObjectAtDot(text, dotPos, tree);
          }
       }
 
@@ -130,6 +128,48 @@ public partial class CgScriptLanguageTarget
          }
       }
       return new CompletionList { IsIncomplete = false, Items = items.ToArray() };
+   }
+
+   /// <summary>
+   /// Resolves the receiver expression to the left of a dot at <paramref name="dotPos"/>
+   /// to its <see cref="ObjectDefinition"/>, supporting chained access such as
+   /// <c>Catglobe.Json</c> (where <c>Catglobe</c> is a global variable of type
+   /// <c>GlobalNamespace</c> and <c>Json</c> is a property of that type).
+   /// Returns <c>null</c> when the type cannot be determined.
+   /// </summary>
+   private ObjectDefinition? ResolveReceiverObjectAtDot(
+      string text, int dotPos, Antlr4.Runtime.Tree.IParseTree? tree)
+   {
+      var receiverName = GetIdentifierBefore(text, dotPos);
+      if (receiverName is null) return null;
+
+      // Direct match: receiver is a known type name (static / namespace access)
+      if (_definitions.Objects.TryGetValue(receiverName, out var direct))
+         return direct;
+
+      // Resolve as a local or global variable
+      var typeName = ResolveVariableType(receiverName, text, tree);
+      if (typeName != null && _definitions.Objects.TryGetValue(typeName, out var fromVar))
+         return fromVar;
+
+      // Chained: check for another dot to the left of this identifier and recurse
+      int idEnd   = dotPos;
+      while (idEnd > 0 && text[idEnd - 1] == ' ') idEnd--;
+      int idStart = idEnd - receiverName.Length;
+      if (idStart > 0 && text[idStart - 1] == '.')
+      {
+         var innerObj = ResolveReceiverObjectAtDot(text, idStart - 1, tree);
+         if (innerObj != null)
+         {
+            var prop = (innerObj.Properties ?? [])
+               .FirstOrDefault(p => string.Equals(p.Name, receiverName, StringComparison.Ordinal));
+            if (prop?.ReturnType != null
+                && _definitions.Objects.TryGetValue(prop.ReturnType, out var propType))
+               return propType;
+         }
+      }
+
+      return null;
    }
 
    /// <summary>

@@ -6,11 +6,11 @@ namespace Catglobe.CgScript.EditorSupport.Parsing;
 /// <param name="Line">1-based line number of the offending token (0 if unknown).</param>
 /// <param name="Column">0-based column of the offending token (0 if unknown).</param>
 /// <param name="Length">Character length of the offending token (0 if unknown).</param>
-/// <param name="Code">Diagnostic code (e.g. <c>CGS001</c>). Empty string for parser/lexer errors.</param>
+/// <param name="Code">Diagnostic code (e.g. <c>CGS001</c>). <c>CGS019</c> for parser/lexer syntax errors.</param>
 public sealed record Diagnostic(
    DiagnosticSeverity Severity,
    string             Message,
    int                Line,
    int                Column,
-   int                Length = 0,
-   string             Code   = "");
+   int                Length,
+   string             Code);

@@ -26,7 +26,7 @@ internal sealed class DiagnosticErrorListener : BaseErrorListener, IAntlrErrorLi
       var length = offendingSymbol is { } t
          ? t.StopIndex - t.StartIndex + 1
          : 0;
-      _diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, msg, line, charPositionInLine, length));
+      _diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, msg, line, charPositionInLine, length, "CGS019"));
    }
 
    // ── Lexer error listener ──────────────────────────────────────────────────
@@ -39,6 +39,6 @@ internal sealed class DiagnosticErrorListener : BaseErrorListener, IAntlrErrorLi
       string          msg,
       RecognitionException? e)
    {
-      _diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, msg, line, charPositionInLine, 1));
+      _diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, msg, line, charPositionInLine, 1, "CGS019"));
    }
 }
