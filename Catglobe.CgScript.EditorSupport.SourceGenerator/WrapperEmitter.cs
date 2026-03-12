@@ -31,7 +31,6 @@ internal static class WrapperEmitter
       var paramsClass = methodName + "Params";
       var isVoid      = meta.ReturnType == "void";
       var returnCs    = isVoid ? "object" : meta.ReturnType;
-      var hasParams   = meta.Parameters.Count > 0;
 
       // ── XML doc comment ──────────────────────────────────────────────────────
       sb.AppendLine($"    // Generated from {meta.ScriptName}.cgs");
@@ -61,36 +60,31 @@ internal static class WrapperEmitter
       sb.AppendLine("    {");
       sb.AppendLine($"        var ctx = global::{contextFullName}.Default;");
 
-      if (hasParams)
+      // Build the params type info using CreateObjectInfo + inline SerializeHandler.
+      // This is AOT-safe: the trimmer can see every type accessed via the handler.
+      sb.AppendLine($"        var paramsInfo = {JMeta}.CreateObjectInfo<{paramsClass}>(ctx.Options,");
+      sb.AppendLine($"            new {JObjVal}<{paramsClass}>");
+      sb.AppendLine("            {");
+      sb.AppendLine("                ObjectCreator = null, // serialisation-only");
+      sb.AppendLine($"                SerializeHandler = ({JWriter} w, {paramsClass} v) =>");
+      sb.AppendLine("                {");
+      sb.AppendLine("                    w.WriteStartObject();");
+      foreach (var p in meta.Parameters)
       {
-         // Build the params type info using CreateObjectInfo + inline SerializeHandler.
-         // This is AOT-safe: the trimmer can see every type accessed via the handler.
-         sb.AppendLine($"        var paramsInfo = {JMeta}.CreateObjectInfo<{paramsClass}>(ctx.Options,");
-         sb.AppendLine($"            new {JObjVal}<{paramsClass}>");
-         sb.AppendLine("            {");
-         sb.AppendLine("                ObjectCreator = null, // serialisation-only");
-         sb.AppendLine($"                SerializeHandler = ({JWriter} w, {paramsClass} v) =>");
-         sb.AppendLine("                {");
-         sb.AppendLine("                    w.WriteStartObject();");
-         foreach (var p in meta.Parameters)
-         {
-            var prop    = ToPascalCase(p.Name);
-            var jsonKey = p.Name;
-            sb.AppendLine(WritePropertyLine(jsonKey, prop, p.CsType, p.IsOptional));
-         }
-         sb.AppendLine("                    w.WriteEndObject();");
-         sb.AppendLine("                }");
-         sb.AppendLine("            });");
+         var prop    = ToPascalCase(p.Name);
+         var jsonKey = p.Name;
+         sb.AppendLine(WritePropertyLine(jsonKey, prop, p.CsType, p.IsOptional));
       }
+      sb.AppendLine("                    w.WriteEndObject();");
+      sb.AppendLine("                }");
+      sb.AppendLine("            });");
 
       // Resolve return-type info from the user's serializer context via the STJ-generated property.
       // Using the property directly (rather than GetTypeInfo) gives a natural C# compile error if the
       // type is not registered with [JsonSerializable], and CGS011 explains why.
       sb.AppendLine($"        var resultInfo = ctx.{ToStjPropertyName(returnCs)};");
 
-      var executeExpr = hasParams
-         ? $"client.Execute<{paramsClass}, {returnCs}>(\"{meta.ScriptName}\", new {paramsClass}({string.Join(", ", meta.Parameters.Select(p => ToCamelCase(p.Name)))}), paramsInfo, resultInfo, cancellationToken: ct)"
-         : $"client.Execute<{returnCs}>(\"{meta.ScriptName}\", resultInfo, cancellationToken: ct)";
+      var executeExpr = $"client.Execute<{paramsClass}, {returnCs}>(\"{meta.ScriptName}\", new {paramsClass}({string.Join(", ", meta.Parameters.Select(p => ToCamelCase(p.Name)))}), paramsInfo, resultInfo, cancellationToken: ct)";
       if (isVoid)
          sb.AppendLine($"        (await {executeExpr}).GetValueOrThrowError();");
       else
@@ -100,15 +94,12 @@ internal static class WrapperEmitter
       sb.AppendLine();
 
       // ── params record ────────────────────────────────────────────────────────
-      if (hasParams)
-      {
-         sb.Append($"    private record {paramsClass}(");
-         sb.Append(string.Join(", ", meta.Parameters.Select(p =>
-            p.IsOptional
-               ? $"{MakeNullable(p.CsType)} {ToPascalCase(p.Name)} = null"
-               : $"{p.CsType} {ToPascalCase(p.Name)}")));
-         sb.AppendLine(");");
-      }
+      sb.Append($"    private record {paramsClass}(");
+      sb.Append(string.Join(", ", meta.Parameters.Select(p =>
+         p.IsOptional
+            ? $"{MakeNullable(p.CsType)} {ToPascalCase(p.Name)} = null"
+            : $"{p.CsType} {ToPascalCase(p.Name)}")));
+      sb.AppendLine(");");
 
       return sb.ToString();
    }
