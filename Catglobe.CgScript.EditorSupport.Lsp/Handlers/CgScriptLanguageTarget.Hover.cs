@@ -284,6 +284,58 @@ public partial class CgScriptLanguageTarget
    }
 
    /// <summary>
+   /// Builds signature info for a method call on an instance or type: <c>receiver.Method(</c>.
+   /// Locates the dot before <paramref name="parenPos"/>, resolves the receiver's declared
+   /// type, then looks up matching methods (instance or static) on that type.
+   /// Returns <c>null</c> if the type or method cannot be resolved.
+   /// </summary>
+   private SignatureInformation[]? TryBuildMethodSignatures(
+      string methodName, string text, int parenPos, Antlr4.Runtime.Tree.IParseTree? tree)
+   {
+      // Step back over whitespace to the char before the method name identifier.
+      int pos = parenPos;
+      while (pos > 0 && text[pos - 1] == ' ') pos--;
+      pos -= methodName.Length; // step over the method name itself
+      while (pos > 0 && text[pos - 1] == ' ') pos--;
+
+      if (pos == 0 || text[pos - 1] != '.') return null;
+
+      var receiverName = GetIdentifierBefore(text, pos - 1);
+      if (receiverName is null) return null;
+
+      ObjectDefinition? objDef = null;
+      bool isStatic = false;
+      if (_definitions.Objects.TryGetValue(receiverName, out objDef))
+         isStatic = true;
+      else
+      {
+         var typeName = ResolveVariableType(receiverName, text, tree);
+         if (typeName != null) _definitions.Objects.TryGetValue(typeName, out objDef);
+      }
+
+      if (objDef is null) return null;
+
+      var methods = (isStatic ? (objDef.StaticMethods ?? []) : (objDef.Methods ?? []))
+         .Where(m => string.Equals(m.Name, methodName, StringComparison.OrdinalIgnoreCase))
+         .ToArray();
+
+      if (methods.Length == 0) return null;
+
+      return methods.Select(m => new SignatureInformation
+      {
+         Label         = $"{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param)})",
+         Documentation = new SumType<string, MarkupContent>(
+            new MarkupContent { Kind = MarkupKind.Markdown, Value = m.Doc ?? string.Empty }),
+         Parameters    = (m.Param ?? []).Select(p =>
+            new ParameterInformation
+            {
+               Label         = new SumType<string, Tuple<int, int>>($"{p.Type} {p.Name}"),
+               Documentation = new SumType<string, MarkupContent>(p.Doc ?? string.Empty),
+            }).ToArray(),
+      }).ToArray();
+   }
+
+   /// <summary>
    /// Returns <c>true</c> when the <c>(</c> at <paramref name="parenPos"/> belongs to a
    /// <c>new TypeName(</c> expression, i.e. the keyword immediately preceding the type
    /// name is <c>new</c>.

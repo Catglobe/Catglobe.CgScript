@@ -55,6 +55,13 @@ public partial class CgScriptLanguageTarget
             {
                signatures = BuildConstructorSignatureInfoList(funcName, obj.Constructors);
             }
+            else
+            {
+               // Method call on a variable: receiver.Method(  — find the dot and
+               // resolve the receiver's declared type, then look up the method.
+               signatures = TryBuildMethodSignatures(funcName, text, i,
+                  _store.GetParseResult(p.TextDocument.Uri.ToString())?.Tree);
+            }
 
             if (signatures is null) return null;
 

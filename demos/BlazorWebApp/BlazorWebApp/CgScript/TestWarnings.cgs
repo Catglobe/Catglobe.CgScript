@@ -32,6 +32,8 @@ function(array tags, number maxResults) {
     };
 }.Invoke(Workflow_getParameters()[0]);
 
+Dictionary d;d.ContainsKey();
+
 // CGS009 — declared but never read anywhere
 number unused;
 
