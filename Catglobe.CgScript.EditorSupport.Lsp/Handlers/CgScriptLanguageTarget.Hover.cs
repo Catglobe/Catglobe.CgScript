@@ -23,11 +23,11 @@ public partial class CgScriptLanguageTarget
    public Hover OnHover(TextDocumentPositionParams p)
    {
       var text = _store.GetText(p.TextDocument.Uri.ToString());
-      if (text is null) return new Hover();
+      if (text is null) return null!;
 
       var offset = GetOffset(text, p.Position.Line, p.Position.Character);
       var word   = GetWordAt(text, offset);
-      if (string.IsNullOrEmpty(word)) return new Hover();
+      if (string.IsNullOrEmpty(word)) return null!;
 
       // ── Method / property on a known object type (cursor after a dot) ──────────
       int wordStart = offset;
@@ -102,9 +102,26 @@ public partial class CgScriptLanguageTarget
       // ── Built-in object type ───────────────────────────────────────────────────
       if (_definitions.Objects.TryGetValue(word, out var obj))
       {
+         var sb = new System.Text.StringBuilder();
+         if (!string.IsNullOrWhiteSpace(obj.Doc)) sb.Append(obj.Doc);
+         if (obj.Constructors?.Length > 0)
+         {
+            foreach (var ctor in obj.Constructors)
+            {
+               if (sb.Length > 0) sb.Append("\n\n---\n\n");
+               if (!string.IsNullOrWhiteSpace(ctor.Doc)) sb.Append($"{ctor.Doc}\n\n");
+               sb.Append($"`new {word}({BuildMethodParamList(ctor.Param)})`");
+               if (ctor.Param?.Length > 0)
+               {
+                  sb.Append("\n\n**Parameters:**");
+                  foreach (var mp in ctor.Param)
+                     sb.Append($"\n- `{mp.Type} {mp.Name}`{(string.IsNullOrWhiteSpace(mp.Doc) ? "" : $" — {mp.Doc}")}");
+               }
+            }
+         }
          return new Hover
          {
-            Contents = HoverContent(obj.Doc ?? word),
+            Contents = HoverContent(sb.Length > 0 ? sb.ToString() : word),
          };
       }
 
@@ -139,7 +156,7 @@ public partial class CgScriptLanguageTarget
          }
       }
 
-      return new Hover();
+      return null!;
    }
 
    // ── string builders ───────────────────────────────────────────────────────────
@@ -265,4 +282,35 @@ public partial class CgScriptLanguageTarget
          sb.AppendLine($"  {p.Name} : {p.ConstantType}{(p.IsOptional ? " (optional)" : "")}");
       return sb.ToString();
    }
+
+   /// <summary>
+   /// Returns <c>true</c> when the <c>(</c> at <paramref name="parenPos"/> belongs to a
+   /// <c>new TypeName(</c> expression, i.e. the keyword immediately preceding the type
+   /// name is <c>new</c>.
+   /// </summary>
+   private static bool IsConstructorCall(string text, int parenPos, string typeName)
+   {
+      // Skip back over whitespace, then over the type name, then over whitespace.
+      int pos = parenPos;
+      while (pos > 0 && text[pos - 1] == ' ') pos--;
+      pos -= typeName.Length; // step over type name
+      while (pos > 0 && text[pos - 1] == ' ') pos--;
+      if (pos < 3) return false;
+      return text[(pos - 3)..pos] == "new" && (pos == 3 || !IsWordChar(text[pos - 4]));
+   }
+
+   /// <summary>Builds one <see cref="SignatureInformation"/> per constructor overload.</summary>
+   private static SignatureInformation[] BuildConstructorSignatureInfoList(string typeName, MethodDefinition[] ctors)
+      => ctors.Select(c => new SignatureInformation
+      {
+         Label         = $"new {typeName}({BuildMethodParamList(c.Param)})",
+         Documentation = new SumType<string, MarkupContent>(
+            new MarkupContent { Kind = MarkupKind.Markdown, Value = c.Doc ?? string.Empty }),
+         Parameters    = (c.Param ?? []).Select(p =>
+            new ParameterInformation
+            {
+               Label         = new SumType<string, Tuple<int, int>>($"{p.Type} {p.Name}"),
+               Documentation = new SumType<string, MarkupContent>(p.Doc ?? string.Empty),
+            }).ToArray(),
+      }).ToArray();
 }
