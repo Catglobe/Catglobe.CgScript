@@ -149,6 +149,14 @@ internal static class CgScriptDiagnostics
       category:           Category,
       defaultSeverity:    DiagnosticSeverity.Error,
       isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor SyntaxError = new(
+      id:                 "CGS019",
+      title:              "Syntax error",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
    public static DiagnosticSeverity ToRoslyn(Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity s)
       => s == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
          ? DiagnosticSeverity.Error
@@ -175,6 +183,7 @@ internal static class CgScriptDiagnostics
          "CGS016" => UnknownProperty,
          "CGS017" => UnknownMethod,
          "CGS018" => ReadonlyProperty,
+         "CGS019" => SyntaxError,
          _ => throw new ArgumentOutOfRangeException(nameof(d), d.Code, "Unknown diagnostic code"),
       };
 }
