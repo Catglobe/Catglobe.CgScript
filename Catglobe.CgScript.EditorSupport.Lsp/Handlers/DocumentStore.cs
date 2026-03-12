@@ -32,7 +32,8 @@ public sealed class DocumentStore
          result.Tree,
          _definitions.Functions.Keys,
          _definitions.Objects.Keys,
-         _definitions.Constants);
+         _definitions.Constants,
+         _definitions.GlobalVariables.Keys);
       var merged = ParseResult.WithExtra(result, extraDiags);
       _docs[uri] = (text, merged);
    }

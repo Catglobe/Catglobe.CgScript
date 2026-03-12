@@ -21,6 +21,9 @@ public static class KnownNamesLoader
    /// <summary>Names of all known built-in constants (e.g. enum member names).</summary>
    public static IReadOnlyList<string> ConstantNames { get; } = LoadStringArray("CgScriptConstants.json");
 
+   /// <summary>Names of all known built-in global variables pre-declared by the runtime (e.g. "Catglobe").</summary>
+   public static IReadOnlyList<string> GlobalVariableNames { get; } = LoadObjectKeys("CgScriptGlobalVariables.json");
+
    // ── helpers ──────────────────────────────────────────────────────────────────
 
    private static IReadOnlyList<string> LoadObjectKeys(string fileName)
