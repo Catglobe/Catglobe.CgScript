@@ -31,10 +31,15 @@ jobs:
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
         with:
           cache: npm
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            Catglobe.CgScript.EditorSupport.CodeMirror/package-lock.json
           node-version: 'lts/*'
       - name: Install dependencies
         run: npm clean-install
+      - name: Install CodeMirror package dependencies
+        run: npm clean-install
+        working-directory: Catglobe.CgScript.EditorSupport.CodeMirror
       - name: Test
         run: dotnet test
       - name: NuGet login (OIDC → temp API key)
@@ -47,3 +52,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NUGET_TOKEN: ${{steps.nuget.outputs.NUGET_API_KEY}}
+
