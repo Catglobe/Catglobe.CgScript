@@ -117,6 +117,30 @@ internal static class CgScriptDiagnostics
       category:           Category,
       defaultSeverity:    DiagnosticSeverity.Info,
       isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor UnknownProperty = new(
+      id:                 "CGS016",
+      title:              "Unknown property name",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor UnknownMethod = new(
+      id:                 "CGS017",
+      title:              "Unknown method name",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor ReadonlyProperty = new(
+      id:                 "CGS018",
+      title:              "Assignment to read-only property",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
    public static DiagnosticSeverity ToRoslyn(Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity s)
       => s == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
          ? DiagnosticSeverity.Error
@@ -130,6 +154,9 @@ internal static class CgScriptDiagnostics
    /// </summary>
    public static DiagnosticDescriptor DescriptorFor(Catglobe.CgScript.EditorSupport.Parsing.Diagnostic d)
    {
+      if (d.Code == "CGS016") return UnknownProperty;
+      if (d.Code == "CGS017") return UnknownMethod;
+      if (d.Code == "CGS018") return ReadonlyProperty;
       var msg = d.Message;
       if (msg.StartsWith("Illegal variable re-declaration")) return DuplicateDeclaration;
       if (msg.StartsWith("Unknown type '") && !msg.Contains("new "))  return UnknownType;

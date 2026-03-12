@@ -13,10 +13,12 @@ public sealed class DocumentStore
 {
    private readonly ConcurrentDictionary<string, (string Text, ParseResult Result)> _docs = new();
    private readonly DefinitionLoader _definitions;
+   private readonly IReadOnlyDictionary<string, ObjectMemberInfo> _objectMemberInfos;
 
    public DocumentStore(DefinitionLoader definitions)
    {
-      _definitions = definitions;
+      _definitions       = definitions;
+      _objectMemberInfos = BuildMemberInfos(definitions.Objects);
    }
 
    public void Update(string uri, string text)
@@ -32,7 +34,9 @@ public sealed class DocumentStore
          result.Tree,
          _definitions.Functions.Keys,
          _definitions.Objects.Keys,
-         _definitions.Constants);
+         _definitions.Constants,
+         _objectMemberInfos,
+         _definitions.GlobalVariables);
       var merged = ParseResult.WithExtra(result, extraDiags);
       _docs[uri] = (text, merged);
    }
@@ -44,4 +48,27 @@ public sealed class DocumentStore
 
    public string? GetText(string uri)
       => _docs.TryGetValue(uri, out var entry) ? entry.Text : null;
+
+   private static IReadOnlyDictionary<string, ObjectMemberInfo> BuildMemberInfos(
+      IReadOnlyDictionary<string, ObjectDefinition> objects)
+   {
+      var result = new Dictionary<string, ObjectMemberInfo>(StringComparer.Ordinal);
+      foreach (var kvp in objects)
+      {
+         var def        = kvp.Value;
+         var properties = new Dictionary<string, bool>(StringComparer.Ordinal);
+         if (def.Properties != null)
+            foreach (var p in def.Properties)
+               properties[p.Name] = p.HasSetter;
+
+         var methods = new List<string>();
+         if (def.Methods != null)
+            foreach (var m in def.Methods)
+               if (!string.IsNullOrEmpty(m.Name))
+                  methods.Add(m.Name);
+
+         result[kvp.Key] = new ObjectMemberInfo(properties, methods);
+      }
+      return result;
+   }
 }
