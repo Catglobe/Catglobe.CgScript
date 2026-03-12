@@ -15,9 +15,8 @@ internal sealed record ScriptMetadata(
    string ScriptName,
    string ReturnType,
    IReadOnlyList<ScriptParam> Parameters,
-   string? Summary        = null,
-   string? ReturnDoc      = null,
-   bool NeedsEmptyParams  = false);
+   string? Summary   = null,
+   string? ReturnDoc = null);
 
 /// <summary>
 /// Extracts the script name, return type and parameter list from a .cgs source file.
@@ -170,8 +169,8 @@ internal static class ScriptParser
 
       string ReturnCs() => TryAnnotatedToCsType((returnType0 ?? "void").AsSpan()) ?? "void";
 
-      ScriptMetadata Make(IReadOnlyList<ScriptParam> parms, bool needsEmptyParams = false) =>
-         new ScriptMetadata(scriptName, ReturnCs(), parms, summary, returnDoc, needsEmptyParams);
+      ScriptMetadata Make(IReadOnlyList<ScriptParam> parms) =>
+         new ScriptMetadata(scriptName, ReturnCs(), parms, summary, returnDoc);
 
       // ── Pattern C: dictVar = Workflow_getParameters()[0]; type name = dictVar["key"] ──
       // Also handles 2-step: Array pVar = Workflow_getParameters(); dictVar = pVar[0]; type name = dictVar["key"]
@@ -252,9 +251,7 @@ internal static class ScriptParser
          var aParams = ParseFunctionParams(fnMatch.Groups[1].Value, paramOverrides, paramDocs);
          var (missing, dynamic) = FindAnnotationIssues(aParams, paramOverrides);
          if (missing.Count > 0) return (null, missing, _emptyMissing, _emptyInvalid);
-         // When no params are declared but .Invoke() is used the script still calls
-         // Workflow_getParameters()[0]; pass an empty dictionary so that call succeeds.
-         return (Make(aParams, needsEmptyParams: aParams.Count == 0), _emptyMissing, dynamic, _emptyInvalid);
+         return (Make(aParams), _emptyMissing, dynamic, _emptyInvalid);
       }
 
       return (null, _emptyMissing, _emptyMissing, _emptyInvalid);
