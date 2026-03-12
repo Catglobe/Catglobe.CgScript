@@ -210,6 +210,22 @@ public partial class CgScriptLanguageTarget
             items.Add(new CompletionItem { Label = kw, Kind = CompletionItemKind.Keyword });
       }
 
+      if (_clientSupportsSnippets)
+      {
+         foreach (var (label, filter, snippet) in StatementSnippets)
+         {
+            if (all || filter.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+               items.Add(new CompletionItem
+               {
+                  Label            = label,
+                  FilterText       = filter,
+                  InsertText       = snippet,
+                  InsertTextFormat = InsertTextFormat.Snippet,
+                  Kind             = CompletionItemKind.Snippet,
+               });
+         }
+      }
+
       return new CompletionList { IsIncomplete = false, Items = items.ToArray() };
    }
 
@@ -221,6 +237,18 @@ public partial class CgScriptLanguageTarget
       "true", "false", "empty", "new", "switch", "case", "default",
       "try", "catch", "throw", "where",
       "object", "function",
+   ];
+
+   // Pre-defined snippets for common language constructs.
+   internal static readonly (string Label, string Filter, string Snippet)[] StatementSnippets =
+   [
+      ("if statement",        "if",     "if (${1:condition}) {\n\t$0\n}"),
+      ("if-else statement",   "if",     "if (${1:condition}) {\n\t$2\n} else {\n\t$0\n}"),
+      ("while statement",     "while",  "while (${1:condition}) {\n\t$0\n}"),
+      ("for-in statement",    "for",    "for (${1:item} for ${2:collection}; ${3:count}) {\n\t$0\n}"),
+      ("for-var statement",   "for",    "for (${1:number} ${2:i} = ${3:0}; ${4:condition}; ${2:i} = ${2:i} + 1) {\n\t$0\n}"),
+      ("switch statement",    "switch", "switch (${1:expression}) {\n\tcase ${2:value}:\n\t\t$0\n\t\tbreak;\n\tdefault:\n\t\tbreak;\n}"),
+      ("try-catch statement", "try",    "try {\n\t$1\n} catch (${2:e}) {\n\t$0\n}"),
    ];
 
    // ── Doc comment template generation ─────────────────────────────────────────
