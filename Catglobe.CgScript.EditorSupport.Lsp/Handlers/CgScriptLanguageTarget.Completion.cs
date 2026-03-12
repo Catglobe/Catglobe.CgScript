@@ -222,6 +222,17 @@ public partial class CgScriptLanguageTarget
             items.Add(new CompletionItem { Label = name, Kind = CompletionItemKind.Constant });
       }
 
+      foreach (var (name, typeName) in _definitions.GlobalVariables)
+      {
+         if (all || name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            items.Add(new CompletionItem
+            {
+               Label  = name,
+               Kind   = CompletionItemKind.Variable,
+               Detail = typeName,
+            });
+      }
+
       foreach (var kw in Keywords)
       {
          if (all || kw.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
