@@ -32,6 +32,7 @@ internal static class WrapperEmitter
       var isVoid      = meta.ReturnType == "void";
       var returnCs    = isVoid ? "object" : meta.ReturnType;
       var hasParams   = meta.Parameters.Count > 0;
+      var emitParams  = hasParams || meta.NeedsEmptyParams;
 
       // ── XML doc comment ──────────────────────────────────────────────────────
       sb.AppendLine($"    // Generated from {meta.ScriptName}.cgs");
@@ -61,7 +62,7 @@ internal static class WrapperEmitter
       sb.AppendLine("    {");
       sb.AppendLine($"        var ctx = global::{contextFullName}.Default;");
 
-      if (hasParams)
+      if (emitParams)
       {
          // Build the params type info using CreateObjectInfo + inline SerializeHandler.
          // This is AOT-safe: the trimmer can see every type accessed via the handler.
@@ -88,7 +89,7 @@ internal static class WrapperEmitter
       // type is not registered with [JsonSerializable], and CGS011 explains why.
       sb.AppendLine($"        var resultInfo = ctx.{ToStjPropertyName(returnCs)};");
 
-      var executeExpr = hasParams
+      var executeExpr = emitParams
          ? $"client.Execute<{paramsClass}, {returnCs}>(\"{meta.ScriptName}\", new {paramsClass}({string.Join(", ", meta.Parameters.Select(p => ToCamelCase(p.Name)))}), paramsInfo, resultInfo, cancellationToken: ct)"
          : $"client.Execute<{returnCs}>(\"{meta.ScriptName}\", resultInfo, cancellationToken: ct)";
       if (isVoid)
@@ -100,7 +101,7 @@ internal static class WrapperEmitter
       sb.AppendLine();
 
       // ── params record ────────────────────────────────────────────────────────
-      if (hasParams)
+      if (emitParams)
       {
          sb.Append($"    private record {paramsClass}(");
          sb.Append(string.Join(", ", meta.Parameters.Select(p =>
