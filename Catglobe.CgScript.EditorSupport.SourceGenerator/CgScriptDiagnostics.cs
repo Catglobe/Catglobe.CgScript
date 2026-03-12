@@ -118,6 +118,14 @@ internal static class CgScriptDiagnostics
       defaultSeverity:    DiagnosticSeverity.Info,
       isEnabledByDefault: true);
 
+   public static readonly DiagnosticDescriptor CStyleForLoop = new(
+      id:                 "CGS015",
+      title:              "C-style for loop",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Info,
+      isEnabledByDefault: true);
+
    public static readonly DiagnosticDescriptor UnknownProperty = new(
       id:                 "CGS016",
       title:              "Unknown property name",
@@ -165,6 +173,7 @@ internal static class CgScriptDiagnostics
          "CGS007" => UnreachableCode,
          "CGS008" => UseBeforeDefine,
          "CGS009" => UnusedVariable,
+         "CGS015" => CStyleForLoop,
          "CGS016" => UnknownProperty,
          "CGS017" => UnknownMethod,
          "CGS018" => ReadonlyProperty,
