@@ -304,7 +304,8 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
          parseResult.Tree,
          KnownNamesLoader.FunctionNames,
          KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames);
+         KnownNamesLoader.ConstantNames,
+         KnownNamesLoader.GlobalVariableNames);
 
       allDiags.AddRange(semanticDiags);
 
