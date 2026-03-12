@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+   <PropertyGroup>
+      <PackageId>Catglobe.CgScript.EditorSupport.CodeMirror.AspNet</PackageId>
+      <Version>0.1.0</Version>
+      <Authors>Dennis Haney</Authors>
+      <Company>Voxmeter A/S</Company>
+      <description>CodeMirror 6 browser bundle for CgScript (.cgs) files, distributed as an ASP.NET Core static web asset. Files are served at /_content/Catglobe.CgScript.EditorSupport.CodeMirror.AspNet/</description>
+      <RepositoryType>git</RepositoryType>
+      <RepositoryUrl>https://github.com/catglobe/Catglobe.ScriptDeployer</RepositoryUrl>
+      <PackageLicenseExpression>MIT</PackageLicenseExpression>
+      <PackageReadmeFile>README.md</PackageReadmeFile>
+   </PropertyGroup>
+
+   <PropertyGroup>
+      <TargetFramework>net9.0</TargetFramework>
+      <Nullable>enable</Nullable>
+      <ImplicitUsings>enable</ImplicitUsings>
+      <!-- No C# output — this package only delivers static web assets -->
+      <IncludeBuildOutput>false</IncludeBuildOutput>
+      <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+   </PropertyGroup>
+
+   <ItemGroup>
+      <Content Include="../README.md">
+         <Pack>true</Pack>
+         <PackagePath></PackagePath>
+      </Content>
+   </ItemGroup>
+
+   <!--
+      Rebuild the npm bundle before building/packing this project.
+      Incremental: only re-runs when any .ts source file is newer than the output bundle.
+   -->
+   <ItemGroup>
+      <_NpmSources Include="../Catglobe.CgScript.EditorSupport.CodeMirror/src/**/*.ts" />
+   </ItemGroup>
+
+   <Target Name="BuildNpmBundle"
+           BeforeTargets="BeforeBuild"
+           Inputs="@(_NpmSources)"
+           Outputs="../Catglobe.CgScript.EditorSupport.CodeMirror/dist/cgscript-cm6.js">
+      <Exec Command="npm run bundle"
+            WorkingDirectory="$(MSBuildThisFileDirectory)../Catglobe.CgScript.EditorSupport.CodeMirror" />
+   </Target>
+
+   <Target Name="CopyBundleToWwwroot" AfterTargets="BuildNpmBundle" BeforeTargets="BeforeBuild">
+      <Copy SourceFiles="../Catglobe.CgScript.EditorSupport.CodeMirror/dist/cgscript-cm6.js"
+            DestinationFolder="wwwroot/"
+            SkipUnchangedFiles="true" />
+   </Target>
+
+</Project>
