@@ -465,7 +465,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                   {
                      _diagnostics.Add(new Diagnostic(
                         DiagnosticSeverity.Error,
-                        $"'{baseType}' hasn't method '{memberName}'",
+                        $"'{baseType}' does not have a method named '{memberName}'",
                         memberIdNode.Symbol.Line,
                         memberIdNode.Symbol.Column,
                         memberName.Length,
@@ -478,7 +478,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                   {
                      _diagnostics.Add(new Diagnostic(
                         DiagnosticSeverity.Error,
-                        $"'{baseType}' hasn't property name '{memberName}'",
+                        $"'{baseType}' does not have a property named '{memberName}'",
                         memberIdNode.Symbol.Line,
                         memberIdNode.Symbol.Column,
                         memberName.Length,
@@ -492,7 +492,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                      {
                         _diagnostics.Add(new Diagnostic(
                            DiagnosticSeverity.Error,
-                           $"{memberName} is readonly",
+                           $"'{memberName}' is read-only",
                            memberIdNode.Symbol.Line,
                            memberIdNode.Symbol.Column,
                            memberName.Length,
