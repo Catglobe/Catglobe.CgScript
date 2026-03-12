@@ -18,7 +18,11 @@
       <ImplicitUsings>enable</ImplicitUsings>
       <!-- No C# output — this package only delivers static web assets -->
       <IncludeBuildOutput>false</IncludeBuildOutput>
+      <!-- No NuGet lib/ref dependency entries needed for a static-asset-only package -->
+      <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
       <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+      <!-- Dotfiles (.gitkeep, .gitignore) in wwwroot are excluded by NuGet by design -->
+      <NoWarn>$(NoWarn);NU5119</NoWarn>
    </PropertyGroup>
 
    <ItemGroup>
