@@ -29,7 +29,8 @@
               "Catglobe.CgScript.EditorSupport.Parsing/Catglobe.CgScript.EditorSupport.Parsing.csproj",
               "Catglobe.CgScript.EditorSupport.Lsp/Catglobe.CgScript.EditorSupport.Lsp.csproj",
               "Catglobe.CgScript.EditorSupport.SourceGenerator/Catglobe.CgScript.EditorSupport.SourceGenerator.csproj",
-              "Catglobe.CgScript.EditorSupport.VisualStudio/Catglobe.CgScript.EditorSupport.VisualStudio.csproj"
+              "Catglobe.CgScript.EditorSupport.VisualStudio/Catglobe.CgScript.EditorSupport.VisualStudio.csproj",
+              "Catglobe.CgScript.EditorSupport.CodeMirror.AspNet/Catglobe.CgScript.EditorSupport.CodeMirror.AspNet.csproj"
             ],
           "type": "xml",
           "replacements": [
@@ -50,7 +51,8 @@
           "Catglobe.CgScript.EditorSupport.Parsing/Catglobe.CgScript.EditorSupport.Parsing.csproj",
           "Catglobe.CgScript.EditorSupport.Lsp/Catglobe.CgScript.EditorSupport.Lsp.csproj",
           "Catglobe.CgScript.EditorSupport.SourceGenerator/Catglobe.CgScript.EditorSupport.SourceGenerator.csproj",
-          "Catglobe.CgScript.EditorSupport.VsCode/Catglobe.CgScript.EditorSupport.VsCode.csproj"
+          "Catglobe.CgScript.EditorSupport.VsCode/Catglobe.CgScript.EditorSupport.VsCode.csproj",
+          "Catglobe.CgScript.EditorSupport.CodeMirror.AspNet/Catglobe.CgScript.EditorSupport.CodeMirror.AspNet.csproj"
         ],
         "includeSymbols": true
       }
