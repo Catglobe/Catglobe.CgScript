@@ -158,8 +158,6 @@ internal static class CgScriptDiagnostics
 
    /// <summary>
    /// Returns the <see cref="DiagnosticDescriptor"/> that corresponds to a Parsing diagnostic code.
-   /// Falls back to <see cref="UndefinedVariable"/> (warning) or <see cref="UnknownType"/> (error)
-   /// for unrecognised codes.
    /// </summary>
    public static DiagnosticDescriptor DescriptorFor(Catglobe.CgScript.EditorSupport.Parsing.Diagnostic d)
       => d.Code switch
@@ -177,7 +175,6 @@ internal static class CgScriptDiagnostics
          "CGS016" => UnknownProperty,
          "CGS017" => UnknownMethod,
          "CGS018" => ReadonlyProperty,
-         _ => d.Severity == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
-              ? UnknownType : UndefinedVariable,
+         _ => throw new ArgumentOutOfRangeException(nameof(d), d.Code, "Unknown diagnostic code"),
       };
 }
