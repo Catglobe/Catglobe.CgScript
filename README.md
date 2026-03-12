@@ -582,9 +582,7 @@ Once all `Execute(…)` calls are replaced:
 
 ## Scripts the generator skips
 
-The generator only produces a wrapper when it can detect a recognized workflow parameter pattern. Scripts that are called only from other CgScripts (automation helpers, internal subroutines) and scripts with no recognizable `.Invoke(` pattern will not get wrappers — this is expected and harmless. Leave those scripts unannotated; they are ignored without a build error.
-
-Scripts that use Pattern A (`function() { }.Invoke(Workflow_getParameters()[0])`) with **no declared parameters** do get a wrapper. The generator emits an empty parameter dictionary so that `Workflow_getParameters()[0]` succeeds at runtime.
+The generator only produces a wrapper when it can detect a recognised workflow parameter pattern. Scripts that are called only from other CgScripts (automation helpers, internal subroutines) and scripts with no parameters at all will not get wrappers — this is expected and harmless. Leave those scripts unannotated; they are ignored without a build error.
 
 Next, you need to make a script that detect the users roles:
 
