@@ -22,6 +22,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    private readonly HashSet<string> _knownFunctions;
    private readonly HashSet<string> _knownObjects;
    private readonly HashSet<string> _knownConstants;
+   private readonly HashSet<string> _knownGlobalVariables;
 
    // ── Pass-1 result (populated before Pass 2 begins) ──────────────────────────
    private HashSet<string>         _globalVars  = new(StringComparer.Ordinal);
@@ -42,16 +43,20 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
    /// <summary>
    /// Initialises a new <see cref="SemanticAnalyzer"/>.
-   /// All three name collections may be empty but must not be <c>null</c>.
+   /// All name collections may be empty but must not be <c>null</c>.
    /// </summary>
    public SemanticAnalyzer(
       IEnumerable<string> knownFunctions,
       IEnumerable<string> knownObjects,
-      IEnumerable<string> knownConstants)
+      IEnumerable<string> knownConstants,
+      IEnumerable<string>? knownGlobalVariables = null)
    {
-      _knownFunctions = new HashSet<string>(knownFunctions, StringComparer.Ordinal);
-      _knownObjects   = new HashSet<string>(knownObjects,   StringComparer.Ordinal);
-      _knownConstants = new HashSet<string>(knownConstants, StringComparer.Ordinal);
+      _knownFunctions       = new HashSet<string>(knownFunctions, StringComparer.Ordinal);
+      _knownObjects         = new HashSet<string>(knownObjects,   StringComparer.Ordinal);
+      _knownConstants       = new HashSet<string>(knownConstants, StringComparer.Ordinal);
+      _knownGlobalVariables = knownGlobalVariables is null
+         ? new HashSet<string>(StringComparer.Ordinal)
+         : new HashSet<string>(knownGlobalVariables, StringComparer.Ordinal);
    }
 
    // ── Static entry point ───────────────────────────────────────────────────────
@@ -63,18 +68,20 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// <param name="knownFunctions">Names of built-in/runtime functions.</param>
    /// <param name="knownObjects">Names of built-in/runtime object types.</param>
    /// <param name="knownConstants">Names of built-in/runtime constants.</param>
+   /// <param name="knownGlobalVariables">Names of built-in/runtime global variables pre-declared by the runtime.</param>
    public static IReadOnlyList<Diagnostic> Analyze(
-      IParseTree          tree,
-      IEnumerable<string> knownFunctions,
-      IEnumerable<string> knownObjects,
-      IEnumerable<string> knownConstants)
+      IParseTree           tree,
+      IEnumerable<string>  knownFunctions,
+      IEnumerable<string>  knownObjects,
+      IEnumerable<string>  knownConstants,
+      IEnumerable<string>? knownGlobalVariables = null)
    {
       // ── Pass 1: collect global declarations ──────────────────────────────────
       var collector = new ScopeCollector();
       collector.Visit(tree);
 
       // ── Pass 2: check usages ─────────────────────────────────────────────────
-      var analyzer = new SemanticAnalyzer(knownFunctions, knownObjects, knownConstants);
+      var analyzer = new SemanticAnalyzer(knownFunctions, knownObjects, knownConstants, knownGlobalVariables);
       analyzer._globalVars     = collector.Vars;
       analyzer._globalVarLines = collector.VarLines;
       analyzer._diagnostics.AddRange(collector.Diagnostics);
@@ -456,7 +463,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       || _extraLocals.Contains(name)
       || _knownFunctions.Contains(name)
       || _knownObjects.Contains(name)
-      || _knownConstants.Contains(name);
+      || _knownConstants.Contains(name)
+      || _knownGlobalVariables.Contains(name);
 
    /// <summary>
    /// Returns <see langword="true"/> when the identifier in <paramref name="ctx"/>
