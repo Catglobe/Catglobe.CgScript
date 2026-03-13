@@ -14,7 +14,7 @@ jobs:
     # Generate token for GitHub app
       - name: Generate token
         id: generate-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
         with:
           app-id: 1008511
           private-key: ${{ secrets.CG_ISSUE_PROCESSOR_TOKEN }}
