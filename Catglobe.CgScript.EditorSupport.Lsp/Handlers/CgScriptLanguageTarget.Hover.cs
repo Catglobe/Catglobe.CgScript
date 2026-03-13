@@ -249,7 +249,7 @@ public partial class CgScriptLanguageTarget
                new ParameterInformation
                {
                   Label         = new SumType<string, Tuple<int, int>>($"{p.Type} {p.Name}"),
-                  Documentation = new SumType<string, MarkupContent>(p.Doc ?? string.Empty),
+                  Documentation = new SumType<string, MarkupContent>(new MarkupContent { Kind = MarkupKind.Markdown, Value = p.Doc ?? string.Empty }),
                }).ToArray(),
          }).ToArray();
       }
@@ -264,7 +264,7 @@ public partial class CgScriptLanguageTarget
                new ParameterInformation
                {
                   Label         = new SumType<string, Tuple<int, int>>($"{p.ConstantType} {p.Name}"),
-                  Documentation = new SumType<string, MarkupContent>(p.IsOptional ? "(optional)" : string.Empty),
+                  Documentation = new SumType<string, MarkupContent>(new MarkupContent { Kind = MarkupKind.Markdown, Value = p.IsOptional ? "(optional)" : string.Empty }),
                }).ToArray(),
          },
       ];
@@ -329,7 +329,7 @@ public partial class CgScriptLanguageTarget
             new ParameterInformation
             {
                Label         = new SumType<string, Tuple<int, int>>($"{p.Type} {p.Name}"),
-               Documentation = new SumType<string, MarkupContent>(p.Doc ?? string.Empty),
+               Documentation = new SumType<string, MarkupContent>(new MarkupContent { Kind = MarkupKind.Markdown, Value = p.Doc ?? string.Empty }),
             }).ToArray(),
       }).ToArray();
    }
@@ -361,7 +361,7 @@ public partial class CgScriptLanguageTarget
             new ParameterInformation
             {
                Label         = new SumType<string, Tuple<int, int>>($"{p.Type} {p.Name}"),
-               Documentation = new SumType<string, MarkupContent>(p.Doc ?? string.Empty),
+               Documentation = new SumType<string, MarkupContent>(new MarkupContent { Kind = MarkupKind.Markdown, Value = p.Doc ?? string.Empty }),
             }).ToArray(),
       }).ToArray();
 }
