@@ -62,7 +62,9 @@ internal static class WrapperEmitter
 
       // Build the params type info using CreateObjectInfo + inline SerializeHandler.
       // This is AOT-safe: the trimmer can see every type accessed via the handler.
-      sb.AppendLine($"        var paramsInfo = {JMeta}.CreateObjectInfo<{paramsClass}>(ctx.Options,");
+      // Use _cgScriptParamsSerializerOptions (not ctx.Options) so the CgScriptSerializer resolver
+      // is never asked for metadata about this internally-generated params record.
+      sb.AppendLine($"        var paramsInfo = {JMeta}.CreateObjectInfo<{paramsClass}>(_cgScriptParamsSerializerOptions,");
       sb.AppendLine($"            new {JObjVal}<{paramsClass}>");
       sb.AppendLine("            {");
       sb.AppendLine("                ObjectCreator = null, // serialisation-only");
@@ -117,6 +119,13 @@ internal static class WrapperEmitter
       sb.AppendLine("{");
       sb.AppendLine("    public static partial class CgScriptExtensions");
       sb.AppendLine("    {");
+      // Shared options for params-type serialization.
+      // Must NOT use the CgScriptSerializer context options, because that resolver only knows
+      // about the registered return types and would throw when asked about the internally-generated
+      // params records (e.g. GetGridParams).  The SerializeHandler writes every property directly,
+      // so these options have no effect on the serialised output.
+      sb.AppendLine("        private static readonly global::System.Text.Json.JsonSerializerOptions _cgScriptParamsSerializerOptions =");
+      sb.AppendLine("            new(global::System.Text.Json.JsonSerializerDefaults.Web);");
       sb.AppendLine(body);
       sb.AppendLine("    }");
       sb.AppendLine("}");
