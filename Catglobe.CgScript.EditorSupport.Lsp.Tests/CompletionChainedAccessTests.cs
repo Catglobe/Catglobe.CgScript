@@ -144,4 +144,24 @@ public class CompletionChainedAccessTests
 
       Assert.Null(sig);
    }
+
+   // ── Regression: CGS016 false positive via DocumentStore path ─────────────
+
+   [Fact]
+   public void DocumentStore_QuestionnaireBatchJobCurrentCompleted_NoCGS016()
+   {
+      // Regression: DocumentStore.BuildMemberInfos must expose all properties so
+      // that accessing a known property does not produce a false CGS016 error.
+      const string source =
+         "QuestionnaireBatchJob batch = new QuestionnaireBatchJob(0 /*0 == current*/);\n" +
+         "if (!batch.CurrentCompleted)\n" +
+         "   batch.CurrentCompleted = true;";
+      var definitions = new DefinitionLoader();
+      var store       = new DocumentStore(definitions);
+      const string uri = "file:///test.cgs";
+      store.Update(uri, source);
+      var result = store.GetParseResult(uri);
+      Assert.NotNull(result);
+      Assert.DoesNotContain(result.Diagnostics, d => d.Code == "CGS016");
+   }
 }

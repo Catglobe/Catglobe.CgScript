@@ -27,6 +27,9 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    // ── Object member definitions for property/method validation ────────────────
    private readonly IReadOnlyDictionary<string, ObjectMemberInfo>? _objectDefinitions;
 
+   // ── Function definitions for argument type/arity validation ─────────────────
+   private readonly IReadOnlyDictionary<string, FunctionInfo>? _functionDefinitions;
+
    // ── Pass-1 result (populated before Pass 2 begins) ──────────────────────────
    private HashSet<string>         _globalVars  = new(StringComparer.Ordinal);
    private Dictionary<string, int> _globalVarLines = new(StringComparer.Ordinal);
@@ -55,8 +58,9 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       IEnumerable<string> knownFunctions,
       IEnumerable<string> knownObjects,
       IEnumerable<string> knownConstants,
-      IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions = null,
-      IEnumerable<string>? knownGlobalVariables = null)
+      IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions  = null,
+      IEnumerable<string>?                           knownGlobalVariables = null,
+      IReadOnlyDictionary<string, FunctionInfo>?     functionDefinitions  = null)
    {
       _knownFunctions    = new HashSet<string>(knownFunctions, StringComparer.Ordinal);
       _knownObjects      = new HashSet<string>(knownObjects,   StringComparer.Ordinal);
@@ -64,7 +68,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       _knownGlobalVariables = knownGlobalVariables is null
          ? new HashSet<string>(StringComparer.Ordinal)
          : new HashSet<string>(knownGlobalVariables, StringComparer.Ordinal);
-      _objectDefinitions = objectDefinitions;
+      _objectDefinitions   = objectDefinitions;
+      _functionDefinitions = functionDefinitions;
    }
 
    // ── Static entry point ───────────────────────────────────────────────────────
@@ -85,20 +90,25 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// (e.g. <c>"Catglobe" → "GlobalNamespace"</c>), used to validate member access
    /// on those variables.
    /// </param>
+   /// <param name="functionDefinitions">
+   /// Optional map of old-style function names to their signature info, used to
+   /// validate call argument types and arity.
+   /// </param>
    public static IReadOnlyList<Diagnostic> Analyze(
       IParseTree          tree,
       IEnumerable<string> knownFunctions,
       IEnumerable<string> knownObjects,
       IEnumerable<string> knownConstants,
-      IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions = null,
-      IReadOnlyDictionary<string, string>?           globalVariableTypes = null)
+      IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions   = null,
+      IReadOnlyDictionary<string, string>?           globalVariableTypes = null,
+      IReadOnlyDictionary<string, FunctionInfo>?     functionDefinitions = null)
    {
       // ── Pass 1: collect global declarations ──────────────────────────────────
       var collector = new ScopeCollector();
       collector.Visit(tree);
 
       // ── Pass 2: check usages ─────────────────────────────────────────────────
-      var analyzer = new SemanticAnalyzer(knownFunctions, knownObjects, knownConstants, objectDefinitions, globalVariableTypes?.Keys);
+      var analyzer = new SemanticAnalyzer(knownFunctions, knownObjects, knownConstants, objectDefinitions, globalVariableTypes?.Keys, functionDefinitions);
       analyzer._globalVars     = collector.Vars;
       analyzer._globalVarLines = collector.VarLines;
       analyzer._diagnostics.AddRange(collector.Diagnostics);
@@ -247,6 +257,68 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    }
 
    /// <summary>
+   /// CGS020 — checks that a declaration initializer's inferred type is compatible
+   /// with the declared type (e.g. <c>number a = "asdf"</c> is flagged).
+   /// </summary>
+   public override object? VisitDeclarationStatement(CgScriptParser.DeclarationStatementContext ctx)
+   {
+      var decl     = ctx.declaration();
+      var typeSpec = decl?.typeSpec();
+      var init     = decl?.declarationInitializer();
+
+      if (typeSpec != null && init != null)
+      {
+         var declaredName = GetDeclaredTypeName(typeSpec);
+         var inferredType = TryInferType(init.expression());
+
+         if (declaredName != null && inferredType != null)
+         {
+            var declaredCanon = MapToCanonical(declaredName);
+            if (declaredCanon != null && !IsTypeCompatible(declaredCanon, inferredType))
+            {
+               var startToken = init.expression().Start;
+               _diagnostics.Add(new Diagnostic(
+                  DiagnosticSeverity.Error,
+                  $"Invalid data type '{inferredType}', expect '{declaredName}'",
+                  startToken.Line,
+                  startToken.Column,
+                  startToken.Text.Length,
+                  "CGS020"));
+            }
+         }
+      }
+
+      return VisitChildren(ctx);
+   }
+
+   /// <summary>
+   /// CGS021 — checks that both branches of a ternary expression (<c>? :</c>)
+   /// produce compatible types (e.g. <c>true ? new Dictionary() : 1</c> is flagged).
+   /// </summary>
+   public override object? VisitExpression(CgScriptParser.ExpressionContext ctx)
+   {
+      if (ctx.QMARK() != null)
+      {
+         var thenType = TryInferType(ctx.subExpression(1));
+         var elseType = TryInferType(ctx.subExpression(2));
+
+         if (thenType != null && elseType != null && !IsTypeCompatible(thenType, elseType))
+         {
+            var token = ctx.QMARK().Symbol;
+            _diagnostics.Add(new Diagnostic(
+               DiagnosticSeverity.Error,
+               "Expression should return same data type",
+               token.Line,
+               token.Column,
+               token.Text.Length,
+               "CGS021"));
+         }
+      }
+
+      return VisitChildren(ctx);
+   }
+
+   /// <summary>
    /// Handles three distinct primaryExpr forms:<br/>
    /// Rule 3 — <c>new ClassName(...)</c> where ClassName is not a known object type;<br/>
    /// Function scope — pushes a new parameter scope before visiting a function literal;<br/>
@@ -299,13 +371,27 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
          // Also collect local declarations from the function body so that usages of
          // locally-declared variables inside the function don't trigger false positives.
+         // For typed locals (ClassNameTypeContext declarations), also seed _varTypes so
+         // that property/method access on them is validated rather than silently skipped.
+         var addedTypes      = new HashSet<string>(StringComparer.Ordinal);
+         var overriddenTypes = new Dictionary<string, string>(StringComparer.Ordinal);
          var blockCtx = ctx.block();
          if (blockCtx != null)
          {
             var localCollector = new ScopeCollector();
             localCollector.Visit(blockCtx);
             foreach (var name in localCollector.Vars)
+            {
                newScope.Add(name);
+               if (localCollector.VarTypes.TryGetValue(name, out var localTypeName))
+               {
+                  if (_varTypes.TryGetValue(name, out var prev))
+                     overriddenTypes[name] = prev;
+                  else
+                     addedTypes.Add(name);
+                  _varTypes[name] = localTypeName;
+               }
+            }
          }
 
          _functionParams = newScope;
@@ -318,6 +404,13 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          _functionParams = savedParams;
          _functionDepth  = savedDepth;
          _extraLocals    = savedLocals;
+
+         // Restore _varTypes: undo any overrides and removals made for this scope
+         foreach (var kvp in overriddenTypes)
+            _varTypes[kvp.Key] = kvp.Value;
+         foreach (var name in addedTypes)
+            _varTypes.Remove(name);
+
          return null;
       }
 
@@ -418,6 +511,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// <summary>
    /// Validates function calls and member access (property and method) against known
    /// object type definitions, including chained access like <c>Catglobe.Json.Parse()</c>.
+   /// CGS022 — validates argument types and arity for known old-style functions.
    /// </summary>
    public override object? VisitPostfixExpr(CgScriptParser.PostfixExprContext ctx)
    {
@@ -447,6 +541,28 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                      token.Column,
                      token.Text.Length,
                      "CGS004"));
+               }
+               else if (_functionDefinitions != null
+                        && _functionDefinitions.TryGetValue(token.Text, out var funcInfo))
+               {
+                  // CGS022: validate argument types and arity
+                  var argExprs = ctx.parameters()?.expression()
+                                 ?? System.Array.Empty<CgScriptParser.ExpressionContext>();
+                  var argTypes = new string?[argExprs.Length];
+                  for (var i = 0; i < argExprs.Length; i++)
+                     argTypes[i] = TryInferType(argExprs[i]);
+
+                  if (!IsCallValid(funcInfo, argTypes))
+                  {
+                     var formatStr = "(" + string.Join(", ", Array.ConvertAll(argTypes, t => t ?? "?")) + ")";
+                     _diagnostics.Add(new Diagnostic(
+                        DiagnosticSeverity.Error,
+                        $"Doesn't has {token.Text} with format {formatStr}",
+                        token.Line,
+                        token.Column,
+                        token.Text.Length,
+                        "CGS022"));
+                  }
                }
             }
          }
@@ -587,12 +703,16 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
          var varName = idNode.Symbol.Text;
 
-         // If the variable is shadowed by a function parameter or catch variable,
-         // its type is unknown in this scope.
+         // Typed locals in function bodies have their type recorded in _varTypes and
+         // must be resolved before checking _functionParams (which would suppress them).
+         if (_varTypes.TryGetValue(varName, out var typeName))
+            return typeName;
+
+         // Untyped function parameter or catch variable — type is unknown in this scope.
          if (_functionParams != null && _functionParams.Contains(varName)) return null;
          if (_extraLocals.Contains(varName)) return null;
 
-         return _varTypes.TryGetValue(varName, out var typeName) ? typeName : null;
+         return null;
       }
 
       // Multi-level: baseCtx is itself a property access (e.g. Catglobe.Json)
@@ -662,6 +782,273 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
       return false;
    }
+
+   // ── Type inference helpers ────────────────────────────────────────────────────
+
+   /// <summary>
+   /// Attempts to infer the CgScript type of an expression node.
+   /// Returns the canonical type name (e.g. "Number", "String", "Boolean", "Array",
+   /// or a class name like "DateTime") or <c>null</c> when the type cannot be
+   /// determined statically.
+   /// </summary>
+   private string? TryInferType(Antlr4.Runtime.Tree.IParseTree? tree)
+   {
+      switch (tree)
+      {
+         case CgScriptParser.ExpressionContext expr:
+            // Ternary: subExpression QMARK subExpression COLON subExpression
+            if (expr.QMARK() != null)
+            {
+               var thenT = TryInferType(expr.subExpression(1));
+               var elseT = TryInferType(expr.subExpression(2));
+               // Return the "then" type only when both branches are compatible
+               return (thenT != null && elseT != null && IsTypeCompatible(thenT, elseT)) ? thenT : null;
+            }
+            return TryInferType(expr.subExpression(0));
+
+         case CgScriptParser.SubExpressionContext sub:
+            return TryInferType(sub.orExpression());
+
+         case CgScriptParser.OrExpressionContext or:
+            return or.OR().Length > 0 ? "Boolean" : TryInferType(or.andExpression(0));
+
+         case CgScriptParser.AndExpressionContext and:
+            return and.AND().Length > 0 ? "Boolean" : TryInferType(and.relExpression(0));
+
+         case CgScriptParser.RelExpressionContext rel:
+            // Comparison operators produce a Boolean result
+            if (rel.addExpression().Length > 1) return "Boolean";
+            return TryInferType(rel.addExpression(0));
+
+         case CgScriptParser.AddExpressionContext add:
+            // Arithmetic/string-concat: infer from the first operand
+            return TryInferType(add.multExpression(0));
+
+         case CgScriptParser.MultExpressionContext mult:
+            if (mult.STAR().Length > 0 || mult.DIV().Length > 0 || mult.MOD().Length > 0)
+               return "Number";
+            return TryInferType(mult.powExpression(0));
+
+         case CgScriptParser.PowExpressionContext pow:
+            if (pow.negExpression().Length > 1) return "Number";
+            return TryInferType(pow.negExpression(0));
+
+         case CgScriptParser.NegExpressionContext neg:
+            if (neg.NOT() != null) return "Boolean";
+            return TryInferType((Antlr4.Runtime.Tree.IParseTree?)neg.unaryExpr() ?? neg.negExpression());
+
+         case CgScriptParser.UnaryExprContext unary:
+            if (unary.PLUS() != null || unary.MINUS() != null) return "Number";
+            return TryInferType(unary.postfixExpr());
+
+         case CgScriptParser.PostfixExprContext postfix:
+            return TryInferPostfixType(postfix);
+
+         case CgScriptParser.PrimaryExprContext primary:
+            return TryInferPrimaryType(primary);
+
+         case CgScriptParser.ConstantValueContext cv:
+            return TryInferConstantType(cv);
+
+         default:
+            return null;
+      }
+   }
+
+   private string? TryInferPostfixType(CgScriptParser.PostfixExprContext ctx)
+   {
+      // Bare primaryExpr (no postfix operator)
+      if (ctx.LBRACKET() == null && ctx.DOT() == null && ctx.LPAREN() == null)
+         return TryInferPrimaryType(ctx.primaryExpr());
+
+      // Array indexing: element type unknown
+      if (ctx.LBRACKET() != null)
+         return null;
+
+      // Direct function call: postfixExpr LPAREN parameters RPAREN (no DOT)
+      if (ctx.LPAREN() != null && ctx.DOT() == null)
+      {
+         var inner   = ctx.postfixExpr();
+         var primary = inner?.primaryExpr();
+         if (primary != null && primary.IDENTIFIER() != null
+             && primary.NEW() == null && primary.FUNCTION() == null
+             && inner!.LPAREN() == null && inner.DOT() == null && inner.LBRACKET() == null)
+         {
+            var funcName = primary.IDENTIFIER().Symbol.Text;
+            if (_functionDefinitions != null && _functionDefinitions.TryGetValue(funcName, out var info))
+            {
+               var rt = info.ReturnType;
+               return string.IsNullOrEmpty(rt) || rt == "Empty" ? null : rt;
+            }
+         }
+         return null;
+      }
+
+      // Member property access: postfixExpr DOT IDENTIFIER (no LPAREN)
+      if (ctx.DOT() != null && ctx.LPAREN() == null && _objectDefinitions != null)
+      {
+         var propName = ctx.IDENTIFIER()?.Symbol.Text;
+         if (propName != null)
+         {
+            var baseType = TryResolveBaseType(ctx.postfixExpr());
+            if (baseType != null
+                && _objectDefinitions.TryGetValue(baseType, out var members)
+                && members.PropertyReturnTypes.TryGetValue(propName, out var retType)
+                && !string.IsNullOrEmpty(retType))
+               return retType;
+         }
+      }
+
+      return null;
+   }
+
+   private string? TryInferPrimaryType(CgScriptParser.PrimaryExprContext? ctx)
+   {
+      if (ctx == null) return null;
+
+      // new ClassName(...) → the class name
+      if (ctx.NEW() != null)
+         return ctx.IDENTIFIER()?.Symbol.Text;
+
+      // Function literal → "Function"
+      if (ctx.FUNCTION() != null)
+         return "Function";
+
+      // Bare identifier → look up declared type
+      if (ctx.IDENTIFIER() != null && ctx.NEW() == null)
+      {
+         var name = ctx.IDENTIFIER().Symbol.Text;
+         if (_varTypes.TryGetValue(name, out var varType))
+            return varType;
+         return null;
+      }
+
+      // Constant literal
+      if (ctx.constantValue() != null)
+         return TryInferConstantType(ctx.constantValue());
+
+      // Parenthesised expression
+      if (ctx.expression() != null)
+         return TryInferType(ctx.expression());
+
+      return null;
+   }
+
+   private static string? TryInferConstantType(CgScriptParser.ConstantValueContext? cv)
+   {
+      if (cv == null) return null;
+      if (cv.STRING_LITERAL() != null || cv.CHAR_LITERAL() != null) return "String";
+      if (cv.NUM_INT() != null || cv.NUM_DOUBLE() != null)           return "Number";
+      if (cv.TRUE() != null || cv.FALSE() != null)                   return "Boolean";
+      // Array/dict literal, date literal, interval → Array
+      if (cv.LBRACKET() != null || cv.LCURLY() != null || cv.DATE_LITERAL() != null)
+         return "Array";
+      return null;
+   }
+
+   // ── Type compatibility helpers ────────────────────────────────────────────────
+
+   /// <summary>
+   /// Returns the display name used in error messages for a typeSpec keyword
+   /// (e.g. "number", "string", "bool", or a class name like "Dictionary").
+   /// Returns <c>null</c> for types that accept any value (<c>object</c>, <c>?</c>).
+   /// </summary>
+   private static string? GetDeclaredTypeName(CgScriptParser.TypeSpecContext typeSpec)
+      => typeSpec switch
+      {
+         CgScriptParser.NumberTypeContext   => "number",
+         CgScriptParser.StringTypeContext   => "string",
+         CgScriptParser.BoolTypeContext     => "bool",
+         CgScriptParser.ArrayTypeContext    => "array",
+         CgScriptParser.FunctionTypeContext => "function",
+         CgScriptParser.ClassNameTypeContext cls => cls.IDENTIFIER()?.Symbol.Text,
+         _ => null, // object / ? → skip type checking
+      };
+
+   /// <summary>
+   /// Maps the declared type display name (e.g. "number", "string") to its canonical
+   /// form used for compatibility comparison (e.g. "Number", "String").
+   /// Class names pass through unchanged.
+   /// </summary>
+   private static string? MapToCanonical(string declaredName)
+      => declaredName switch
+      {
+         "number"   => "Number",
+         "string"   => "String",
+         "bool"     => "Boolean",
+         "array"    => "Array",
+         "function" => "Function",
+         _ => declaredName, // class name (e.g. "DateTime") unchanged
+      };
+
+   /// <summary>
+   /// Returns <c>true</c> when <paramref name="a"/> and <paramref name="b"/> are
+   /// assignment-compatible or ternary-branch-compatible types.
+   /// <list type="bullet">
+   ///   <item>Same type → compatible.</item>
+   ///   <item>"Array" and any class name (non-primitive) → compatible, because
+   ///         CgScript objects are represented as arrays internally.</item>
+   ///   <item>Two different class names → conservatively treated as compatible.</item>
+   /// </list>
+   /// </summary>
+   private static bool IsTypeCompatible(string a, string b)
+   {
+      if (a == b) return true;
+      // Array ↔ class name: compatible (objects are arrays)
+      if (a == "Array" && !IsPrimitive(b)) return true;
+      if (!IsPrimitive(a) && b == "Array") return true;
+      // Two different class names: be conservative
+      if (!IsPrimitive(a) && !IsPrimitive(b)) return true;
+      return false;
+   }
+
+   private static bool IsPrimitive(string type)
+      => type is "Number" or "String" or "Boolean" or "Function";
+
+   /// <summary>
+   /// Returns <c>true</c> when the supplied argument types are valid for the given
+   /// function definition (correct arity and compatible parameter types).
+   /// </summary>
+   private static bool IsCallValid(FunctionInfo funcInfo, string?[] argTypes)
+   {
+      if (argTypes.Length < funcInfo.NumberOfRequiredArguments)
+         return false;
+      if (argTypes.Length > funcInfo.Parameters.Count)
+         return false;
+
+      for (var i = 0; i < argTypes.Length; i++)
+      {
+         if (i >= funcInfo.Parameters.Count) break;
+         if (!IsArgCompatible(argTypes[i], funcInfo.Parameters[i]))
+            return false;
+      }
+      return true;
+   }
+
+   private static bool IsArgCompatible(string? argType, FunctionParamInfo param)
+   {
+      if (argType == null) return true; // can't infer → don't report false positive
+      return param.ConstantType switch
+      {
+         "Number"  => argType == "Number",
+         "String"  => argType == "String",
+         "Boolean" => argType == "Boolean",
+         "Function"=> argType == "Function",
+         "Array"   => IsArrayArgCompatible(argType, param.ObjectType),
+         _         => true, // unknown param type → allow
+      };
+   }
+
+   private static bool IsArrayArgCompatible(string argType, string objectType)
+   {
+      // Generic array or any class name is acceptable for an Array parameter
+      if (argType == "Array") return true;
+      if (IsPrimitive(argType)) return false;
+      // Specific class name: check case-insensitively against the expected object sub-type
+      if (objectType == "NONE") return true;
+      return string.Equals(argType, objectType, StringComparison.OrdinalIgnoreCase);
+   }
+
 
    /// <summary>
    /// Rule 7 — unreachable code after an unconditional jump in a block.

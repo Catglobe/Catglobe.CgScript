@@ -208,13 +208,13 @@ public partial class CgScriptLanguageTarget
       bool all = prefix.Length == 0;
       var items = new List<CompletionItem>();
 
-      // Local variables declared in this document
+      // Local variables declared in this document (including function parameters)
       var localVars = tree != null
          ? DocumentSymbolCollector.CollectAll(tree)
          : CollectVariablesFromText(text);
       foreach (var sym in localVars)
       {
-         if (sym.Kind != "variable") continue;
+         if (sym.Kind is not "variable" and not "parameter") continue;
          if (!all && !sym.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
          items.Add(new CompletionItem
          {
