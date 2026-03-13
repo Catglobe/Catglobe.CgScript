@@ -342,6 +342,29 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                token.Text.Length,
                "CGS003"));
          }
+         else if (_objectDefinitions != null
+                  && _objectDefinitions.TryGetValue(token.Text, out var objMembers)
+                  && objMembers.ConstructorOverloads != null)
+         {
+            // CGS023: validate constructor argument types and arity
+            var argExprs = ctx.parameters()?.expression()
+                           ?? System.Array.Empty<CgScriptParser.ExpressionContext>();
+            var argTypes = new string?[argExprs.Length];
+            for (var i = 0; i < argExprs.Length; i++)
+               argTypes[i] = TryInferType(argExprs[i]);
+
+            if (!IsAnyOverloadValid(objMembers.ConstructorOverloads, argTypes))
+            {
+               var formatStr = "(" + string.Join(", ", System.Array.ConvertAll(argTypes, t => t ?? "?")) + ")";
+               _diagnostics.Add(new Diagnostic(
+                  DiagnosticSeverity.Error,
+                  $"No constructor for '{token.Text}' matches {formatStr}",
+                  token.Line,
+                  token.Column,
+                  token.Text.Length,
+                  "CGS023"));
+            }
+         }
          return VisitChildren(ctx);
       }
 
@@ -591,6 +614,28 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                         memberIdNode.Symbol.Column,
                         memberName.Length,
                         "CGS017"));
+                  }
+                  else if (members.MethodOverloads != null
+                           && members.MethodOverloads.TryGetValue(memberName, out var methodOverloads))
+                  {
+                     // CGS024: validate method argument types and arity
+                     var argExprs = ctx.parameters()?.expression()
+                                    ?? System.Array.Empty<CgScriptParser.ExpressionContext>();
+                     var argTypes = new string?[argExprs.Length];
+                     for (var i = 0; i < argExprs.Length; i++)
+                        argTypes[i] = TryInferType(argExprs[i]);
+
+                     if (!IsAnyOverloadValid(methodOverloads, argTypes))
+                     {
+                        var formatStr = "(" + string.Join(", ", System.Array.ConvertAll(argTypes, t => t ?? "?")) + ")";
+                        _diagnostics.Add(new Diagnostic(
+                           DiagnosticSeverity.Error,
+                           $"No overload of '{baseType}.{memberName}' matches {formatStr}",
+                           memberIdNode.Symbol.Line,
+                           memberIdNode.Symbol.Column,
+                           memberName.Length,
+                           "CGS024"));
+                     }
                   }
                }
                else
@@ -1072,6 +1117,40 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       // Specific class name: check case-insensitively against the expected object sub-type
       if (objectType == "NONE") return true;
       return string.Equals(argType, objectType, StringComparison.OrdinalIgnoreCase);
+   }
+
+   /// <summary>
+   /// Returns <c>true</c> when at least one overload accepts the given argument types.
+   /// All parameters are treated as optional: a call with fewer args than an overload's
+   /// parameter count is valid as long as each supplied arg type matches.
+   /// </summary>
+   private static bool IsAnyOverloadValid(
+      IReadOnlyList<IReadOnlyList<string>> overloads,
+      string?[] argTypes)
+   {
+      foreach (var overload in overloads)
+      {
+         if (argTypes.Length > overload.Count) continue; // too many args for this overload
+         var ok = true;
+         for (var i = 0; i < argTypes.Length; i++)
+         {
+            if (!IsMethodArgCompatible(argTypes[i], overload[i]))
+            {
+               ok = false;
+               break;
+            }
+         }
+         if (ok) return true;
+      }
+      return false;
+   }
+
+   private static bool IsMethodArgCompatible(string? argType, string paramType)
+   {
+      if (argType == null) return true; // unknown arg type → no false positive
+      var canonical = MapToCanonical(paramType);
+      if (canonical == null) return true; // "object" param type → any arg is accepted
+      return IsTypeCompatible(argType, canonical);
    }
 
 

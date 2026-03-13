@@ -106,6 +106,8 @@ public static class KnownNamesLoader
             var properties       = new Dictionary<string, bool>(StringComparer.Ordinal);
             var propertyRetTypes = new Dictionary<string, string>(StringComparer.Ordinal);
             var methods          = new List<string>();
+            List<IReadOnlyList<string>>? constructorOverloads = null;
+            Dictionary<string, List<IReadOnlyList<string>>>? methodOverloads = null;
 
             if (typeProp.Value.TryGetProperty("Properties", out var propsEl))
             {
@@ -126,21 +128,65 @@ public static class KnownNamesLoader
                }
             }
 
+            if (typeProp.Value.TryGetProperty("Constructors", out var ctorsEl))
+            {
+               constructorOverloads = new List<IReadOnlyList<string>>();
+               foreach (var ctor in ctorsEl.EnumerateArray())
+                  constructorOverloads.Add(ReadParamTypes(ctor));
+            }
+
             if (typeProp.Value.TryGetProperty("Methods", out var methodsEl))
             {
+               methodOverloads = new Dictionary<string, List<IReadOnlyList<string>>>(StringComparer.Ordinal);
                foreach (var m in methodsEl.EnumerateArray())
                {
                   var name = m.GetProperty("Name").GetString() ?? "";
                   if (!string.IsNullOrEmpty(name))
+                  {
                      methods.Add(name);
+                     if (!methodOverloads.TryGetValue(name, out var overloads))
+                     {
+                        overloads = new List<IReadOnlyList<string>>();
+                        methodOverloads[name] = overloads;
+                     }
+                     overloads.Add(ReadParamTypes(m));
+                  }
                }
             }
 
-            result[typeProp.Name] = new ObjectMemberInfo(properties, methods, propertyRetTypes);
+            IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyList<string>>>? frozenMethodOverloads = null;
+            if (methodOverloads != null)
+            {
+               var frozen = new Dictionary<string, IReadOnlyList<IReadOnlyList<string>>>(StringComparer.Ordinal);
+               foreach (var kvp in methodOverloads)
+                  frozen[kvp.Key] = kvp.Value;
+               frozenMethodOverloads = frozen;
+            }
+
+            result[typeProp.Name] = new ObjectMemberInfo(
+               properties,
+               methods,
+               propertyRetTypes,
+               constructorOverloads,
+               frozenMethodOverloads);
          }
 
          return result;
       }
+   }
+
+   /// <summary>Reads the ordered parameter type list from a constructor or method JSON element.</summary>
+   private static IReadOnlyList<string> ReadParamTypes(JsonElement element)
+   {
+      if (!element.TryGetProperty("Param", out var paramEl))
+         return System.Array.Empty<string>();
+      var types = new List<string>();
+      foreach (var p in paramEl.EnumerateArray())
+      {
+         var type = p.TryGetProperty("Type", out var t) ? t.GetString() ?? "" : "";
+         types.Add(type);
+      }
+      return types;
    }
 
    private static IReadOnlyDictionary<string, string> LoadStringDictionary(string fileName)

@@ -31,6 +31,20 @@ public class SemanticAnalyzerDiagnosticsTests
          functionDefinitions: functionDefinitions);
    }
 
+   private static IReadOnlyList<Diagnostic> AnalyzeWithObjects(
+      string source,
+      IReadOnlyDictionary<string, ObjectMemberInfo> objectDefinitions,
+      IEnumerable<string>? functions = null)
+   {
+      var result = CgScriptParseService.Parse(source);
+      return SemanticAnalyzer.Analyze(
+         result.Tree,
+         functions ?? [],
+         objectDefinitions.Keys,
+         [],
+         objectDefinitions: objectDefinitions);
+   }
+
    // ── Known constants are not reported as undefined ─────────────────────────
 
    [Fact]
@@ -262,5 +276,163 @@ public class SemanticAnalyzerDiagnosticsTests
 
       Assert.Contains(diags, d => d.Code == "CGS022"
                                   && d.Message.Contains("DateTime_addDays"));
+   }
+
+   // ── CGS023: constructor argument mismatch ─────────────────────────────────
+
+   private static ObjectMemberInfo MakeStringInfo()
+      => new ObjectMemberInfo(
+         properties:           new Dictionary<string, bool>(),
+         methodNames:          [],
+         constructorOverloads: [["string"]]);
+
+   [Fact]
+   public void Constructor_TooManyArgs_ReportsCGS023()
+   {
+      // new String(1, 2) — only one constructor taking a single string arg
+      var diags = AnalyzeWithObjects(
+         "string s = new String(1, 2);",
+         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringInfo() });
+
+      Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("String"));
+   }
+
+   [Fact]
+   public void Constructor_WrongArgType_ReportsCGS023()
+   {
+      // new String(1) — constructor expects string, got number
+      var diags = AnalyzeWithObjects(
+         "string s = new String(1);",
+         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringInfo() });
+
+      Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("String"));
+   }
+
+   [Fact]
+   public void Constructor_NoArgs_NoCGS023()
+   {
+      // new String() — zero args is valid (all params treated as optional)
+      var diags = AnalyzeWithObjects(
+         "string s = new String();",
+         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringInfo() });
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS023");
+   }
+
+   [Fact]
+   public void Constructor_CorrectArgType_NoCGS023()
+   {
+      // new String("test") — valid
+      var diags = AnalyzeWithObjects(
+         "string s = new String(\"test\");",
+         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringInfo() });
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS023");
+   }
+
+   [Fact]
+   public void KnownObjectsFromLoader_ValidConstructor_NoCGS023()
+   {
+      // new String("hello") — valid according to embedded JSON definitions
+      var result = CgScriptParseService.Parse("string s = new String(\"hello\");");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS023");
+   }
+
+   [Fact]
+   public void KnownObjectsFromLoader_InvalidConstructorArgs_ReportsCGS023()
+   {
+      // new String(1, 2) — String has only one constructor that takes a string arg
+      var result = CgScriptParseService.Parse("string s = new String(1, 2);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("String"));
+   }
+
+   // ── CGS024: method call argument mismatch ─────────────────────────────────
+
+   private static ObjectMemberInfo MakeStringWithCompareInfo()
+      => new ObjectMemberInfo(
+         properties:    new Dictionary<string, bool>(),
+         methodNames:   ["CompareTo"],
+         methodOverloads: new Dictionary<string, IReadOnlyList<IReadOnlyList<string>>>
+         {
+            ["CompareTo"] = [["string"]],
+         });
+
+   [Fact]
+   public void MethodCall_WrongArgType_ReportsCGS024()
+   {
+      // s.CompareTo(1) — method expects string, got number
+      var diags = AnalyzeWithObjects(
+         "String s = new String(); s.CompareTo(1);",
+         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringWithCompareInfo() });
+
+      Assert.Contains(diags, d => d.Code == "CGS024"
+                                  && d.Message.Contains("String.CompareTo"));
+   }
+
+   [Fact]
+   public void MethodCall_CorrectArgType_NoCGS024()
+   {
+      // s.CompareTo("other") — valid
+      var diags = AnalyzeWithObjects(
+         "String s = new String(); s.CompareTo(\"other\");",
+         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringWithCompareInfo() });
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
+   }
+
+   [Fact]
+   public void MethodCall_TooManyArgs_ReportsCGS024()
+   {
+      // s.CompareTo("a", "b") — method only takes one arg
+      var diags = AnalyzeWithObjects(
+         "String s = new String(); s.CompareTo(\"a\", \"b\");",
+         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringWithCompareInfo() });
+
+      Assert.Contains(diags, d => d.Code == "CGS024"
+                                  && d.Message.Contains("String.CompareTo"));
+   }
+
+   [Fact]
+   public void KnownObjectsFromLoader_ValidMethodCall_NoCGS024()
+   {
+      // s.CompareTo("other") using embedded definitions
+      var result = CgScriptParseService.Parse("String s = new String(\"x\"); s.CompareTo(\"other\");");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
+   }
+
+   [Fact]
+   public void KnownObjectsFromLoader_WrongMethodArgType_ReportsCGS024()
+   {
+      // s.CompareTo(1) — String.CompareTo expects a string
+      var result = CgScriptParseService.Parse("String s = new String(\"x\"); s.CompareTo(1);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS024" && d.Message.Contains("String.CompareTo"));
    }
 }
