@@ -198,6 +198,46 @@ public class CgScriptFormatterTests
 
 
 
+   // ── array formatting ──────────────────────────────────────────────────────
+
+   [Fact]
+   public void Format_ShortArray_StaysOnOneLine()
+   {
+      // Short enough to fit in 80 chars — inline, no expansion.
+      var input    = "return {1, 2, 3};";
+      var expected = "return {1, 2, 3};\n";
+      Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_LongArrayShortElements_ChunksMultiplePerLine()
+   {
+      // Array whose inline form exceeds 80 chars but elements are short: multiple
+      // elements per line, wrapping when the next element would push past 80.
+      var input    = "return {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,};";
+      var expected = "return {\n  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,\n  22, 23, 24, 25, 26, 27, 28, 29, 30,\n};\n";
+      Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_LongArrayChunked_IsIdempotent()
+   {
+      var input = "return {\n  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,\n  22, 23, 24, 25, 26, 27, 28, 29, 30,\n};\n";
+      Assert.Equal(input, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_LongArrayLongElements_OnePerLine()
+   {
+      // Elements are too long to fit two per line — chunked mode naturally
+      // degenerates to one element per line (each is ~47 chars).
+      var input  = "return {veryLongArrayElementNameForTestingPurposesHere1, veryLongArrayElementNameForTestingPurposesHere2, veryLongArrayElementNameForTestingPurposesHere3,};";
+      var result = CgScriptFormatter.Format(input);
+      Assert.Equal(
+         "return {\n  veryLongArrayElementNameForTestingPurposesHere1,\n  veryLongArrayElementNameForTestingPurposesHere2,\n  veryLongArrayElementNameForTestingPurposesHere3,\n};\n",
+         result);
+   }
+
    [Fact]
    public void Format_EmptyString_ReturnsEmpty()
    {
