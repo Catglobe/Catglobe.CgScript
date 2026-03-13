@@ -299,13 +299,27 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
          // Also collect local declarations from the function body so that usages of
          // locally-declared variables inside the function don't trigger false positives.
+         // For typed locals (ClassNameTypeContext declarations), also seed _varTypes so
+         // that property/method access on them is validated rather than silently skipped.
+         var addedVarTypes   = new HashSet<string>(StringComparer.Ordinal);
+         var overriddenTypes = new Dictionary<string, string>(StringComparer.Ordinal);
          var blockCtx = ctx.block();
          if (blockCtx != null)
          {
             var localCollector = new ScopeCollector();
             localCollector.Visit(blockCtx);
             foreach (var name in localCollector.Vars)
+            {
                newScope.Add(name);
+               if (localCollector.VarTypes.TryGetValue(name, out var localTypeName))
+               {
+                  if (_varTypes.TryGetValue(name, out var prev))
+                     overriddenTypes[name] = prev;
+                  else
+                     addedVarTypes.Add(name);
+                  _varTypes[name] = localTypeName;
+               }
+            }
          }
 
          _functionParams = newScope;
@@ -318,6 +332,13 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          _functionParams = savedParams;
          _functionDepth  = savedDepth;
          _extraLocals    = savedLocals;
+
+         // Restore _varTypes: undo any overrides and removals made for this scope
+         foreach (var kvp in overriddenTypes)
+            _varTypes[kvp.Key] = kvp.Value;
+         foreach (var name in addedVarTypes)
+            _varTypes.Remove(name);
+
          return null;
       }
 
@@ -587,12 +608,16 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
          var varName = idNode.Symbol.Text;
 
-         // If the variable is shadowed by a function parameter or catch variable,
-         // its type is unknown in this scope.
+         // Typed locals in function bodies have their type recorded in _varTypes and
+         // must be resolved before checking _functionParams (which would suppress them).
+         if (_varTypes.TryGetValue(varName, out var typeName))
+            return typeName;
+
+         // Untyped function parameter or catch variable — type is unknown in this scope.
          if (_functionParams != null && _functionParams.Contains(varName)) return null;
          if (_extraLocals.Contains(varName)) return null;
 
-         return _varTypes.TryGetValue(varName, out var typeName) ? typeName : null;
+         return null;
       }
 
       // Multi-level: baseCtx is itself a property access (e.g. Catglobe.Json)
