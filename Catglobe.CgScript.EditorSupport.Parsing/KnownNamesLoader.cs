@@ -30,7 +30,51 @@ public static class KnownNamesLoader
    /// <summary>Names of all known built-in global variables pre-declared by the runtime (e.g. "Catglobe").</summary>
    public static IReadOnlyList<string> GlobalVariableNames { get; } = LoadObjectKeys("CgScriptGlobalVariables.json");
 
+   /// <summary>
+   /// Full function definitions for old-style built-in functions, keyed by function name.
+   /// Used by <see cref="SemanticAnalyzer"/> to validate call argument types.
+   /// New-style functions (with variants/overloads) are excluded.
+   /// </summary>
+   public static IReadOnlyDictionary<string, FunctionInfo> FunctionDefinitions { get; } = LoadFunctionDefinitions();
+
    // ── helpers ──────────────────────────────────────────────────────────────────
+
+   private static IReadOnlyDictionary<string, FunctionInfo> LoadFunctionDefinitions()
+   {
+      var stream = OpenResource("CgScriptFunctionDefinitions.json");
+      if (stream is null) return new Dictionary<string, FunctionInfo>();
+
+      using (stream)
+      {
+         var doc    = JsonDocument.Parse(stream);
+         var result = new Dictionary<string, FunctionInfo>(StringComparer.Ordinal);
+
+         foreach (var funcProp in doc.RootElement.EnumerateObject())
+         {
+            // Skip new-style functions (they use variants/overloads instead of Parameters)
+            if (funcProp.Value.TryGetProperty("IsNewStyle", out var isNewStyle) && isNewStyle.GetBoolean())
+               continue;
+
+            var returnType  = funcProp.Value.TryGetProperty("ReturnType",                  out var rt)  ? rt.GetString()   : null;
+            var numRequired = funcProp.Value.TryGetProperty("NumberOfRequiredArguments",    out var nra) ? nra.GetInt32()   : 0;
+
+            var paramInfos = new List<FunctionParamInfo>();
+            if (funcProp.Value.TryGetProperty("Parameters", out var paramsEl))
+            {
+               foreach (var p in paramsEl.EnumerateArray())
+               {
+                  var constantType = p.TryGetProperty("ConstantType", out var ct) ? ct.GetString() ?? "" : "";
+                  var objectType   = p.TryGetProperty("ObjectType",   out var ot) ? ot.GetString() ?? "NONE" : "NONE";
+                  paramInfos.Add(new FunctionParamInfo(constantType, objectType));
+               }
+            }
+
+            result[funcProp.Name] = new FunctionInfo(returnType, numRequired, paramInfos);
+         }
+
+         return result;
+      }
+   }
 
    private static IReadOnlyList<string> LoadObjectKeys(string fileName)
    {
