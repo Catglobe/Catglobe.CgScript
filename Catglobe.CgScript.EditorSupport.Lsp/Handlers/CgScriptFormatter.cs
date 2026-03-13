@@ -60,9 +60,12 @@ internal static class CgScriptFormatter
       int parenDepth   = 0;
       int bracketDepth = 0;
 
-      // Stack of (parenDepth, bracketDepth) at the time each LCURLY was opened.
-      // Used to detect when a COMMA is at the "top level" of a dictionary literal.
-      var curlyParenStack = new Stack<(int Paren, int Bracket)>();
+      // Stack per open '{': records (parenDepth, bracketDepth) at the time '{' was
+      // opened, plus whether this '{...}' should be expanded across multiple lines.
+      var curlyParenStack = new Stack<(int Paren, int Bracket, bool Expanded)>();
+
+      // Current column on the output line, used to decide inline vs. expanded for '{...}'.
+      int currentCol = 0;
 
       for (int idx = 0; idx < tokens.Count; idx++)
       {
@@ -74,25 +77,28 @@ internal static class CgScriptFormatter
          {
             if (tok.Type == CgScriptLexer.SL_COMMENT)
             {
-               if (!lineEmpty) output.Append(' ');
-               else EmitIndent(output, indentUnit, indentDepth);
+               if (!lineEmpty) { output.Append(' '); currentCol++; }
+               else { EmitIndent(output, indentUnit, indentDepth); currentCol = indentDepth * tabSize; }
                output.Append(tok.Text.TrimEnd());
                output.Append('\n');
                lineEmpty = true;
+               currentCol = 0;
             }
             else if (tok.Type == CgScriptLexer.ML_COMMENT)
             {
-               if (!lineEmpty) output.Append(' ');
-               else EmitIndent(output, indentUnit, indentDepth);
+               if (!lineEmpty) { output.Append(' '); currentCol++; }
+               else { EmitIndent(output, indentUnit, indentDepth); currentCol = indentDepth * tabSize; }
                output.Append(tok.Text);
                if (tok.Text.Contains('\n'))
                {
                   output.Append('\n');
                   lineEmpty = true;
+                  currentCol = 0;
                }
                else
                {
                   lineEmpty = false;
+                  currentCol += tok.Text.Length;
                }
             }
             // Plain WS discarded.
@@ -137,8 +143,26 @@ internal static class CgScriptFormatter
             }
          }
 
+         // ── LCURLY: look ahead to decide inline vs. expanded ─────────────────
+         bool lcurlyExpanded = true; // only meaningful when type == LCURLY
+         if (type == CgScriptLexer.LCURLY)
+         {
+            var (hasComma, inlineLen) = InspectCurlyBlock(tokens, idx);
+            if (hasComma)
+            {
+               int colBeforeOpen = lineEmpty
+                  ? indentDepth * tabSize
+                  : currentCol + (NeedsSpaceBefore(CgScriptLexer.LCURLY, prevType) ? 1 : 0);
+               lcurlyExpanded = colBeforeOpen + inlineLen > PrintWidth;
+            }
+         }
+
+         // ── RCURLY: check whether the matching LCURLY was expanded ────────────
+         bool rcurlyExpanded = type == CgScriptLexer.RCURLY
+            && curlyParenStack.Count > 0 && curlyParenStack.Peek().Expanded;
+
          // ── pre-emit: update indent before RCURLY ─────────────────────────────
-         if (type == CgScriptLexer.RCURLY)
+         if (type == CgScriptLexer.RCURLY && rcurlyExpanded)
          {
             // Pop any pending body indents for single-statement bodies whose
             // terminating SEMI was never seen (e.g. last statement in a block).
@@ -154,21 +178,24 @@ internal static class CgScriptFormatter
          if (lineEmpty)
          {
             EmitIndent(output, indentUnit, indentDepth);
+            currentCol = indentDepth * tabSize;
             lineEmpty = false;
          }
          else
          {
-            if (NeedsSpaceBefore(type, prevType)) output.Append(' ');
+            if (NeedsSpaceBefore(type, prevType)) { output.Append(' '); currentCol++; }
          }
 
          // ── emit token text ───────────────────────────────────────────────────
          output.Append(tok.Text);
+         currentCol += tok.Text.Length;
 
          // ── post-emit: forced newline from condition-close detection ──────────
          if (emitNewlineAfterCurrent)
          {
             output.Append('\n');
             lineEmpty = true;
+            currentCol = 0;
          }
 
          // ── post-emit bookkeeping ─────────────────────────────────────────────
@@ -194,31 +221,38 @@ internal static class CgScriptFormatter
                   indentDepth++;
                   output.Append('\n');
                   lineEmpty = true;
+                  currentCol = 0;
                }
                break;
             }
 
             case CgScriptLexer.LCURLY:
-               curlyParenStack.Push((parenDepth, bracketDepth));
-               indentDepth++;
-               output.Append('\n');
-               lineEmpty = true;
+               curlyParenStack.Push((parenDepth, bracketDepth, lcurlyExpanded));
+               if (lcurlyExpanded)
+               {
+                  indentDepth++;
+                  output.Append('\n');
+                  lineEmpty = true;
+                  currentCol = 0;
+               }
                break;
 
             case CgScriptLexer.RCURLY:
                if (curlyParenStack.Count > 0) curlyParenStack.Pop();
-               // Already decremented indent before emit.
+               // For expanded blocks: emit a newline unless followed by else/catch/;/,
                int nextAfterBrace = PeekNextMeaningful(tokens, idx);
-               if (nextAfterBrace == CgScriptLexer.ELSE || nextAfterBrace == CgScriptLexer.CATCH
+               if (!rcurlyExpanded
+                   || nextAfterBrace == CgScriptLexer.ELSE || nextAfterBrace == CgScriptLexer.CATCH
                    || nextAfterBrace == CgScriptLexer.SEMI || nextAfterBrace == CgScriptLexer.COMMA)
                {
-                  // Keep on same line; NeedsSpaceBefore will add a single space before 'else'/'catch'.
+                  // Keep on same line.
                   lineEmpty = false;
                }
                else
                {
                   output.Append('\n');
                   lineEmpty = true;
+                  currentCol = 0;
                }
                break;
 
@@ -239,15 +273,16 @@ internal static class CgScriptFormatter
                break;
 
             case CgScriptLexer.COMMA:
-               // If the comma is at the top level of a dictionary literal (i.e. not
-               // nested inside a paren or bracket), put each entry on its own line.
+               // If the comma is at the top level of an expanded dictionary/array literal,
+               // put each entry on its own line.
                if (curlyParenStack.Count > 0)
                {
                   var top = curlyParenStack.Peek();
-                  if (parenDepth == top.Paren && bracketDepth == top.Bracket)
+                  if (parenDepth == top.Paren && bracketDepth == top.Bracket && top.Expanded)
                   {
                      output.Append('\n');
                      lineEmpty = true;
+                     currentCol = 0;
                   }
                }
                break;
@@ -258,6 +293,7 @@ internal static class CgScriptFormatter
                   indentDepth = bodyIndentStack.Pop();
                output.Append('\n');
                lineEmpty = true;
+               currentCol = 0;
                break;
          }
 
@@ -270,6 +306,9 @@ internal static class CgScriptFormatter
 
    // ── helpers ───────────────────────────────────────────────────────────────
 
+   /// <summary>Maximum line length before a <c>{...}</c> literal is formatted across multiple lines.</summary>
+   private const int PrintWidth = 80;
+
    private static void EmitIndent(StringBuilder sb, string unit, int depth)
    {
       for (int i = 0; i < depth; i++) sb.Append(unit);
@@ -280,17 +319,18 @@ internal static class CgScriptFormatter
    {
       if (prevType < 0) return false;
 
-      // No space after open-paren / open-bracket / dot / unary-not.
+      // No space after open-paren / open-bracket / open-brace / dot / unary-not.
       switch (prevType)
       {
          case CgScriptLexer.LPAREN:
          case CgScriptLexer.LBRACKET:
+         case CgScriptLexer.LCURLY:
          case CgScriptLexer.DOT:
          case CgScriptLexer.NOT:
             return false;
       }
 
-      // No space before: , ; . ) ]
+      // No space before: , ; . ) ] }
       switch (type)
       {
          case CgScriptLexer.COMMA:
@@ -298,6 +338,7 @@ internal static class CgScriptFormatter
          case CgScriptLexer.DOT:
          case CgScriptLexer.RPAREN:
          case CgScriptLexer.RBRACKET:
+         case CgScriptLexer.RCURLY:
             return false;
       }
 
@@ -449,5 +490,49 @@ internal static class CgScriptFormatter
          if (t.Channel == Lexer.DefaultTokenChannel) return t.Type;
       }
       return -1;
+   }
+
+   /// <summary>
+   /// Scans from the LCURLY at <paramref name="lcurlyIdx"/> to its matching RCURLY,
+   /// returning whether any comma appears at the top level of the block (not nested inside
+   /// parens, brackets, or inner braces) and the total character count as if the entire
+   /// block were formatted on a single line (including the <c>{</c> and <c>}</c>).
+   /// </summary>
+   private static (bool HasTopLevelComma, int InlineLength) InspectCurlyBlock(IList<IToken> tokens, int lcurlyIdx)
+   {
+      int curlyDepth   = 1;
+      int parenDepth   = 0;
+      int bracketDepth = 0;
+      bool hasComma    = false;
+      int  length      = 1; // for '{'
+      int  prevT       = CgScriptLexer.LCURLY;
+
+      for (int i = lcurlyIdx + 1; i < tokens.Count; i++)
+      {
+         var tok = tokens[i];
+         if (tok.Type == TokenConstants.EOF) break;
+         if (tok.Channel != Lexer.DefaultTokenChannel) continue;
+
+         int t = tok.Type;
+         if (NeedsSpaceBefore(t, prevT)) length++;
+         length += tok.Text.Length;
+
+         switch (t)
+         {
+            case CgScriptLexer.LCURLY:   curlyDepth++;                                                   break;
+            case CgScriptLexer.RCURLY:   if (curlyDepth > 0) { curlyDepth--; if (curlyDepth == 0) goto done; } break;
+            case CgScriptLexer.LPAREN:   parenDepth++;                                break;
+            case CgScriptLexer.RPAREN:   if (parenDepth > 0) parenDepth--;            break;
+            case CgScriptLexer.LBRACKET: bracketDepth++;                              break;
+            case CgScriptLexer.RBRACKET: if (bracketDepth > 0) bracketDepth--;        break;
+            case CgScriptLexer.COMMA:
+               if (curlyDepth == 1 && parenDepth == 0 && bracketDepth == 0)
+                  hasComma = true;
+               break;
+         }
+         prevT = t;
+      }
+      done:
+      return (hasComma, length);
    }
 }

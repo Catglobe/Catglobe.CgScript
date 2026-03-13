@@ -148,35 +148,52 @@ public class CgScriptFormatterTests
    // ── dictionary formatting ─────────────────────────────────────────────────
 
    [Fact]
-   public void Format_Dictionary_EachEntryOnSeparateLine()
+   public void Format_ShortDictionary_StaysOnOneLine()
    {
+      // Short enough to fit in 80 chars — stays inline.
       var input    = "return {\"a\": 1, \"b\": false,};";
-      var expected = "return {\n  \"a\" : 1,\n  \"b\" : false,\n};\n";
+      var expected = "return {\"a\" : 1, \"b\" : false,};\n";
       Assert.Equal(expected, CgScriptFormatter.Format(input));
    }
 
    [Fact]
-   public void Format_DictionaryMultipleEntries_IsIdempotent()
+   public void Format_ShortDictionary_IsIdempotent()
    {
-      var input = "return {\n  \"a\" : 1,\n  \"b\" : false,\n};\n";
+      var input = "return {\"a\" : 1, \"b\" : false,};\n";
       Assert.Equal(input, CgScriptFormatter.Format(input));
    }
 
    [Fact]
-   public void Format_NestedDictionary_EntriesOnSeparateLines()
+   public void Format_ShortNestedDictionary_StaysOnOneLine()
    {
       var input    = "return {\"a\": {\"x\": 1, \"y\": 2,}, \"b\": 3,};";
-      var expected = "return {\n  \"a\" : {\n    \"x\" : 1,\n    \"y\" : 2,\n  },\n  \"b\" : 3,\n};\n";
+      var expected = "return {\"a\" : {\"x\" : 1, \"y\" : 2,}, \"b\" : 3,};\n";
       Assert.Equal(expected, CgScriptFormatter.Format(input));
    }
 
    [Fact]
-   public void Format_DictionaryWithFunctionCallValue_FunctionArgsNotExpanded()
+   public void Format_ShortDictionaryWithFunctionCallValue_StaysOnOneLine()
    {
-      // Commas inside function call args should NOT produce newlines.
+      // Commas inside function call args should NOT produce newlines even in expanded mode.
       var input    = "return {\"a\": foo(1, 2),};";
-      var expected = "return {\n  \"a\" : foo(1, 2),\n};\n";
+      var expected = "return {\"a\" : foo(1, 2),};\n";
       Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_LongDictionary_ExpandsToMultipleLines()
+   {
+      // Inline form would exceed 80 chars → each entry on its own line.
+      var input    = "return {\"longKey1\" : value1, \"longKey2\" : value2, \"longKey3\" : value3, \"longKey4\" : value4,};";
+      var expected = "return {\n  \"longKey1\" : value1,\n  \"longKey2\" : value2,\n  \"longKey3\" : value3,\n  \"longKey4\" : value4,\n};\n";
+      Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_LongDictionaryExpanded_IsIdempotent()
+   {
+      var input = "return {\n  \"longKey1\" : value1,\n  \"longKey2\" : value2,\n  \"longKey3\" : value3,\n  \"longKey4\" : value4,\n};\n";
+      Assert.Equal(input, CgScriptFormatter.Format(input));
    }
 
 
