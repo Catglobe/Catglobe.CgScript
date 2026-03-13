@@ -751,6 +751,11 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             // node is the direct child of exprOrAssign; it is the LHS when it matches expression(0)
             return node == assignCtx.expression(0);
          }
+         // If the parent is another postfix expression, ctx is either the base of a
+         // further member-access chain (e.g. a.B in `a.B.C = v`) or inside an index
+         // expression (e.g. u.ResourceId in `d[u.ResourceId] = v`).  In both cases
+         // ctx is being *read*, not assigned, so it is not the LHS.
+         if (parent is CgScriptParser.PostfixExprContext) return false;
          // Stop searching beyond a statement boundary
          if (parent is CgScriptParser.StatementContext) return false;
          node = parent;
@@ -895,7 +900,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                 && _objectDefinitions.TryGetValue(baseType, out var members)
                 && members.PropertyReturnTypes.TryGetValue(propName, out var retType)
                 && !string.IsNullOrEmpty(retType))
-               return retType;
+               return MapToCanonical(retType);
          }
       }
 
@@ -966,20 +971,40 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       };
 
    /// <summary>
-   /// Maps the declared type display name (e.g. "number", "string") to its canonical
-   /// form used for compatibility comparison (e.g. "Number", "String").
+   /// Maps a type name to its canonical form used for compatibility comparison
+   /// (e.g. "number" → "Number", "string" → "String").
+   /// Also normalises C# primitive aliases that bleed through from API documentation
+   /// (e.g. "int" → "Number") and strips the nullable suffix (e.g. "int?" → "Number").
+   /// Returns <c>null</c> for "object" / "Object" (the any-type) so that callers can
+   /// skip type checking rather than generate false-positive errors.
    /// Class names pass through unchanged.
    /// </summary>
    private static string? MapToCanonical(string declaredName)
-      => declaredName switch
+   {
+      // Strip nullable suffix and re-map the base type.
+      // Substring is used instead of the [..^1] range operator because this
+      // assembly targets netstandard2.0 which does not support System.Range.
+      if (declaredName.EndsWith("?") && declaredName.Length > 1)
+         return MapToCanonical(declaredName.Substring(0, declaredName.Length - 1));
+
+      return declaredName switch
       {
-         "number"   => "Number",
-         "string"   => "String",
-         "bool"     => "Boolean",
-         "array"    => "Array",
-         "function" => "Function",
+         // CgScript keyword types (declared by users in scripts)
+         "number"                                                             => "Number",
+         "string"                                                             => "String",
+         "bool"                                                               => "Boolean",
+         "array"                                                              => "Array",
+         "function"                                                           => "Function",
+         // C# numeric aliases that bleed through from API documentation
+         "int" or "long" or "short" or "byte"
+            or "double" or "float" or "decimal"                              => "Number",
+         // "boolean" also appears in some API docs (lowercase variant of bool)
+         "boolean"                                                            => "Boolean",
+         // "object" / "Object" means any type — suppress type checking
+         "object" or "Object"                                                 => null,
          _ => declaredName, // class name (e.g. "DateTime") unchanged
       };
+   }
 
    /// <summary>
    /// Returns <c>true</c> when <paramref name="a"/> and <paramref name="b"/> are
