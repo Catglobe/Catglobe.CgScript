@@ -198,9 +198,11 @@ internal static class CgScriptFormatter
             case CgScriptLexer.RCURLY:
                // Already decremented indent before emit.
                int nextAfterBrace = PeekNextMeaningful(tokens, idx);
-               if (nextAfterBrace == CgScriptLexer.ELSE || nextAfterBrace == CgScriptLexer.CATCH)
+               if (nextAfterBrace == CgScriptLexer.ELSE || nextAfterBrace == CgScriptLexer.CATCH
+                   || nextAfterBrace == CgScriptLexer.RPAREN)
                {
                   // Keep on same line; NeedsSpaceBefore will add a single space before 'else'/'catch'.
+                  // For ')', keep '}' and ')' together so function literals close as `});`.
                   lineEmpty = false;
                }
                else

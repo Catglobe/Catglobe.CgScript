@@ -145,6 +145,25 @@ public class CgScriptFormatterTests
       Assert.StartsWith("return 42", result);
    }
 
+   // ── function-literal arguments ───────────────────────────────────────────
+
+   [Fact]
+   public void Format_FunctionLiteralArgument_ClosingBraceAndParenOnSameLine()
+   {
+      var input    = "arr.Foreach(function(array it) { number x = 1; });";
+      var result   = CgScriptFormatter.Format(input);
+      Assert.Contains("});", result);
+      Assert.DoesNotContain("}\n)", result);
+   }
+
+   [Fact]
+   public void Format_MethodChainWithFunctionLiterals_ClosingBraceOnSameLine()
+   {
+      var input    = "arr.Select(function(array it) { return it; }).Where(function(array it) { return it; });";
+      var result   = CgScriptFormatter.Format(input);
+      Assert.Contains("}).Where(", result);
+   }
+
    // ── empty input ───────────────────────────────────────────────────────────
 
    [Fact]
