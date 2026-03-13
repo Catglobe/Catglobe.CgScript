@@ -131,4 +131,47 @@ public class SemanticAnalyzerTests
       Assert.Contains("JsonNamespace", d.Message);
       Assert.Contains("Read", d.Message);
    }
+
+   // ── Regression: typed variable with initializer — CGS016 false negative ──
+
+   [Fact]
+   public void TypedVarWithInitializer_KnownProperty_NoCGS016()
+   {
+      // Regression: when declared with a constructor-call initializer the variable
+      // type must still be tracked so that member access validation does not fire.
+      var diags = Analyze(
+         "QuestionnaireBatchJob batch = new QuestionnaireBatchJob(0 /*0 == current*/);\n" +
+         "if (!batch.CurrentCompleted)\n" +
+         "   batch.CurrentCompleted = true;");
+      Assert.DoesNotContain(diags, d => d.Code == "CGS016");
+   }
+
+   // ── Typed variable inside a function body ─────────────────────────────────
+
+   [Fact]
+   public void TypedVarInFunctionBody_KnownProperty_NoCGS016()
+   {
+      // A typed variable declared inside a function literal body should not produce
+      // a CGS016 false positive when a known property is accessed on it.
+      var diags = Analyze(
+         "someFunc(function() {\n" +
+         "   QuestionnaireBatchJob batch = new QuestionnaireBatchJob(0 /*0 == current*/);\n" +
+         "   if (!batch.CurrentCompleted)\n" +
+         "      batch.CurrentCompleted = true;\n" +
+         "});");
+      Assert.DoesNotContain(diags, d => d.Code == "CGS016");
+   }
+
+   [Fact]
+   public void TypedVarInFunctionBody_UnknownProperty_ReportsCGS016()
+   {
+      // A typed variable declared inside a function literal body should still
+      // report CGS016 when an unknown property is accessed.
+      var diags = Analyze(
+         "someFunc(function() {\n" +
+         "   QuestionnaireBatchJob batch = new QuestionnaireBatchJob(0);\n" +
+         "   batch.NonExistentProp;\n" +
+         "});");
+      Assert.Contains(diags, d => d.Code == "CGS016");
+   }
 }

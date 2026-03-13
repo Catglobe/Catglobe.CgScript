@@ -58,11 +58,16 @@ public sealed class DocumentStore
       var result = new Dictionary<string, ObjectMemberInfo>(StringComparer.Ordinal);
       foreach (var kvp in objects)
       {
-         var def        = kvp.Value;
-         var properties = new Dictionary<string, bool>(StringComparer.Ordinal);
+         var def             = kvp.Value;
+         var properties      = new Dictionary<string, bool>(StringComparer.Ordinal);
+         var propertyRetTypes = new Dictionary<string, string>(StringComparer.Ordinal);
          if (def.Properties != null)
             foreach (var p in def.Properties)
+            {
                properties[p.Name] = p.HasSetter;
+               if (!string.IsNullOrEmpty(p.ReturnType))
+                  propertyRetTypes[p.Name] = p.ReturnType;
+            }
 
          var methods = new List<string>();
          if (def.Methods != null)
@@ -70,7 +75,7 @@ public sealed class DocumentStore
                if (!string.IsNullOrEmpty(m.Name))
                   methods.Add(m.Name);
 
-         result[kvp.Key] = new ObjectMemberInfo(properties, methods);
+         result[kvp.Key] = new ObjectMemberInfo(properties, methods, propertyRetTypes);
       }
       return result;
    }
