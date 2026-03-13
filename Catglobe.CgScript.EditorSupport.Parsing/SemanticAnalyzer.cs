@@ -347,11 +347,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                   && objMembers.ConstructorOverloads != null)
          {
             // CGS023: validate constructor argument types and arity
-            var argExprs = ctx.parameters()?.expression()
-                           ?? System.Array.Empty<CgScriptParser.ExpressionContext>();
-            var argTypes = new string?[argExprs.Length];
-            for (var i = 0; i < argExprs.Length; i++)
-               argTypes[i] = TryInferType(argExprs[i]);
+            var argTypes = InferArgumentTypes(ctx.parameters());
 
             if (!IsAnyOverloadValid(objMembers.ConstructorOverloads, argTypes))
             {
@@ -569,11 +565,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                         && _functionDefinitions.TryGetValue(token.Text, out var funcInfo))
                {
                   // CGS022: validate argument types and arity
-                  var argExprs = ctx.parameters()?.expression()
-                                 ?? System.Array.Empty<CgScriptParser.ExpressionContext>();
-                  var argTypes = new string?[argExprs.Length];
-                  for (var i = 0; i < argExprs.Length; i++)
-                     argTypes[i] = TryInferType(argExprs[i]);
+                  var argTypes = InferArgumentTypes(ctx.parameters());
 
                   if (!IsCallValid(funcInfo, argTypes))
                   {
@@ -619,11 +611,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                            && members.MethodOverloads.TryGetValue(memberName, out var methodOverloads))
                   {
                      // CGS024: validate method argument types and arity
-                     var argExprs = ctx.parameters()?.expression()
-                                    ?? System.Array.Empty<CgScriptParser.ExpressionContext>();
-                     var argTypes = new string?[argExprs.Length];
-                     for (var i = 0; i < argExprs.Length; i++)
-                        argTypes[i] = TryInferType(argExprs[i]);
+                     var argTypes = InferArgumentTypes(ctx.parameters());
 
                      if (!IsAnyOverloadValid(methodOverloads, argTypes))
                      {
@@ -1151,6 +1139,19 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       var canonical = MapToCanonical(paramType);
       if (canonical == null) return true; // "object" param type → any arg is accepted
       return IsTypeCompatible(argType, canonical);
+   }
+
+   /// <summary>
+   /// Infers the argument types for a call expression by evaluating each argument expression.
+   /// </summary>
+   private string?[] InferArgumentTypes(CgScriptParser.ParametersContext? parameters)
+   {
+      var argExprs = parameters?.expression()
+                     ?? System.Array.Empty<CgScriptParser.ExpressionContext>();
+      var argTypes = new string?[argExprs.Length];
+      for (var i = 0; i < argExprs.Length; i++)
+         argTypes[i] = TryInferType(argExprs[i]);
+      return argTypes;
    }
 
 
