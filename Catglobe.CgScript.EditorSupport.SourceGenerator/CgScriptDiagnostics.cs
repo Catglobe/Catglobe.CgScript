@@ -157,6 +157,30 @@ internal static class CgScriptDiagnostics
       category:           Category,
       defaultSeverity:    DiagnosticSeverity.Error,
       isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor TypeMismatch = new(
+      id:                 "CGS020",
+      title:              "Invalid data type in assignment",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor TernaryTypeMismatch = new(
+      id:                 "CGS021",
+      title:              "Ternary branches must return the same type",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor FunctionCallMismatch = new(
+      id:                 "CGS022",
+      title:              "No matching function overload",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
    public static DiagnosticSeverity ToRoslyn(Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity s)
       => s == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
          ? DiagnosticSeverity.Error
@@ -184,6 +208,9 @@ internal static class CgScriptDiagnostics
          "CGS017" => UnknownMethod,
          "CGS018" => ReadonlyProperty,
          "CGS019" => SyntaxError,
+         "CGS020" => TypeMismatch,
+         "CGS021" => TernaryTypeMismatch,
+         "CGS022" => FunctionCallMismatch,
          _ => throw new ArgumentOutOfRangeException(nameof(d), d.Code, "Unknown diagnostic code"),
       };
 }

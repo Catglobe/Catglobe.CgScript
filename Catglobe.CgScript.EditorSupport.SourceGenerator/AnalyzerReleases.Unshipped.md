@@ -13,3 +13,6 @@ CGS016 | CgScript | Error    | Unknown property name
 CGS017 | CgScript | Error    | Unknown method name
 CGS018 | CgScript | Error    | Assignment to read-only property
 CGS019 | CgScript | Error    | Syntax error
+CGS020 | CgScript | Error    | Invalid data type in assignment
+CGS021 | CgScript | Error    | Ternary branches must return the same type
+CGS022 | CgScript | Error    | No matching function overload

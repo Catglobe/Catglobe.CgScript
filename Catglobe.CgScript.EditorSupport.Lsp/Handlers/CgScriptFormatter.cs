@@ -253,13 +253,15 @@ internal static class CgScriptFormatter
 
             case CgScriptLexer.RCURLY:
                if (curlyParenStack.Count > 0) curlyParenStack.Pop();
-               // For expanded blocks: emit a newline unless followed by else/catch/;/,
+               // For expanded blocks: emit a newline unless followed by else/catch/)/;/,
                int nextAfterBrace = PeekNextMeaningful(tokens, idx);
                if (!rcurlyExpanded
                    || nextAfterBrace == CgScriptLexer.ELSE || nextAfterBrace == CgScriptLexer.CATCH
+                   || nextAfterBrace == CgScriptLexer.RPAREN
                    || nextAfterBrace == CgScriptLexer.SEMI || nextAfterBrace == CgScriptLexer.COMMA)
                {
                   // Keep on same line.
+                  // For ')', keep '}' and ')' together so function literals close as `});`.
                   lineEmpty = false;
                }
                else

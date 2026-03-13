@@ -49,4 +49,44 @@ public class CompletionVariableTests
 
       Assert.Equal(2, matching.Count);
    }
+
+   // ── Function parameter collection ─────────────────────────────────────────
+
+   [Fact]
+   public void FunctionParameter_IsCollectedByCollectAll()
+   {
+      // Regression: function parameters declared as "Question ZipFromPanelData"
+      // should appear in CollectAll with the correct type.
+      const string src = "someFunc(function(Question Q1, Question ZipFromPanelData) { });";
+      var result  = CgScriptParseService.Parse(src);
+      var symbols = DocumentSymbolCollector.CollectAll(result.Tree);
+
+      var param = symbols.FirstOrDefault(s => s.Name == "ZipFromPanelData");
+      Assert.NotNull(param);
+      Assert.Equal("parameter", param.Kind);
+      Assert.Equal("Question", param.TypeName);
+   }
+
+   [Fact]
+   public void FunctionParameter_NotCollectedByCollect()
+   {
+      // Function parameters should NOT appear in the document outline (Collect).
+      const string src = "someFunc(function(Question ZipFromPanelData) { });";
+      var result  = CgScriptParseService.Parse(src);
+      var symbols = DocumentSymbolCollector.Collect(result.Tree);
+
+      Assert.DoesNotContain(symbols, s => s.Name == "ZipFromPanelData");
+   }
+
+   [Fact]
+   public void MultipleFunctionParameters_AllCollectedByCollectAll()
+   {
+      const string src = "batch.Execute(function(Question Q1, Question Q2, Question ZipCode) { });";
+      var result  = CgScriptParseService.Parse(src);
+      var symbols = DocumentSymbolCollector.CollectAll(result.Tree);
+
+      Assert.Contains(symbols, s => s.Name == "Q1"       && s.TypeName == "Question" && s.Kind == "parameter");
+      Assert.Contains(symbols, s => s.Name == "Q2"       && s.TypeName == "Question" && s.Kind == "parameter");
+      Assert.Contains(symbols, s => s.Name == "ZipCode"  && s.TypeName == "Question" && s.Kind == "parameter");
+   }
 }
