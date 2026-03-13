@@ -301,7 +301,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          // locally-declared variables inside the function don't trigger false positives.
          // For typed locals (ClassNameTypeContext declarations), also seed _varTypes so
          // that property/method access on them is validated rather than silently skipped.
-         var addedVarTypes   = new HashSet<string>(StringComparer.Ordinal);
+         var addedTypes      = new HashSet<string>(StringComparer.Ordinal);
          var overriddenTypes = new Dictionary<string, string>(StringComparer.Ordinal);
          var blockCtx = ctx.block();
          if (blockCtx != null)
@@ -316,7 +316,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                   if (_varTypes.TryGetValue(name, out var prev))
                      overriddenTypes[name] = prev;
                   else
-                     addedVarTypes.Add(name);
+                     addedTypes.Add(name);
                   _varTypes[name] = localTypeName;
                }
             }
@@ -336,7 +336,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          // Restore _varTypes: undo any overrides and removals made for this scope
          foreach (var kvp in overriddenTypes)
             _varTypes[kvp.Key] = kvp.Value;
-         foreach (var name in addedVarTypes)
+         foreach (var name in addedTypes)
             _varTypes.Remove(name);
 
          return null;

@@ -145,10 +145,10 @@ public partial class CgScriptLanguageTarget
 
          if (decl is not null)
          {
-            // Use CollectAll to find declarations at any nesting depth.
-            var sym = DocumentSymbolCollector.CollectAll(result.Tree)
-               .FirstOrDefault(s => s.Name == word);
-            var typeLabel = sym is not null ? sym.TypeName : "?";
+            // Use the same ResolveVariableType logic as completion so that typed
+            // function parameters (and other non-statement declarations) are resolved
+            // correctly without duplicating the type-lookup implementation.
+            var typeLabel = ResolveVariableType(word, text, result.Tree) ?? "?";
             return new Hover
             {
                Contents = HoverContent($"{typeLabel} {word}"),

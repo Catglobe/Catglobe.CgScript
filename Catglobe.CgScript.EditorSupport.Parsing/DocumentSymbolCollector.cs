@@ -118,5 +118,45 @@ public static class DocumentSymbolCollector
 
          return VisitChildren(ctx);
       }
+
+      /// <summary>
+      /// Collects function literal parameters as typed symbols so that
+      /// type-resolution and completion can find their declared types.
+      /// Only collected when <c>CollectAll</c> is used (not for the document outline).
+      /// </summary>
+      public override object? VisitFunctionParameters(
+         CgScriptParser.FunctionParametersContext ctx)
+      {
+         if (!_globalOnly)
+         {
+            foreach (var decl in ctx.declaration())
+            {
+               var idToken = decl.IDENTIFIER()?.Symbol;
+               if (idToken is null) continue;
+
+               var typeText = decl.typeSpec()?.GetText() ?? "";
+               if (string.IsNullOrEmpty(typeText)) continue;
+
+               var stopToken = decl.Stop;
+               Symbols.Add(new DocumentSymbolInfo(
+                  Name:        idToken.Text,
+                  Kind:        "parameter",
+                  TypeName:    typeText,
+                  StartLine:   decl.Start.Line,
+                  StartColumn: decl.Start.Column,
+                  EndLine:     stopToken?.Line   ?? decl.Start.Line,
+                  EndColumn:   stopToken is not null
+                                  ? stopToken.Column + stopToken.Text.Length
+                                  : decl.Start.Column,
+                  NameLine:    idToken.Line,
+                  NameColumn:  idToken.Column,
+                  NameLength:  idToken.Text.Length));
+            }
+         }
+
+         // Do not recurse into children: parameter declarations are not statements
+         // and contain nothing else the collector needs to visit.
+         return null;
+      }
    }
 }
