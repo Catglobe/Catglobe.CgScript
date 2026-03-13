@@ -276,13 +276,14 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             var declaredCanon = MapToCanonical(declaredName);
             if (declaredCanon != null && !IsTypeCompatible(declaredCanon, inferredType))
             {
-               var startToken = init.expression().Start;
+               var expr       = init.expression();
+               var startToken = expr.Start;
                _diagnostics.Add(new Diagnostic(
                   DiagnosticSeverity.Error,
                   $"Invalid data type '{inferredType}', expect '{declaredName}'",
                   startToken.Line,
                   startToken.Column,
-                  startToken.Text.Length,
+                  TokenSpanLength(startToken, expr.Stop),
                   "CGS020"));
             }
          }
@@ -304,18 +305,33 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
          if (thenType != null && elseType != null && !IsTypeCompatible(thenType, elseType))
          {
-            var token = ctx.QMARK().Symbol;
+            var thenExpr = ctx.subExpression(1);
+            var elseExpr = ctx.subExpression(2);
+            var startTok = thenExpr.Start;
             _diagnostics.Add(new Diagnostic(
                DiagnosticSeverity.Error,
                "Expression should return same data type",
-               token.Line,
-               token.Column,
-               token.Text.Length,
+               startTok.Line,
+               startTok.Column,
+               TokenSpanLength(startTok, elseExpr.Stop ?? elseExpr.Start),
                "CGS021"));
          }
       }
 
       return VisitChildren(ctx);
+   }
+
+   /// <summary>
+   /// Returns the number of characters spanned from <paramref name="start"/> to
+   /// <paramref name="stop"/> (inclusive) when both tokens are on the same line.
+   /// Falls back to the text length of <paramref name="start"/> when <paramref name="stop"/>
+   /// is <c>null</c> or on a different line.
+   /// </summary>
+   private static int TokenSpanLength(IToken start, IToken? stop)
+   {
+      if (stop != null && stop.Line == start.Line)
+         return stop.StopIndex - start.StartIndex + 1;
+      return System.Math.Max(1, start.Text?.Length ?? 1);
    }
 
    /// <summary>
