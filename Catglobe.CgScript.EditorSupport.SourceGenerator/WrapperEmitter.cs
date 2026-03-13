@@ -5,13 +5,18 @@ namespace Catglobe.CgScript.EditorSupport.SourceGenerator;
 /// <summary>
 /// Emits C# source for a typed AOT-safe wrapper method for one .cgs script.
 ///
-/// Both the Params and return-type <c>JsonTypeInfo</c> are resolved from the assembly's
-/// <c>[CgScriptSerializer]</c> context. The generator also emits a partial declaration of
-/// that context class with the required <c>[JsonSerializable]</c> attribute for every
-/// generated Params type, so users never need to add them manually.
+/// Params are serialised via a generated <c>JsonMetadataServices.CreateObjectInfo</c> with an inline
+/// <c>SerializeHandler</c> — no STJ source generator involvement needed for the params type.
+/// The return-type <c>JsonTypeInfo</c> is resolved from the assembly's <c>[CgScriptSerializer]</c>
+/// context (a <c>JsonSerializerContext</c> the user declares and annotates with
+/// <c>[JsonSerializable(typeof(TR))]</c>).
 /// </summary>
 internal static class WrapperEmitter
 {
+   private const string JMeta   = "global::System.Text.Json.Serialization.Metadata.JsonMetadataServices";
+   private const string JObjVal = "global::System.Text.Json.Serialization.Metadata.JsonObjectInfoValues";
+   private const string JWriter = "global::System.Text.Json.Utf8JsonWriter";
+
    /// <summary>
    /// Generates the partial class body (without namespace/class wrapper) for one script.
    /// </summary>
@@ -55,8 +60,28 @@ internal static class WrapperEmitter
       sb.AppendLine("    {");
       sb.AppendLine($"        var ctx = global::{contextFullName}.Default;");
 
-      // Both params and result are resolved from the source-generated context — fully AOT-safe.
-      sb.AppendLine($"        var paramsInfo = ctx.{paramsClass};");
+      // Build the params type info using CreateObjectInfo + inline SerializeHandler.
+      // This is AOT-safe: the trimmer can see every type accessed via the handler.
+      sb.AppendLine($"        var paramsInfo = {JMeta}.CreateObjectInfo<{paramsClass}>(ctx.Options,");
+      sb.AppendLine($"            new {JObjVal}<{paramsClass}>");
+      sb.AppendLine("            {");
+      sb.AppendLine("                ObjectCreator = null, // serialisation-only");
+      sb.AppendLine($"                SerializeHandler = ({JWriter} w, {paramsClass} v) =>");
+      sb.AppendLine("                {");
+      sb.AppendLine("                    w.WriteStartObject();");
+      foreach (var p in meta.Parameters)
+      {
+         var prop    = ToPascalCase(p.Name);
+         var jsonKey = p.Name;
+         sb.AppendLine(WritePropertyLine(jsonKey, prop, p.CsType, p.IsOptional));
+      }
+      sb.AppendLine("                    w.WriteEndObject();");
+      sb.AppendLine("                }");
+      sb.AppendLine("            });");
+
+      // Resolve return-type info from the user's serializer context via the STJ-generated property.
+      // Using the property directly (rather than GetTypeInfo) gives a natural C# compile error if the
+      // type is not registered with [JsonSerializable], and CGS011 explains why.
       sb.AppendLine($"        var resultInfo = ctx.{ToStjPropertyName(returnCs)};");
 
       var executeExpr = $"client.Execute<{paramsClass}, {returnCs}>(\"{meta.ScriptName}\", new {paramsClass}({string.Join(", ", meta.Parameters.Select(p => ToCamelCase(p.Name)))}), paramsInfo, resultInfo, cancellationToken: ct)";
@@ -69,17 +94,11 @@ internal static class WrapperEmitter
       sb.AppendLine();
 
       // ── params record ────────────────────────────────────────────────────────
-      // internal (not private) so [JsonSerializable(typeof(...))] in the auto-generated
-      // partial context class can reference it.
-      // [property: JsonPropertyName] preserves the original camelCase JSON key names.
-      sb.Append($"    internal record {paramsClass}(");
+      sb.Append($"    private record {paramsClass}(");
       sb.Append(string.Join(", ", meta.Parameters.Select(p =>
-      {
-         var attr      = $"[property: global::System.Text.Json.Serialization.JsonPropertyName(\"{p.Name}\")]";
-         var csType    = p.IsOptional ? MakeNullable(p.CsType) : p.CsType;
-         var defaultVal = p.IsOptional ? " = null" : "";
-         return $"{attr} {csType} {ToPascalCase(p.Name)}{defaultVal}";
-      })));
+         p.IsOptional
+            ? $"{MakeNullable(p.CsType)} {ToPascalCase(p.Name)} = null"
+            : $"{p.CsType} {ToPascalCase(p.Name)}")));
       sb.AppendLine(");");
 
       return sb.ToString();
@@ -104,11 +123,53 @@ internal static class WrapperEmitter
       return sb.ToString();
    }
 
+   // ── Utf8JsonWriter call per C# param type ────────────────────────────────
+
+   private static string WritePropertyLine(string jsonKey, string propName, string csType, bool isOptional)
+   {
+      const string I = "                    "; // 20 spaces
+
+      if (!isOptional)
+         return BuildPropertyWriteContent(jsonKey, $"v.{propName}", csType, I);
+
+      // Optional param: wrap write in a null check.
+      // Value types (bool, int, …) use .HasValue/.Value; reference types use != null.
+      bool isValueType = IsKnownValueType(csType);
+      string condition  = isValueType ? $"v.{propName}.HasValue" : $"v.{propName} != null";
+      string valueExpr  = isValueType ? $"v.{propName}.Value"    : $"v.{propName}!";
+      string content    = BuildPropertyWriteContent(jsonKey, valueExpr, csType, I + "    ");
+
+      return $"{I}if ({condition})\n{I}{{\n{content}\n{I}}}";
+   }
+
+   private static string BuildPropertyWriteContent(string jsonKey, string valueExpr, string csType, string indent) =>
+      csType.ToLowerInvariant() switch
+      {
+         "string"                               => $"{indent}w.WriteString(\"{jsonKey}\", {valueExpr});",
+         "double" or "float"                    => $"{indent}w.WriteNumber(\"{jsonKey}\", {valueExpr});",
+         "int" or "long" or "short" or "byte"   => $"{indent}w.WriteNumber(\"{jsonKey}\", {valueExpr});",
+         "bool"                                 => $"{indent}w.WriteBoolean(\"{jsonKey}\", {valueExpr});",
+         // Dynamic object type — use reflection-based serialization (not AOT-safe, but object is genuinely dynamic)
+         "object"                               =>
+            $"{indent}w.WritePropertyName(\"{jsonKey}\");\n" +
+            $"{indent}global::System.Text.Json.JsonSerializer.Serialize(w, {valueExpr});",
+         _ =>
+            $"{indent}w.WritePropertyName(\"{jsonKey}\");\n" +
+            $"{indent}global::System.Text.Json.JsonSerializer.Serialize(w, {valueExpr}, ctx.{ToStjPropertyName(csType)});",
+      };
+
    private static string MakeNullable(string csType)
    {
       if (csType.EndsWith("?")) return csType;
       return csType + "?";
    }
+
+   /// <summary>
+   /// Returns true for C# value types that require <c>.HasValue</c>/<c>.Value</c>
+   /// when made nullable, rather than the <c>!= null</c> reference-type pattern.
+   /// </summary>
+   private static bool IsKnownValueType(string csType) =>
+      csType is "bool" or "int" or "double" or "float" or "long" or "short" or "byte" or "Guid";
 
    /// <summary>
    /// Converts a C# type name to the property name generated by the STJ source generator on a
@@ -184,4 +245,3 @@ internal static class WrapperEmitter
    private static string XmlEscape(string s) =>
       s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 }
-
