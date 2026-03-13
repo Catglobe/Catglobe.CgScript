@@ -55,6 +55,15 @@ internal static class CgScriptFormatter
       // When true, a '\n' is emitted immediately after the current token.
       bool emitNewlineAfterCurrent = false;
 
+      // Track paren/bracket nesting depth to distinguish dictionary-level commas
+      // (which should produce a newline) from commas inside function calls or arrays.
+      int parenDepth   = 0;
+      int bracketDepth = 0;
+
+      // Stack of (parenDepth, bracketDepth) at the time each LCURLY was opened.
+      // Used to detect when a COMMA is at the "top level" of a dictionary literal.
+      var curlyParenStack = new Stack<(int Paren, int Bracket)>();
+
       for (int idx = 0; idx < tokens.Count; idx++)
       {
          var tok = tokens[idx];
@@ -190,15 +199,18 @@ internal static class CgScriptFormatter
             }
 
             case CgScriptLexer.LCURLY:
+               curlyParenStack.Push((parenDepth, bracketDepth));
                indentDepth++;
                output.Append('\n');
                lineEmpty = true;
                break;
 
             case CgScriptLexer.RCURLY:
+               if (curlyParenStack.Count > 0) curlyParenStack.Pop();
                // Already decremented indent before emit.
                int nextAfterBrace = PeekNextMeaningful(tokens, idx);
-               if (nextAfterBrace == CgScriptLexer.ELSE || nextAfterBrace == CgScriptLexer.CATCH)
+               if (nextAfterBrace == CgScriptLexer.ELSE || nextAfterBrace == CgScriptLexer.CATCH
+                   || nextAfterBrace == CgScriptLexer.SEMI || nextAfterBrace == CgScriptLexer.COMMA)
                {
                   // Keep on same line; NeedsSpaceBefore will add a single space before 'else'/'catch'.
                   lineEmpty = false;
@@ -207,6 +219,36 @@ internal static class CgScriptFormatter
                {
                   output.Append('\n');
                   lineEmpty = true;
+               }
+               break;
+
+            case CgScriptLexer.LPAREN:
+               parenDepth++;
+               break;
+
+            case CgScriptLexer.RPAREN:
+               if (parenDepth > 0) parenDepth--;
+               break;
+
+            case CgScriptLexer.LBRACKET:
+               bracketDepth++;
+               break;
+
+            case CgScriptLexer.RBRACKET:
+               if (bracketDepth > 0) bracketDepth--;
+               break;
+
+            case CgScriptLexer.COMMA:
+               // If the comma is at the top level of a dictionary literal (i.e. not
+               // nested inside a paren or bracket), put each entry on its own line.
+               if (curlyParenStack.Count > 0)
+               {
+                  var top = curlyParenStack.Peek();
+                  if (parenDepth == top.Paren && bracketDepth == top.Bracket)
+                  {
+                     output.Append('\n');
+                     lineEmpty = true;
+                  }
                }
                break;
 

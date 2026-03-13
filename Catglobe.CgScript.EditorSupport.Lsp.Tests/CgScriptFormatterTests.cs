@@ -145,7 +145,41 @@ public class CgScriptFormatterTests
       Assert.StartsWith("return 42", result);
    }
 
-   // ── empty input ───────────────────────────────────────────────────────────
+   // ── dictionary formatting ─────────────────────────────────────────────────
+
+   [Fact]
+   public void Format_Dictionary_EachEntryOnSeparateLine()
+   {
+      var input    = "return {\"a\": 1, \"b\": false,};";
+      var expected = "return {\n  \"a\" : 1,\n  \"b\" : false,\n};\n";
+      Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_DictionaryMultipleEntries_IsIdempotent()
+   {
+      var input = "return {\n  \"a\" : 1,\n  \"b\" : false,\n};\n";
+      Assert.Equal(input, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_NestedDictionary_EntriesOnSeparateLines()
+   {
+      var input    = "return {\"a\": {\"x\": 1, \"y\": 2,}, \"b\": 3,};";
+      var expected = "return {\n  \"a\" : {\n    \"x\" : 1,\n    \"y\" : 2,\n  },\n  \"b\" : 3,\n};\n";
+      Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_DictionaryWithFunctionCallValue_FunctionArgsNotExpanded()
+   {
+      // Commas inside function call args should NOT produce newlines.
+      var input    = "return {\"a\": foo(1, 2),};";
+      var expected = "return {\n  \"a\" : foo(1, 2),\n};\n";
+      Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+
 
    [Fact]
    public void Format_EmptyString_ReturnsEmpty()
