@@ -251,7 +251,11 @@ public partial class CgScriptLanguageTarget
             {
                Label         = name,
                Kind          = CompletionItemKind.Class,
-               Documentation = obj.Doc,
+               Documentation = new SumType<string, MarkupContent>(new MarkupContent
+               {
+                  Kind  = MarkupKind.Markdown,
+                  Value = obj.Doc ?? string.Empty,
+               }),
             });
       }
 
