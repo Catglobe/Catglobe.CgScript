@@ -263,7 +263,7 @@ export const SEMANTIC_CLASSES: Array<string | null> = [
    null,               // 5: variable
    "cm-cgs-function",  // 6: function
    "cm-cgs-type",      // 7: class (object type like Dictionary)
-   "cm-cgs-constant",  // 8: enumMember (constant)
+   "cm-cgs-constant",  // 8: enum (constant)
    null,               // 9: parameter
    "cm-cgs-function",  // 10: method (same style as function)
    "cm-cgs-property",  // 11: property
