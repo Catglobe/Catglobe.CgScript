@@ -17,8 +17,6 @@
       <Nullable>enable</Nullable>
       <ImplicitUsings>enable</ImplicitUsings>
       <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-      <!-- Dotfiles (.gitkeep, .gitignore) in wwwroot are excluded by NuGet by design -->
-      <NoWarn>$(NoWarn);NU5119</NoWarn>
    </PropertyGroup>
 
    <ItemGroup>
@@ -39,15 +37,9 @@
    <Target Name="BuildNpmBundle"
            BeforeTargets="BeforeBuild"
            Inputs="@(_NpmSources)"
-           Outputs="../Catglobe.CgScript.EditorSupport.CodeMirror/dist/cgscript-cm6.js">
+           Outputs="$(MSBuildThisFileDirectory)wwwroot/cgscript-cm6.js">
       <Exec Command="npm run bundle"
             WorkingDirectory="$(MSBuildThisFileDirectory)../Catglobe.CgScript.EditorSupport.CodeMirror" />
-   </Target>
-
-   <Target Name="CopyBundleToWwwroot" AfterTargets="BuildNpmBundle" BeforeTargets="BeforeBuild">
-      <Copy SourceFiles="../Catglobe.CgScript.EditorSupport.CodeMirror/dist/cgscript-cm6.js"
-            DestinationFolder="wwwroot/"
-            SkipUnchangedFiles="true" />
    </Target>
 
 </Project>

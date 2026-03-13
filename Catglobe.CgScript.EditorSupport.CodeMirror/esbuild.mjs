@@ -4,7 +4,7 @@ await build({
    entryPoints: ["src/index.ts"],
    bundle: true,
    format: "esm",
-   outfile: "dist/cgscript-cm6.js",
+   outfile: "../Catglobe.CgScript.EditorSupport.CodeMirror.AspNet/wwwroot/cgscript-cm6.js",
    minify: false,
    sourcemap: false,
    target: ["es2020"],
@@ -12,4 +12,4 @@ await build({
    // is a single self-contained browser ESM file with no CDN dependencies.
 });
 
-console.log("esbuild: dist/cgscript-cm6.js written");
+console.log("esbuild: wwwroot/cgscript-cm6.js written");
