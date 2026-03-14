@@ -270,4 +270,56 @@ public class DiagnosticPositionTests
       Assert.Equal(0, d.Column);  // start of line
       Assert.Equal(6, d.Length);  // "myFunc"
    }
+
+   // ── CGS020: declaration initializer type mismatch ────────────────────────
+
+   [Fact]
+   public void CGS020_PointsToInitializerExpression()
+   {
+      // "number a = \"hello\";" — string literal starts at col 11, length 7 (with quotes)
+      var diags = Analyze("number a = \"hello\";");
+      var d = Find(diags, "CGS020");
+      Assert.Equal(1,  d.Line);
+      Assert.Equal(11, d.Column);  // after "number a = "
+      Assert.Equal(7,  d.Length);  // "\"hello\"" (7 chars including quotes)
+   }
+
+   // ── CGS021: ternary branch type mismatch ─────────────────────────────────
+
+   [Fact]
+   public void CGS021_PointsToThenToElseSpan()
+   {
+      // "true ? 1 : \"s\";" — span from '1' (col 7) through '"s"' (col 13), length 7
+      var diags = Analyze("true ? 1 : \"s\";");
+      var d = Find(diags, "CGS021");
+      Assert.Equal(1, d.Line);
+      Assert.Equal(7, d.Column);   // start of then-branch '1'
+      Assert.Equal(7, d.Length);   // spans '1 : "s"' (cols 7–13 inclusive)
+   }
+
+   // ── CGS023: constructor argument mismatch ─────────────────────────────────
+
+   [Fact]
+   public void CGS023_PointsToConstructorTypeToken()
+   {
+      // "object a = new String(1, 2);\na;" — 'String' starts at col 15, length 6
+      var diags = AnalyzeKnown("object a = new String(1, 2);\na;");
+      var d = Find(diags, "CGS023");
+      Assert.Equal(1,  d.Line);
+      Assert.Equal(15, d.Column);  // after "object a = new "
+      Assert.Equal(6,  d.Length);  // "String"
+   }
+
+   // ── CGS024: method call argument mismatch ─────────────────────────────────
+
+   [Fact]
+   public void CGS024_PointsToMethodNameToken()
+   {
+      // Line 2: "s.CompareTo(1);" — 'CompareTo' starts at col 2, length 9
+      var diags = AnalyzeKnown("String s = new String(\"x\");\ns.CompareTo(1);");
+      var d = Find(diags, "CGS024");
+      Assert.Equal(2, d.Line);
+      Assert.Equal(2, d.Column);   // after "s."
+      Assert.Equal(9, d.Length);   // "CompareTo"
+   }
 }
