@@ -141,6 +141,32 @@ public class SemanticAnalyzerDiagnosticsTests
       Assert.DoesNotContain(diags, d => d.Code == "CGS020");
    }
 
+   // ── CGS020: location accuracy ─────────────────────────────────────────────
+
+   [Fact]
+   public void NumberVar_AssignedStringLiteral_CGS020_PointsToExpression()
+   {
+      // "number a = \"asdf\";"  →  expression "asdf" starts at column 11
+      var diags = Analyze("number a = \"asdf\";");
+      var d = diags.FirstOrDefault(x => x.Code == "CGS020");
+      Assert.NotNull(d);
+      Assert.Equal(1, d.Line);     // first (and only) line
+      Assert.Equal(11, d.Column);  // column of the opening quote
+      Assert.True(d.Length > 0, "Length must be positive so that a squiggle is rendered");
+   }
+
+   [Fact]
+   public void StringVar_AssignedNumberExpression_CGS020_PointsToExpression()
+   {
+      // "string s = 1 + 1;"  →  expression "1 + 1" starts at column 11
+      var diags = Analyze("string s = 1 + 1;");
+      var d = diags.FirstOrDefault(x => x.Code == "CGS020");
+      Assert.NotNull(d);
+      Assert.Equal(1, d.Line);     // first line
+      Assert.Equal(11, d.Column);  // column of the first '1'
+      Assert.True(d.Length >= 5, "Length should cover the full '1 + 1' expression");
+   }
+
    // ── CGS021: ternary branch type mismatch ──────────────────────────────────
 
    [Fact]
@@ -159,6 +185,20 @@ public class SemanticAnalyzerDiagnosticsTests
       var diags = Analyze("number x = true ? 1 : 2;");
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS021");
+   }
+
+   // ── CGS021: location accuracy ─────────────────────────────────────────────
+
+   [Fact]
+   public void TernaryWithMismatchedBranchTypes_CGS021_PointsToBranches()
+   {
+      // "number x = true ? 1 : \"asdf\";"  →  then-branch "1" starts at col 18
+      var diags = Analyze("number x = true ? 1 : \"asdf\";");
+      var d = diags.FirstOrDefault(x => x.Code == "CGS021");
+      Assert.NotNull(d);
+      Assert.Equal(1, d.Line);     // first line
+      Assert.Equal(18, d.Column);  // column of the then-branch '1'
+      Assert.True(d.Length > 0, "Length must be positive so that a squiggle is rendered");
    }
 
    // ── CGS022: function call argument mismatch ───────────────────────────────
