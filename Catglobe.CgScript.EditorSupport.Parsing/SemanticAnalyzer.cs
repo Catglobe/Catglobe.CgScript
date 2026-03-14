@@ -32,7 +32,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
    // ── Pass-1 result (populated before Pass 2 begins) ──────────────────────────
    private HashSet<string>         _globalVars  = new(StringComparer.Ordinal);
-   private Dictionary<string, int> _globalVarLines = new(StringComparer.Ordinal);
+   private Dictionary<string, (int Line, int Column)> _globalVarLines = new(StringComparer.Ordinal);
 
    // ── Variable type tracking (var name → declared type name) ──────────────────
    private Dictionary<string, string> _varTypes = new(StringComparer.Ordinal);
@@ -127,13 +127,13 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       foreach (var kvp in collector.VarLines)
       {
          var name = kvp.Key;
-         var line = kvp.Value;
+         var (line, col) = kvp.Value;
          if (!analyzer._readVars.Contains(name))
          {
             analyzer._diagnostics.Add(new Diagnostic(
                DiagnosticSeverity.Warning,
                $"Variable '{name}' is declared but never used",
-               line, 0, name.Length,
+               line, col, name.Length,
                "CGS009"));
          }
       }
@@ -152,7 +152,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       private int _depth; // > 0 when inside a function-literal body
 
       public HashSet<string>              Vars     { get; } = new HashSet<string>(StringComparer.Ordinal);
-      public Dictionary<string, int>      VarLines { get; } = new Dictionary<string, int>(StringComparer.Ordinal);
+      public Dictionary<string, (int Line, int Column)> VarLines { get; } = new Dictionary<string, (int Line, int Column)>(StringComparer.Ordinal);
       public Dictionary<string, string>   VarTypes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
       public List<Diagnostic>             Diagnostics { get; } = new List<Diagnostic>();
 
@@ -228,7 +228,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          }
          else
          {
-            VarLines[token.Text] = token.Line;
+            VarLines[token.Text] = (token.Line, token.Column);
          }
       }
    }
@@ -276,13 +276,14 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             var declaredCanon = MapToCanonical(declaredName);
             if (declaredCanon != null && !IsTypeCompatible(declaredCanon, inferredType))
             {
-               var startToken = init.expression().Start;
+               var expr       = init.expression();
+               var startToken = expr.Start;
                _diagnostics.Add(new Diagnostic(
                   DiagnosticSeverity.Error,
                   $"Invalid data type '{inferredType}', expect '{declaredName}'",
                   startToken.Line,
                   startToken.Column,
-                  startToken.Text.Length,
+                  TokenSpanLength(startToken, expr.Stop),
                   "CGS020"));
             }
          }
@@ -304,18 +305,33 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
          if (thenType != null && elseType != null && !IsTypeCompatible(thenType, elseType))
          {
-            var token = ctx.QMARK().Symbol;
+            var thenExpr = ctx.subExpression(1);
+            var elseExpr = ctx.subExpression(2);
+            var startTok = thenExpr.Start;
             _diagnostics.Add(new Diagnostic(
                DiagnosticSeverity.Error,
                "Expression should return same data type",
-               token.Line,
-               token.Column,
-               token.Text.Length,
+               startTok.Line,
+               startTok.Column,
+               TokenSpanLength(startTok, elseExpr.Stop ?? elseExpr.Start),
                "CGS021"));
          }
       }
 
       return VisitChildren(ctx);
+   }
+
+   /// <summary>
+   /// Returns the number of characters spanned from <paramref name="start"/> to
+   /// <paramref name="stop"/> (inclusive) when both tokens are on the same line.
+   /// Falls back to the text length of <paramref name="start"/> when <paramref name="stop"/>
+   /// is <c>null</c> or on a different line.
+   /// </summary>
+   private static int TokenSpanLength(IToken start, IToken? stop)
+   {
+      if (stop != null && stop.Line == start.Line)
+         return stop.StopIndex - start.StartIndex + 1;
+      return System.Math.Max(1, start.Text?.Length ?? 1);
    }
 
    /// <summary>
@@ -465,13 +481,13 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
             // Rule 8 — use before define (global scope only)
             if (_functionDepth == 0
-                && _globalVarLines.TryGetValue(name, out var declLine)
-                && token.Line < declLine
+                && _globalVarLines.TryGetValue(name, out var decl)
+                && token.Line < decl.Line
                 && !ShouldSkipIdentifierCheck(ctx))
             {
                _diagnostics.Add(new Diagnostic(
                   DiagnosticSeverity.Warning,
-                  $"Variable '{name}' used before its declaration on line {declLine}",
+                  $"Variable '{name}' used before its declaration on line {decl.Line}",
                   token.Line,
                   token.Column,
                   token.Text.Length,
