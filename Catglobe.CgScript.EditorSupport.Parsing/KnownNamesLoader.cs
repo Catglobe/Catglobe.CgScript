@@ -69,6 +69,13 @@ public static class KnownNamesLoader
                }
             }
 
+            // Old-style built-in functions (e.g. convertToNumber, format, print) were
+            // registered in the runtime without parameter definitions, so their Parameters
+            // array is empty. We have no signature to validate against, so including them
+            // in FunctionDefinitions would only produce false-positive CGS022 errors.
+            if (paramInfos.Count == 0)
+               continue;
+
             result[funcProp.Name] = new FunctionInfo(returnType, numRequired, paramInfos);
          }
 
