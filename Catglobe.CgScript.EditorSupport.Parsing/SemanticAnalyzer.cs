@@ -588,7 +588,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                      var formatStr = "(" + string.Join(", ", Array.ConvertAll(argTypes, t => t ?? "?")) + ")";
                      _diagnostics.Add(new Diagnostic(
                         DiagnosticSeverity.Error,
-                        $"Doesn't has {token.Text} with format {formatStr}",
+                        $"No overload of '{token.Text}' matches {formatStr}",
                         token.Line,
                         token.Column,
                         token.Text.Length,

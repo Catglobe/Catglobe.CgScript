@@ -69,6 +69,12 @@ public static class KnownNamesLoader
                }
             }
 
+            // Skip functions with no parameter definitions: without knowing what
+            // arguments they accept we cannot validate calls and would produce
+            // false-positive CGS022 errors (e.g. convertToNumber, format).
+            if (paramInfos.Count == 0)
+               continue;
+
             result[funcProp.Name] = new FunctionInfo(returnType, numRequired, paramInfos);
          }
 

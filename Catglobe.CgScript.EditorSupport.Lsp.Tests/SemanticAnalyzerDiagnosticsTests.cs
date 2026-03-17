@@ -318,6 +318,52 @@ public class SemanticAnalyzerDiagnosticsTests
                                   && d.Message.Contains("DateTime_addDays"));
    }
 
+   [Fact]
+   public void ConvertToNumber_CalledWithString_NoCGS022()
+   {
+      // convertToNumber("[avatarStore]") is valid; no false-positive CGS022 expected
+      var diags = Analyze(
+         "number n = convertToNumber(\"[avatarStore]\");",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void Format_CalledWithStringAndArg_NoCGS022()
+   {
+      // format("{0}foo", location) is valid; no false-positive CGS022 expected
+      var diags = Analyze(
+         "string location = \"x\"; string s = format(\"{0}foo\", location);",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void CGS022_ErrorMessage_UsesProperEnglish()
+   {
+      // Error message must say "No overload of 'X' matches (...)", not "Doesn't has X with format (...)"
+      var funcDefs = new Dictionary<string, FunctionInfo>
+      {
+         ["myFunc"] = new FunctionInfo(
+            returnType:                  "Number",
+            numberOfRequiredArguments:   1,
+            parameters: [new FunctionParamInfo("Number", "NONE")]),
+      };
+
+      var diags = Analyze(
+         "myFunc(\"hello\");",
+         functions:           ["myFunc"],
+         functionDefinitions: funcDefs);
+
+      var d = Assert.Single(diags, x => x.Code == "CGS022");
+      Assert.StartsWith("No overload of", d.Message);
+      Assert.Contains("myFunc", d.Message);
+   }
+
    // ── CGS023: constructor argument mismatch ─────────────────────────────────
 
    private static ObjectMemberInfo MakeStringInfo()
