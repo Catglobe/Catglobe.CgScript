@@ -69,9 +69,10 @@ public static class KnownNamesLoader
                }
             }
 
-            // Skip functions with no parameter definitions: without knowing what
-            // arguments they accept we cannot validate calls and would produce
-            // false-positive CGS022 errors (e.g. convertToNumber, format).
+            // Old-style built-in functions (e.g. convertToNumber, format, print) were
+            // registered in the runtime without parameter definitions, so their Parameters
+            // array is empty. We have no signature to validate against, so including them
+            // in FunctionDefinitions would only produce false-positive CGS022 errors.
             if (paramInfos.Count == 0)
                continue;
 
