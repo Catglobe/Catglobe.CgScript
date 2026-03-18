@@ -51,10 +51,6 @@ public static class KnownNamesLoader
 
          foreach (var funcProp in doc.RootElement.EnumerateObject())
          {
-            // Skip new-style functions (they use variants/overloads instead of Parameters)
-            if (funcProp.Value.TryGetProperty("IsNewStyle", out var isNewStyle) && isNewStyle.GetBoolean())
-               continue;
-
             var returnType  = funcProp.Value.TryGetProperty("ReturnType",                  out var rt)  ? rt.GetString()   : null;
             var numRequired = funcProp.Value.TryGetProperty("NumberOfRequiredArguments",    out var nra) ? nra.GetInt32()   : 0;
 
@@ -69,10 +65,10 @@ public static class KnownNamesLoader
                }
             }
 
-            // Old-style built-in functions (e.g. convertToNumber, format, print) were
-            // registered in the runtime without parameter definitions, so their Parameters
-            // array is empty. We have no signature to validate against, so including them
-            // in FunctionDefinitions would only produce false-positive CGS022 errors.
+            // Skip functions with no parameter information.  New-style functions have
+            // Variants (not Parameters), so paramInfos stays empty for them.  Old-style
+            // functions whose runtime signature is null also produce an empty array.
+            // In both cases we have nothing to validate against and must not emit CGS022.
             if (paramInfos.Count == 0)
                continue;
 
