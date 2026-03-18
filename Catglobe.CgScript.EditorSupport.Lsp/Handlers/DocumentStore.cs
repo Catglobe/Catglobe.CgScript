@@ -87,8 +87,10 @@ public sealed class DocumentStore
       foreach (var kvp in functions)
       {
          var def = kvp.Value;
-         // Skip new-style functions (they use variants/overloads)
-         if (def.IsNewStyle || def.Parameters == null) continue;
+         // Skip new-style functions (they use variants/overloads) and functions
+         // without parameter definitions — we have no signature to validate against,
+         // and including them would produce false-positive CGS022 errors.
+         if (def.IsNewStyle || def.Parameters == null || def.Parameters.Length == 0) continue;
 
          var paramInfos = new List<FunctionParamInfo>(def.Parameters.Length);
          foreach (var p in def.Parameters)

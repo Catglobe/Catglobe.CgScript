@@ -1,3 +1,5 @@
+using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
+using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 using Catglobe.CgScript.EditorSupport.Parsing;
 using System.Linq;
 
@@ -338,6 +340,54 @@ public class SemanticAnalyzerDiagnosticsTests
          "string location = \"x\"; string s = format(\"{0}foo\", location);",
          functions:           KnownNamesLoader.FunctionNames,
          functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   // ── CGS022: DocumentStore path (regression for empty-Parameters bug) ──────
+
+   private static IReadOnlyList<Diagnostic> AnalyzeViaDocumentStore(string source)
+   {
+      var uri   = "file:///test.cgs";
+      var store = new DocumentStore(new DefinitionLoader());
+      store.Update(uri, source);
+      return store.GetParseResult(uri)!.Diagnostics;
+   }
+
+   [Fact]
+   public void DocumentStore_ConvertToNumber_CalledWithString_NoCGS022()
+   {
+      // Regression: DocumentStore.BuildFunctionInfos was including functions with
+      // empty Parameters arrays, causing false-positive CGS022 for any call with args.
+      var diags = AnalyzeViaDocumentStore("number n = convertToNumber(\"[avatarStore]\");");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void DocumentStore_Format_CalledWithManyArgs_NoCGS022()
+   {
+      // format("{0}...", a, b, c, d, e, f) — variadic; must not produce CGS022
+      var diags = AnalyzeViaDocumentStore(
+         "string location = \"x\"; string s = format(\"{0}{1}{2}{3}{4}{5}\", location, location, location, location, location, location);");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void DocumentStore_IsEmpty_CalledWithAnyArg_NoCGS022()
+   {
+      // isEmpty(someVar) must not produce CGS022
+      var diags = AnalyzeViaDocumentStore("string x = \"hello\"; bool b = isEmpty(x);");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void DocumentStore_ConvertToString_CalledWithObject_NoCGS022()
+   {
+      // convertToString(sb) where sb is a StringBuilder — must not produce CGS022
+      var diags = AnalyzeViaDocumentStore("StringBuilder sb = new StringBuilder(); string s = convertToString(sb);");
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }

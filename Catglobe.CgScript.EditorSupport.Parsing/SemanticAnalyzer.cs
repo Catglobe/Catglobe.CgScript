@@ -1087,6 +1087,11 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    {
       if (argTypes.Length < funcInfo.NumberOfRequiredArguments)
          return false;
+      // No parameter definitions available — can only enforce minimum arity (above).
+      // Treating as valid avoids false-positive CGS022 on functions whose signatures
+      // are unknown (e.g. old-style built-ins with empty parameter lists).
+      if (funcInfo.Parameters.Count == 0)
+         return true;
       if (argTypes.Length > funcInfo.Parameters.Count)
          return false;
 
