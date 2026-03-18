@@ -82,10 +82,9 @@ public static class KnownNamesLoader
                }
             }
 
-            // Skip functions with no parameter information.  New-style functions have
-            // Variants (not Parameters), so paramInfos stays empty for them.  Old-style
-            // functions whose runtime signature is null also produce an empty array.
-            // In both cases we have nothing to validate against and must not emit CGS022.
+            // Skip functions with no parameter information.  Old-style functions whose
+            // runtime signature is null also produce an empty array.
+            // We have nothing to validate against and must not emit CGS022.
             if (paramInfos.Count == 0)
                continue;
 

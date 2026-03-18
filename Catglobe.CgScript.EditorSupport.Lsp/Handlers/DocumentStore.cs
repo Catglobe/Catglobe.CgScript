@@ -103,10 +103,9 @@ public sealed class DocumentStore
             continue;
          }
 
-         // Skip functions with no parameter information.  New-style functions have
-         // Variants (not Parameters), so def.Parameters is null for them.  Old-style
-         // functions whose runtime signature is null produce an empty Parameters array.
-         // In both cases we have nothing to validate against and must not emit CGS022.
+         // Skip old-style functions with no parameter information — their runtime
+         // signature is null, so def.Parameters is empty.  We have nothing to
+         // validate against and must not emit CGS022.
          if (def.Parameters == null || def.Parameters.Length == 0) continue;
 
          var paramInfos = new List<FunctionParamInfo>(def.Parameters.Length);

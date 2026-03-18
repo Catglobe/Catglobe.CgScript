@@ -518,18 +518,13 @@ public class SemanticAnalyzerDiagnosticsTests
    [Fact]
    public void NewStyleFunction_EmptyParam_NoCGS022()
    {
-      // Tenant_addPasswordCompatTenantUsers takes a single array argument.
-      // Passing 'empty' (which is compatible with array parameters) must not produce CGS022.
-      var funcDefs = new Dictionary<string, FunctionInfo>
-      {
-         ["Tenant_addPasswordCompatTenantUsers"] = new FunctionInfo(
-            variants: [["array"]]),
-      };
-
+      // Tenant_getByTenantId is a new-style function (Variants) taking a single "string" argument.
+      // Passing 'empty' must not produce a false-positive CGS022.
       var diags = Analyze(
-         "Tenant_addPasswordCompatTenantUsers(empty);",
-         functions:           ["Tenant_addPasswordCompatTenantUsers"],
-         functionDefinitions: funcDefs);
+         "Tenant_getByTenantId(empty);",
+         functions:           KnownNamesLoader.FunctionNames,
+         objects:             KnownNamesLoader.ObjectNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }
@@ -690,5 +685,24 @@ public class SemanticAnalyzerDiagnosticsTests
          objectDefinitions: KnownNamesLoader.ObjectDefinitions);
 
       Assert.Contains(diags, d => d.Code == "CGS024" && d.Message.Contains("String.CompareTo"));
+   }
+
+   // ── CGS024: empty keyword as method parameter — must never produce false-positive ──
+
+   [Fact]
+   public void MethodCall_EmptyParam_NoCGS024()
+   {
+      // Tenant t; t.AddPasswordCompatTenantUsers(empty)
+      // AddPasswordCompatTenantUsers expects a Dictionary argument.
+      // 'empty' infers as null (unknown type) and must not produce a false-positive CGS024.
+      var result = CgScriptParseService.Parse("Tenant t; t.AddPasswordCompatTenantUsers(empty);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }
 }
