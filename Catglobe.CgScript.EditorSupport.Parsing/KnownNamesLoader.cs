@@ -51,9 +51,22 @@ public static class KnownNamesLoader
 
          foreach (var funcProp in doc.RootElement.EnumerateObject())
          {
-            // Skip new-style functions (they use variants/overloads instead of Parameters)
-            if (funcProp.Value.TryGetProperty("IsNewStyle", out var isNewStyle) && isNewStyle.GetBoolean())
+            // New-style functions have Variants (overloads) instead of Parameters.
+            if (funcProp.Value.TryGetProperty("IsNewStyle", out var isNewStyleEl) && isNewStyleEl.GetBoolean()
+                && funcProp.Value.TryGetProperty("Variants", out var variantsEl))
+            {
+               var overloads = new List<IReadOnlyList<string>>();
+               foreach (var variant in variantsEl.EnumerateArray())
+               {
+                  var paramTypes = new List<string>();
+                  if (variant.TryGetProperty("Param", out var paramEl))
+                     foreach (var p in paramEl.EnumerateArray())
+                        paramTypes.Add(p.TryGetProperty("Type", out var t) ? t.GetString() ?? "" : "");
+                  overloads.Add(paramTypes);
+               }
+               result[funcProp.Name] = new FunctionInfo(overloads);
                continue;
+            }
 
             var returnType  = funcProp.Value.TryGetProperty("ReturnType",                  out var rt)  ? rt.GetString()   : null;
             var numRequired = funcProp.Value.TryGetProperty("NumberOfRequiredArguments",    out var nra) ? nra.GetInt32()   : 0;
@@ -69,10 +82,9 @@ public static class KnownNamesLoader
                }
             }
 
-            // Old-style built-in functions (e.g. convertToNumber, format, print) were
-            // registered in the runtime without parameter definitions, so their Parameters
-            // array is empty. We have no signature to validate against, so including them
-            // in FunctionDefinitions would only produce false-positive CGS022 errors.
+            // Skip functions with no parameter information.  Old-style functions whose
+            // runtime signature is null also produce an empty array.
+            // We have nothing to validate against and must not emit CGS022.
             if (paramInfos.Count == 0)
                continue;
 

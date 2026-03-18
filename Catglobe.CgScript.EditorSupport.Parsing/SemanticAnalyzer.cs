@@ -1049,6 +1049,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             or "double" or "float" or "decimal"                              => "Number",
          // "boolean" also appears in some API docs (lowercase variant of bool)
          "boolean"                                                            => "Boolean",
+         // "string-guid" is used in some API docs for GUID-valued strings
+         "string-guid"                                                        => "String",
          // "object" / "Object" means any type — suppress type checking
          "object" or "Object"                                                 => null,
          _ => declaredName, // class name (e.g. "DateTime") unchanged
@@ -1082,11 +1084,22 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// <summary>
    /// Returns <c>true</c> when the supplied argument types are valid for the given
    /// function definition (correct arity and compatible parameter types).
+   /// For new-style functions with variants, checks whether any variant accepts the call.
    /// </summary>
    private static bool IsCallValid(FunctionInfo funcInfo, string?[] argTypes)
    {
+      // New-style functions: check if any variant (overload) accepts the arguments.
+      // Uses exact arg-count matching, mirroring the interpreter's FindRightOverLoad.
+      if (funcInfo.Variants != null)
+         return IsAnyVariantValid(funcInfo.Variants, argTypes);
+
       if (argTypes.Length < funcInfo.NumberOfRequiredArguments)
          return false;
+      // No parameter definitions available — can only enforce minimum arity (above).
+      // Treating as valid avoids false-positive CGS022 on functions whose signatures
+      // are unknown (e.g. old-style built-ins with empty parameter lists).
+      if (funcInfo.Parameters.Count == 0)
+         return true;
       if (argTypes.Length > funcInfo.Parameters.Count)
          return false;
 
@@ -1135,18 +1148,38 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       foreach (var overload in overloads)
       {
          if (argTypes.Length > overload.Count) continue; // too many args for this overload
-         var ok = true;
-         for (var i = 0; i < argTypes.Length; i++)
-         {
-            if (!IsMethodArgCompatible(argTypes[i], overload[i]))
-            {
-               ok = false;
-               break;
-            }
-         }
-         if (ok) return true;
+         if (AllArgsCompatible(overload, argTypes)) return true;
       }
       return false;
+   }
+
+   /// <summary>
+   /// Returns <c>true</c> when at least one variant of a new-style function accepts the
+   /// given argument types.  Mirrors the interpreter's <c>FindRightOverLoad</c>: a variant
+   /// is only a candidate when the argument count exactly equals its parameter count.
+   /// </summary>
+   private static bool IsAnyVariantValid(
+      IReadOnlyList<IReadOnlyList<string>> variants,
+      string?[] argTypes)
+   {
+      foreach (var variant in variants)
+      {
+         if (argTypes.Length != variant.Count) continue; // exact count required
+         if (AllArgsCompatible(variant, argTypes)) return true;
+      }
+      return false;
+   }
+
+   /// <summary>
+   /// Returns <c>true</c> when every supplied argument type is compatible with the
+   /// corresponding parameter type in <paramref name="paramTypes"/>.
+   /// </summary>
+   private static bool AllArgsCompatible(IReadOnlyList<string> paramTypes, string?[] argTypes)
+   {
+      for (var i = 0; i < argTypes.Length; i++)
+         if (!IsMethodArgCompatible(argTypes[i], paramTypes[i]))
+            return false;
+      return true;
    }
 
    private static bool IsMethodArgCompatible(string? argType, string paramType)

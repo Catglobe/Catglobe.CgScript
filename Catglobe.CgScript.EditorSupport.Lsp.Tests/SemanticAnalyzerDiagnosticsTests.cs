@@ -1,3 +1,5 @@
+using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
+using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 using Catglobe.CgScript.EditorSupport.Parsing;
 using System.Linq;
 
@@ -342,6 +344,54 @@ public class SemanticAnalyzerDiagnosticsTests
       Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }
 
+   // ── CGS022: DocumentStore path (regression for empty-Parameters bug) ──────
+
+   private static IReadOnlyList<Diagnostic> AnalyzeViaDocumentStore(string source)
+   {
+      var uri   = "file:///test.cgs";
+      var store = new DocumentStore(new DefinitionLoader());
+      store.Update(uri, source);
+      return store.GetParseResult(uri)!.Diagnostics;
+   }
+
+   [Fact]
+   public void DocumentStore_ConvertToNumber_CalledWithString_NoCGS022()
+   {
+      // Regression: DocumentStore.BuildFunctionInfos was including functions with
+      // empty Parameters arrays, causing false-positive CGS022 for any call with args.
+      var diags = AnalyzeViaDocumentStore("number n = convertToNumber(\"[avatarStore]\");");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void DocumentStore_Format_CalledWithManyArgs_NoCGS022()
+   {
+      // format("{0}...", a, b, c, d, e, f) — variadic; must not produce CGS022
+      var diags = AnalyzeViaDocumentStore(
+         "string location = \"x\"; string s = format(\"{0}{1}{2}{3}{4}{5}\", location, location, location, location, location, location);");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void DocumentStore_IsEmpty_CalledWithAnyArg_NoCGS022()
+   {
+      // isEmpty(someVar) must not produce CGS022
+      var diags = AnalyzeViaDocumentStore("string x = \"hello\"; bool b = isEmpty(x);");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void DocumentStore_ConvertToString_CalledWithObject_NoCGS022()
+   {
+      // convertToString(sb) where sb is a StringBuilder — must not produce CGS022
+      var diags = AnalyzeViaDocumentStore("StringBuilder sb = new StringBuilder(); string s = convertToString(sb);");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
    [Fact]
    public void CGS022_ErrorMessage_UsesProperEnglish()
    {
@@ -362,6 +412,121 @@ public class SemanticAnalyzerDiagnosticsTests
       var d = Assert.Single(diags, x => x.Code == "CGS022");
       Assert.StartsWith("No overload of", d.Message);
       Assert.Contains("myFunc", d.Message);
+   }
+
+   // ── CGS022: new-style functions with Variants are validated ──────────────
+
+   [Fact]
+   public void NewStyleFunction_CorrectArgs_NoCGS022()
+   {
+      // AppProduct_getById(int) — correct single Number arg
+      var diags = Analyze(
+         "AppProduct_getById(1);",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void NewStyleFunction_WrongArgType_ReportsCGS022()
+   {
+      // AppProduct_getById expects a Number (int); passing a string literal is wrong
+      var diags = Analyze(
+         "AppProduct_getById(\"not-an-id\");",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS022" && d.Message.Contains("AppProduct_getById"));
+   }
+
+   [Fact]
+   public void NewStyleFunction_MultipleVariants_FirstVariantValid_NoCGS022()
+   {
+      // Color_getByRGB has two variants: (string) and (int, int, int)
+      // Calling with a single string should match the first variant.
+      var diags = Analyze(
+         "Color_getByRGB(\"#ff0000\");",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void NewStyleFunction_MultipleVariants_SecondVariantValid_NoCGS022()
+   {
+      // Color_getByRGB(int, int, int) — second variant
+      var diags = Analyze(
+         "Color_getByRGB(255, 0, 128);",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void NewStyleFunction_WrongArgCount_ReportsCGS022()
+   {
+      // Color_getByRGB has variants (string) and (int, int, int); 2 args matches neither
+      var diags = Analyze(
+         "Color_getByRGB(1, 2);",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS022" && d.Message.Contains("Color_getByRGB"));
+   }
+
+   [Fact]
+   public void DocumentStore_NewStyleFunction_CorrectArgs_NoCGS022()
+   {
+      // AppProduct_getById(1) — new-style function via DocumentStore path
+      var diags = AnalyzeViaDocumentStore("AppProduct_getById(1);");
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void DocumentStore_NewStyleFunction_WrongArgType_ReportsCGS022()
+   {
+      // AppProduct_getById expects int; passing string should be flagged
+      var diags = AnalyzeViaDocumentStore("AppProduct_getById(\"bad\");");
+      Assert.Contains(diags, d => d.Code == "CGS022" && d.Message.Contains("AppProduct_getById"));
+   }
+
+   // ── CGS022: empty keyword as parameter — must never produce false-positive ──
+
+   [Theory]
+   [InlineData("Workflow_call(123, empty, 123);")]
+   [InlineData("Workflow_call(123, empty);")]
+   [InlineData("Workflow_call(123);")]
+   [InlineData("Workflow_call(123, {}, empty);")]
+   [InlineData("Workflow_call(123, empty, empty);")]
+   public void WorkflowCall_WithEmpty_NoCGS022(string source)
+   {
+      // Workflow_call is an old-style function:
+      //   (Number workflowResourceId [required], Array? parameter, All? schedule)
+      // 'empty' must not produce a false-positive CGS022 for any optional parameter.
+      var diags = Analyze(
+         source,
+         functions:           KnownNamesLoader.FunctionNames,
+         objects:             KnownNamesLoader.ObjectNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void NewStyleFunction_EmptyParam_NoCGS022()
+   {
+      // Tenant_getByTenantId is a new-style function (Variants) taking a single "string" argument.
+      // Passing 'empty' must not produce a false-positive CGS022.
+      var diags = Analyze(
+         "Tenant_getByTenantId(empty);",
+         functions:           KnownNamesLoader.FunctionNames,
+         objects:             KnownNamesLoader.ObjectNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }
 
    // ── CGS023: constructor argument mismatch ─────────────────────────────────
@@ -520,5 +685,24 @@ public class SemanticAnalyzerDiagnosticsTests
          objectDefinitions: KnownNamesLoader.ObjectDefinitions);
 
       Assert.Contains(diags, d => d.Code == "CGS024" && d.Message.Contains("String.CompareTo"));
+   }
+
+   // ── CGS024: empty keyword as method parameter — must never produce false-positive ──
+
+   [Fact]
+   public void MethodCall_EmptyParam_NoCGS024()
+   {
+      // Tenant t; t.AddPasswordCompatTenantUsers(empty)
+      // AddPasswordCompatTenantUsers expects a Dictionary argument.
+      // 'empty' infers as null (unknown type) and must not produce a false-positive CGS024.
+      var result = CgScriptParseService.Parse("Tenant t; t.AddPasswordCompatTenantUsers(empty);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }
 }
