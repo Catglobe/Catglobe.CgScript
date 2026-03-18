@@ -87,6 +87,22 @@ public sealed class DocumentStore
       foreach (var kvp in functions)
       {
          var def = kvp.Value;
+         // New-style functions have Variants (overloads) instead of Parameters.
+         if (def.IsNewStyle && def.Variants != null)
+         {
+            var overloads = new List<IReadOnlyList<string>>(def.Variants.Length);
+            foreach (var variant in def.Variants)
+            {
+               var paramTypes = new List<string>(variant.Param?.Length ?? 0);
+               if (variant.Param != null)
+                  foreach (var p in variant.Param)
+                     paramTypes.Add(p.Type ?? "");
+               overloads.Add(paramTypes);
+            }
+            result[kvp.Key] = new FunctionInfo(overloads);
+            continue;
+         }
+
          // Skip functions with no parameter information.  New-style functions have
          // Variants (not Parameters), so def.Parameters is null for them.  Old-style
          // functions whose runtime signature is null produce an empty Parameters array.

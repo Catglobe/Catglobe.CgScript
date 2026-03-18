@@ -414,6 +414,85 @@ public class SemanticAnalyzerDiagnosticsTests
       Assert.Contains("myFunc", d.Message);
    }
 
+   // ── CGS022: new-style functions with Variants are validated ──────────────
+
+   [Fact]
+   public void NewStyleFunction_CorrectArgs_NoCGS022()
+   {
+      // AppProduct_getById(int) — correct single Number arg
+      var diags = Analyze(
+         "AppProduct_getById(1);",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void NewStyleFunction_WrongArgType_ReportsCGS022()
+   {
+      // AppProduct_getById expects a Number (int); passing a string literal is wrong
+      var diags = Analyze(
+         "AppProduct_getById(\"not-an-id\");",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS022" && d.Message.Contains("AppProduct_getById"));
+   }
+
+   [Fact]
+   public void NewStyleFunction_MultipleVariants_FirstVariantValid_NoCGS022()
+   {
+      // Color_getByRGB has two variants: (string) and (int, int, int)
+      // Calling with a single string should match the first variant.
+      var diags = Analyze(
+         "Color_getByRGB(\"#ff0000\");",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void NewStyleFunction_MultipleVariants_SecondVariantValid_NoCGS022()
+   {
+      // Color_getByRGB(int, int, int) — second variant
+      var diags = Analyze(
+         "Color_getByRGB(255, 0, 128);",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void NewStyleFunction_WrongArgCount_ReportsCGS022()
+   {
+      // Color_getByRGB has variants (string) and (int, int, int); 2 args matches neither
+      var diags = Analyze(
+         "Color_getByRGB(1, 2);",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS022" && d.Message.Contains("Color_getByRGB"));
+   }
+
+   [Fact]
+   public void DocumentStore_NewStyleFunction_CorrectArgs_NoCGS022()
+   {
+      // AppProduct_getById(1) — new-style function via DocumentStore path
+      var diags = AnalyzeViaDocumentStore("AppProduct_getById(1);");
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void DocumentStore_NewStyleFunction_WrongArgType_ReportsCGS022()
+   {
+      // AppProduct_getById expects int; passing string should be flagged
+      var diags = AnalyzeViaDocumentStore("AppProduct_getById(\"bad\");");
+      Assert.Contains(diags, d => d.Code == "CGS022" && d.Message.Contains("AppProduct_getById"));
+   }
+
    // ── CGS023: constructor argument mismatch ─────────────────────────────────
 
    private static ObjectMemberInfo MakeStringInfo()

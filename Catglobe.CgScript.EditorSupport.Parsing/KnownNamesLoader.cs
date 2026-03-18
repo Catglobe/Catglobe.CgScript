@@ -51,6 +51,23 @@ public static class KnownNamesLoader
 
          foreach (var funcProp in doc.RootElement.EnumerateObject())
          {
+            // New-style functions have Variants (overloads) instead of Parameters.
+            if (funcProp.Value.TryGetProperty("IsNewStyle", out var isNewStyleEl) && isNewStyleEl.GetBoolean()
+                && funcProp.Value.TryGetProperty("Variants", out var variantsEl))
+            {
+               var overloads = new List<IReadOnlyList<string>>();
+               foreach (var variant in variantsEl.EnumerateArray())
+               {
+                  var paramTypes = new List<string>();
+                  if (variant.TryGetProperty("Param", out var paramEl))
+                     foreach (var p in paramEl.EnumerateArray())
+                        paramTypes.Add(p.TryGetProperty("Type", out var t) ? t.GetString() ?? "" : "");
+                  overloads.Add(paramTypes);
+               }
+               result[funcProp.Name] = new FunctionInfo(overloads);
+               continue;
+            }
+
             var returnType  = funcProp.Value.TryGetProperty("ReturnType",                  out var rt)  ? rt.GetString()   : null;
             var numRequired = funcProp.Value.TryGetProperty("NumberOfRequiredArguments",    out var nra) ? nra.GetInt32()   : 0;
 
