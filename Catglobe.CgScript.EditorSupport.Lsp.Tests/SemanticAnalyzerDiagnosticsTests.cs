@@ -493,6 +493,47 @@ public class SemanticAnalyzerDiagnosticsTests
       Assert.Contains(diags, d => d.Code == "CGS022" && d.Message.Contains("AppProduct_getById"));
    }
 
+   // ── CGS022: empty keyword as parameter — must never produce false-positive ──
+
+   [Theory]
+   [InlineData("Workflow_call(123, empty, 123);")]
+   [InlineData("Workflow_call(123, empty);")]
+   [InlineData("Workflow_call(123);")]
+   [InlineData("Workflow_call(123, {}, empty);")]
+   [InlineData("Workflow_call(123, empty, empty);")]
+   public void WorkflowCall_WithEmpty_NoCGS022(string source)
+   {
+      // Workflow_call is an old-style function:
+      //   (Number workflowResourceId [required], Array? parameter, All? schedule)
+      // 'empty' must not produce a false-positive CGS022 for any optional parameter.
+      var diags = Analyze(
+         source,
+         functions:           KnownNamesLoader.FunctionNames,
+         objects:             KnownNamesLoader.ObjectNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void NewStyleFunction_EmptyParam_NoCGS022()
+   {
+      // Tenant_addPasswordCompatTenantUsers takes a single array argument.
+      // Passing 'empty' (which is compatible with array parameters) must not produce CGS022.
+      var funcDefs = new Dictionary<string, FunctionInfo>
+      {
+         ["Tenant_addPasswordCompatTenantUsers"] = new FunctionInfo(
+            variants: [["array"]]),
+      };
+
+      var diags = Analyze(
+         "Tenant_addPasswordCompatTenantUsers(empty);",
+         functions:           ["Tenant_addPasswordCompatTenantUsers"],
+         functionDefinitions: funcDefs);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
    // ── CGS023: constructor argument mismatch ─────────────────────────────────
 
    private static ObjectMemberInfo MakeStringInfo()
