@@ -705,4 +705,66 @@ public class SemanticAnalyzerDiagnosticsTests
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }
+
+   // ── CGS024: variadic methods (Params object) — must never produce false-positive ──
+
+   [Fact]
+   public void FunctionCall_WithOneArg_NoCGS024()
+   {
+      // Function.Call accepts a variadic "Params object" — any number of args is valid.
+      var result = CgScriptParseService.Parse("Function f = new Function(\"myFunc\"); f.Call(1);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
+   }
+
+   [Fact]
+   public void FunctionCall_WithMultipleArgs_NoCGS024()
+   {
+      // Function.Call(a, b, c) — variadic, any number of arguments is valid.
+      var result = CgScriptParseService.Parse("Function f = new Function(\"myFunc\"); f.Call(1, 2, 3);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
+   }
+
+   [Fact]
+   public void WorkflowScriptCall_WithMultipleArgs_NoCGS024()
+   {
+      // WorkflowScript.Call also accepts "Params object" — variadic.
+      var result = CgScriptParseService.Parse("WorkflowScript ws = new WorkflowScript(\"Test\"); ws.Call(1, 2);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
+   }
+
+   [Fact]
+   public void StringBuilderAppendFormat_WithMultipleArgs_NoCGS024()
+   {
+      // StringBuilder.AppendFormat("{0}", value) — variadic "Params object" after format string.
+      var result = CgScriptParseService.Parse("StringBuilder sb = new StringBuilder(); sb.AppendFormat(\"{0} {1}\", 1, 2);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
+   }
 }

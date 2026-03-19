@@ -1140,6 +1140,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// Returns <c>true</c> when at least one overload accepts the given argument types.
    /// All parameters are treated as optional: a call with fewer args than an overload's
    /// parameter count is valid as long as each supplied arg type matches.
+   /// An overload whose last parameter type is <c>"Params object"</c> is variadic and
+   /// accepts any number of arguments beyond the preceding fixed parameters.
    /// </summary>
    private static bool IsAnyOverloadValid(
       IReadOnlyList<IReadOnlyList<string>> overloads,
@@ -1147,6 +1149,26 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    {
       foreach (var overload in overloads)
       {
+         // A "Params object" last parameter marks a variadic overload: it accepts any
+         // number of additional arguments of any type (e.g. Function.Call, WorkflowScript.Call).
+         if (overload.Count > 0 && overload[overload.Count - 1] == "Params object")
+         {
+            var fixedCount = overload.Count - 1;
+            if (argTypes.Length < fixedCount) continue; // not enough args for fixed params
+            // Check only the fixed parameters; variadic args can be anything
+            bool fixedOk = true;
+            for (var i = 0; i < fixedCount; i++)
+            {
+               if (!IsMethodArgCompatible(argTypes[i], overload[i]))
+               {
+                  fixedOk = false;
+                  break;
+               }
+            }
+            if (fixedOk) return true;
+            continue;
+         }
+
          if (argTypes.Length > overload.Count) continue; // too many args for this overload
          if (AllArgsCompatible(overload, argTypes)) return true;
       }
