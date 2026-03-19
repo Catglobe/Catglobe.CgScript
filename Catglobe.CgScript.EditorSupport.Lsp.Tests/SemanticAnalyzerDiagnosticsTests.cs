@@ -705,4 +705,148 @@ public class SemanticAnalyzerDiagnosticsTests
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }
+
+   // ── CGS025: indexer argument type mismatch ────────────────────────────────
+
+   private static ObjectMemberInfo MakeDictionaryInfo()
+      => new ObjectMemberInfo(
+         properties: new Dictionary<string, bool>(),
+         methodNames: ["[]"],
+         methodOverloads: new Dictionary<string, IReadOnlyList<IReadOnlyList<string>>>
+         {
+            ["[]"] =
+            [
+               ["string"],           // getter: string key
+               ["int"],              // getter: int key
+               ["string", "object"], // setter: string key + value
+               ["int",    "object"], // setter: int key + value
+            ],
+         });
+
+   [Fact]
+   public void Indexer_ValidStringKey_NoCGS025()
+   {
+      // d["key"] — string key is valid
+      var diags = AnalyzeWithObjects(
+         "Dictionary d; d[\"key\"];",
+         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void Indexer_ValidIntKey_NoCGS025()
+   {
+      // d[1] — int key is valid
+      var diags = AnalyzeWithObjects(
+         "Dictionary d; d[1];",
+         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void Indexer_InvalidBoolKey_ReportsCGS025()
+   {
+      // d[true] — bool key is not valid
+      var diags = AnalyzeWithObjects(
+         "Dictionary d; d[true];",
+         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+
+      Assert.Contains(diags, d => d.Code == "CGS025" && d.Message.Contains("Dictionary"));
+   }
+
+   [Fact]
+   public void IndexerSetter_ValidStringKey_NoCGS025()
+   {
+      // d["key"] = "v" — string key is valid for setter
+      var diags = AnalyzeWithObjects(
+         "Dictionary d; d[\"key\"] = \"v\";",
+         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void IndexerSetter_InvalidBoolKey_ReportsCGS025()
+   {
+      // d[true] = "v" — bool key is not valid for setter
+      var diags = AnalyzeWithObjects(
+         "Dictionary d; d[true] = \"v\";",
+         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+
+      Assert.Contains(diags, d => d.Code == "CGS025" && d.Message.Contains("Dictionary"));
+   }
+
+   [Fact]
+   public void Indexer_UnknownKeyType_NoCGS025()
+   {
+      // d[x] — unknown variable type → no false positive
+      var diags = AnalyzeWithObjects(
+         "Dictionary d; object x; d[x];",
+         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() },
+         functions: []);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void Indexer_RealDictionary_ValidStringKey_NoCGS025()
+   {
+      // Use the embedded Dictionary definition
+      var result = CgScriptParseService.Parse("Dictionary d; d[\"key\"];");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void Indexer_RealDictionary_InvalidBoolKey_ReportsCGS025()
+   {
+      // Dictionary getter only accepts string or int, not bool
+      var result = CgScriptParseService.Parse("Dictionary d; d[true];");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void Indexer_RealArray_ValidIntIndex_NoCGS025()
+   {
+      // 'Array' (capital A, class name) is indexed with int — valid
+      var result = CgScriptParseService.Parse("Array a; a[0];");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void Indexer_RealArray_InvalidStringIndex_ReportsCGS025()
+   {
+      // Array getter only accepts int, not string
+      var result = CgScriptParseService.Parse("Array a; a[\"x\"];");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS025");
+   }
 }
