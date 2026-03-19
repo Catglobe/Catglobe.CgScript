@@ -75,4 +75,25 @@ public partial class CgScriptLanguageTarget
          start--;
       return start < end ? text[start..end] : null;
    }
+
+   /// <summary>
+   /// Looks up an <see cref="ObjectDefinition"/> by type name.  Tries an exact (ordinal)
+   /// match first, then falls back to a case-insensitive search so that CgScript
+   /// lowercase built-in keywords (e.g. <c>array</c>, <c>string</c>) resolve to their
+   /// JSON-capitalised counterparts (e.g. <c>Array</c>, <c>String</c>).
+   /// </summary>
+   private bool TryGetObjectDefinition(string typeName, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ObjectDefinition? def)
+   {
+      if (_definitions.Objects.TryGetValue(typeName, out def)) return true;
+      foreach (var kvp in _definitions.Objects)
+      {
+         if (string.Equals(kvp.Key, typeName, StringComparison.OrdinalIgnoreCase))
+         {
+            def = kvp.Value;
+            return true;
+         }
+      }
+      def = null;
+      return false;
+   }
 }

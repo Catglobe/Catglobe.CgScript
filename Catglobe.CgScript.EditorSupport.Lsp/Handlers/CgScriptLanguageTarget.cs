@@ -58,10 +58,10 @@ public partial class CgScriptLanguageTarget
             CompletionProvider = new CompletionOptions
             {
                ResolveProvider   = false,
-               TriggerCharacters = [".", "/"],
+               TriggerCharacters = [".", "/", "["],
             },
             HoverProvider              = true,
-            SignatureHelpProvider      = new SignatureHelpOptions { TriggerCharacters = ["(", ","] },
+            SignatureHelpProvider      = new SignatureHelpOptions { TriggerCharacters = ["(", ",", "["] },
             DefinitionProvider         = new SumType<bool, DefinitionOptions>(true),
             ReferencesProvider         = new SumType<bool, ReferenceOptions>(true),
             RenameProvider             = new SumType<bool, RenameOptions>(new RenameOptions { PrepareProvider = true }),

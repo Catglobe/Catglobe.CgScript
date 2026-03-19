@@ -197,6 +197,15 @@ internal static class CgScriptDiagnostics
       category:           Category,
       defaultSeverity:    DiagnosticSeverity.Error,
       isEnabledByDefault: true);
+
+   public static readonly DiagnosticDescriptor IndexerCallMismatch = new(
+      id:                 "CGS025",
+      title:              "No matching indexer overload",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
+
    public static DiagnosticSeverity ToRoslyn(Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity s)
       => s == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
          ? DiagnosticSeverity.Error
@@ -229,6 +238,7 @@ internal static class CgScriptDiagnostics
          "CGS022" => FunctionCallMismatch,
          "CGS023" => ConstructorCallMismatch,
          "CGS024" => MethodCallMismatch,
+         "CGS025" => IndexerCallMismatch,
          _ => throw new ArgumentOutOfRangeException(nameof(d), d.Code, "Unknown diagnostic code"),
       };
 }

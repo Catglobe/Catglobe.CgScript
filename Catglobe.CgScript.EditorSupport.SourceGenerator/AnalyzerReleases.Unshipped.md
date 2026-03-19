@@ -16,3 +16,6 @@ CGS019 | CgScript | Error    | Syntax error
 CGS020 | CgScript | Error    | Invalid data type in assignment
 CGS021 | CgScript | Error    | Ternary branches must return the same type
 CGS022 | CgScript | Error    | No matching function overload
+CGS023 | CgScript | Error    | No matching constructor overload
+CGS024 | CgScript | Error    | No matching method overload
+CGS025 | CgScript | Error    | No matching indexer overload

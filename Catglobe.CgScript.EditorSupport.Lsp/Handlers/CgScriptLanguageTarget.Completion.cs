@@ -58,7 +58,7 @@ public partial class CgScriptLanguageTarget
       if (receiverName != null)
       {
          // Direct match: receiver IS a type name (e.g. "Tenant.StaticMethod")
-         if (_definitions.Objects.TryGetValue(receiverName, out exact))
+         if (TryGetObjectDefinition(receiverName, out exact))
          {
             isStaticAccess = true;
          }
@@ -83,6 +83,7 @@ public partial class CgScriptLanguageTarget
             : (obj.Methods ?? []);
 
          var groups = methods
+            .Where(m => m.Name != "[]")
             .Where(m => prefix.Length == 0 || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             .GroupBy(m => m.Name);
 
@@ -144,12 +145,12 @@ public partial class CgScriptLanguageTarget
       if (receiverName is null) return null;
 
       // Direct match: receiver is a known type name (static / namespace access)
-      if (_definitions.Objects.TryGetValue(receiverName, out var direct))
+      if (TryGetObjectDefinition(receiverName, out var direct))
          return direct;
 
       // Resolve as a local or global variable
       var typeName = ResolveVariableType(receiverName, text, tree);
-      if (typeName != null && _definitions.Objects.TryGetValue(typeName, out var fromVar))
+      if (typeName != null && TryGetObjectDefinition(typeName, out var fromVar))
          return fromVar;
 
       // Chained: check for another dot to the left of this identifier and recurse
@@ -164,7 +165,7 @@ public partial class CgScriptLanguageTarget
             var prop = (innerObj.Properties ?? [])
                .FirstOrDefault(p => string.Equals(p.Name, receiverName, StringComparison.Ordinal));
             if (prop?.ReturnType != null
-                && _definitions.Objects.TryGetValue(prop.ReturnType, out var propType))
+                && TryGetObjectDefinition(prop.ReturnType, out var propType))
                return propType;
          }
       }

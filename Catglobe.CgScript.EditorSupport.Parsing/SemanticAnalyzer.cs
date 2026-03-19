@@ -599,6 +599,68 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          }
       }
 
+      // Pattern: postfixExpr LBRACKET expression RBRACKET  (indexer access)
+      if (ctx.LBRACKET() != null && _objectDefinitions != null)
+      {
+         var rawType      = TryResolveBaseType(ctx.postfixExpr());
+         var baseType     = rawType != null ? (MapToCanonical(rawType) ?? rawType) : null;
+         if (baseType != null
+             && _objectDefinitions.TryGetValue(baseType, out var indexedMembers)
+             && indexedMembers.MethodOverloads != null
+             && indexedMembers.MethodOverloads.TryGetValue("[]", out var indexerOverloads))
+         {
+            var lbToken  = ctx.LBRACKET().Symbol;
+            var keyType  = TryInferType(ctx.expression());
+
+            if (IsLhsOfAssignment(ctx))
+            {
+               // CGS025: validate setter — check [key, value] types against 2-param "[]" overloads
+               var setterOverloads = indexerOverloads
+                  .Where(o => o.Count == 2)
+                  .ToList<IReadOnlyList<string>>();
+               if (setterOverloads.Count > 0)
+               {
+                  var valueExpr  = TryGetAssignmentRhsExpression(ctx);
+                  var valueType  = TryInferType(valueExpr);
+                  var argTypes   = new[] { keyType, valueType };
+                  if (!IsAnyVariantValid(setterOverloads, argTypes))
+                  {
+                     var formatStr = "[" + string.Join(", ", System.Array.ConvertAll(argTypes, t => t ?? "?")) + "]";
+                     _diagnostics.Add(new Diagnostic(
+                        DiagnosticSeverity.Error,
+                        $"No indexer setter on '{baseType}' matches {formatStr}",
+                        lbToken.Line,
+                        lbToken.Column,
+                        1,
+                        "CGS025"));
+                  }
+               }
+            }
+            else
+            {
+               // CGS025: validate getter — check key type against 1-param "[]" overloads
+               var getterOverloads = indexerOverloads
+                  .Where(o => o.Count == 1)
+                  .ToList<IReadOnlyList<string>>();
+               if (getterOverloads.Count > 0)
+               {
+                  var argTypes = new[] { keyType };
+                  if (!IsAnyVariantValid(getterOverloads, argTypes))
+                  {
+                     var formatStr = "[" + (keyType ?? "?") + "]";
+                     _diagnostics.Add(new Diagnostic(
+                        DiagnosticSeverity.Error,
+                        $"No indexer on '{baseType}' matches {formatStr}",
+                        lbToken.Line,
+                        lbToken.Column,
+                        1,
+                        "CGS025"));
+                  }
+               }
+            }
+         }
+      }
+
       // Pattern: postfixExpr DOT IDENTIFIER (LPAREN ...)?  (member access)
       if (ctx.DOT() != null && _objectDefinitions != null)
       {
@@ -810,6 +872,31 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          node = parent;
       }
       return false;
+   }
+
+   /// <summary>
+   /// When <paramref name="ctx"/> is the LHS of an assignment, returns the RHS
+   /// expression (<c>expression(1)</c> in the enclosing <c>exprOrAssign</c>).
+   /// Returns <c>null</c> when no enclosing assignment is found.
+   /// </summary>
+   private static CgScriptParser.ExpressionContext? TryGetAssignmentRhsExpression(
+      CgScriptParser.PostfixExprContext ctx)
+   {
+      Antlr4.Runtime.Tree.IParseTree? node = ctx;
+      while (node?.Parent != null)
+      {
+         var parent = node.Parent;
+         if (parent is CgScriptParser.ExprOrAssignContext assignCtx)
+         {
+            if (assignCtx.ASSIGN() != null && node == assignCtx.expression(0))
+               return assignCtx.expression(1);
+            return null;
+         }
+         if (parent is CgScriptParser.PostfixExprContext) return null;
+         if (parent is CgScriptParser.StatementContext) return null;
+         node = parent;
+      }
+      return null;
    }
 
    /// <summary>
