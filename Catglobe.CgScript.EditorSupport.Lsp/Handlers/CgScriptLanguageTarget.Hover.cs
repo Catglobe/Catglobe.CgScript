@@ -39,12 +39,12 @@ public partial class CgScriptLanguageTarget
          bool isStaticAccess = false;
          if (receiverName != null)
          {
-            if (_definitions.Objects.TryGetValue(receiverName, out exactObj))
+            if (TryGetObjectDefinition(receiverName, out exactObj))
                isStaticAccess = true;
             else
             {
                var typeName = ResolveVariableType(receiverName, text, _store.GetParseResult(p.TextDocument.Uri.ToString())?.Tree);
-               if (typeName != null) _definitions.Objects.TryGetValue(typeName, out exactObj);
+               if (typeName != null) TryGetObjectDefinition(typeName, out exactObj);
             }
          }
          IEnumerable<ObjectDefinition> candidates = exactObj != null
@@ -305,7 +305,7 @@ public partial class CgScriptLanguageTarget
 
       ObjectDefinition? objDef = null;
       bool isStatic = false;
-      if (_definitions.Objects.TryGetValue(receiverName, out objDef))
+      if (TryGetObjectDefinition(receiverName, out objDef))
          isStatic = true;
       else
       {
