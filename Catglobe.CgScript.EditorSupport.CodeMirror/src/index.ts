@@ -272,7 +272,7 @@ export const SEMANTIC_CLASSES: Array<string | null> = [
 
 let _semReqCounter = 0;
 
-export function makeSemanticTokensViewPlugin(transport: Transport, fileUri: string): Extension[] {
+export function makeSemanticTokensViewPlugin(lspClient: LSPClient, transport: Transport, fileUri: string): Extension[] {
    class SemanticPlugin {
       private _view: EditorView;
       private _pendingId: string | null = null;
@@ -304,6 +304,10 @@ export function makeSemanticTokensViewPlugin(transport: Transport, fileUri: stri
       }
 
       private _request() {
+         // Flush any pending textDocument/didChange to the server before requesting
+         // semantic tokens. Without this, deletions (which don't trigger autocomplete)
+         // would leave the server on a stale document version and return wrong token positions.
+         lspClient.sync();
          const id = `sem-${++_semReqCounter}`;
          this._pendingId = id;
          transport.send(JSON.stringify({
@@ -514,7 +518,7 @@ export class CodeMirrorForCgScript {
       this.#view.dispatch({
          effects: this.#lspCompartment.reconfigure([
             languageServerSupport(lspClient, fileUri, "cgscript"),
-            ...makeSemanticTokensViewPlugin(transport, fileUri),
+            ...makeSemanticTokensViewPlugin(lspClient, transport, fileUri),
          ]),
       });
    }
