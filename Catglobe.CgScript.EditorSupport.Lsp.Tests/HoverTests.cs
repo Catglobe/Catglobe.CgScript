@@ -95,4 +95,53 @@ public class HoverTests
       Assert.DoesNotContain("? myParam", text);
       Assert.Contains("Question", text);
    }
+
+   // ── Enum constant hover ──────────────────────────────────────────────────
+
+   [Fact]
+   public void EnumConstant_Hover_ShowsEnumDocAndValue()
+   {
+      // COLOR_RED is an enum-derived constant; hover should include the enum
+      // generic doc ("Index used in Color object"), the constant name, and its value.
+      const string source = "COLOR_RED;";
+      var (target, uri) = CreateTarget(source);
+
+      var text = GetHoverText(target, uri, line: 0, character: 0);
+
+      Assert.NotNull(text);
+      Assert.Contains("COLOR_RED", text);
+      // Enum generic documentation
+      Assert.Contains("Index used in Color object", text);
+      // Numeric value shown
+      Assert.Contains("1", text);
+   }
+
+   [Fact]
+   public void EnumConstant_Hover_DoesNotShowPlainConstantFallback()
+   {
+      // Hover should NOT fall back to the old "constant: COLOR_RED" text for enum values.
+      const string source = "COLOR_RED;";
+      var (target, uri) = CreateTarget(source);
+
+      var text = GetHoverText(target, uri, line: 0, character: 0);
+
+      Assert.NotNull(text);
+      Assert.DoesNotContain("constant: COLOR_RED", text);
+   }
+
+   // ── Plain (non-enum) constant hover ──────────────────────────────────────
+
+   [Fact]
+   public void PlainConstant_Hover_ShowsFallbackText()
+   {
+      // DATETIME_DAY is a plain constant (not enum-derived); hover should show
+      // the "constant: DATETIME_DAY" fallback.
+      const string source = "DATETIME_DAY;";
+      var (target, uri) = CreateTarget(source);
+
+      var text = GetHoverText(target, uri, line: 0, character: 0);
+
+      Assert.NotNull(text);
+      Assert.Contains("constant: DATETIME_DAY", text);
+   }
 }

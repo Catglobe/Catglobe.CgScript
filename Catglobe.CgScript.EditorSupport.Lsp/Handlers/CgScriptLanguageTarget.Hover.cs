@@ -130,7 +130,7 @@ public partial class CgScriptLanguageTarget
       {
          return new Hover
          {
-            Contents = HoverContent($"constant: {word}"),
+            Contents = HoverContent(BuildEnumConstantDoc(word)),
          };
       }
 
@@ -280,6 +280,30 @@ public partial class CgScriptLanguageTarget
       sb.AppendLine("Parameters:");
       foreach (var p in fn.Parameters)
          sb.AppendLine($"  {p.Name} : {p.ConstantType}{(p.IsOptional ? " (optional)" : "")}");
+      return sb.ToString();
+   }
+
+   /// <summary>
+   /// Builds the markdown hover text for an enum-derived constant.
+   /// Shows the enum generic documentation (if any), the per-value documentation
+   /// (if any), and the numeric value of the constant.
+   /// Falls back to <c>"constant: {name}"</c> when the constant is not part of any enum.
+   /// </summary>
+   private string BuildEnumConstantDoc(string name)
+   {
+      if (!EnumByConstant.TryGetValue(name, out var entry))
+         return $"constant: {name}";
+
+      var sb = new System.Text.StringBuilder();
+      if (!string.IsNullOrWhiteSpace(entry.Enum.Doc))
+         sb.Append(entry.Enum.Doc);
+      if (!string.IsNullOrWhiteSpace(entry.Value.Doc))
+      {
+         if (sb.Length > 0) sb.Append("\n\n");
+         sb.Append(entry.Value.Doc);
+      }
+      if (sb.Length > 0) sb.Append("\n\n");
+      sb.Append($"`{name}` = `{entry.Value.Value}`");
       return sb.ToString();
    }
 
