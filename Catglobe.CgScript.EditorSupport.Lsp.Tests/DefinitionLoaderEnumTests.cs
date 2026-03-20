@@ -97,4 +97,30 @@ public class DefinitionLoaderEnumTests
       Assert.Contains("COLOR_RED", docText);
       Assert.Contains("1", docText);
    }
+
+   // ── Completion for plain (non-enum) constants ─────────────────────────────
+
+   [Fact]
+   public void PlainConstant_Completion_AppearsInResults()
+   {
+      var (target, uri) = CreateTarget("DATETIME_DAY");
+
+      var items = GetCompletions(target, uri, prefix: "DATETIME_DAY");
+
+      Assert.Contains(items, i => i.Label == "DATETIME_DAY" && i.Kind == CompletionItemKind.Constant);
+   }
+
+   [Fact]
+   public void PlainConstant_Completion_HasNoDocumentation()
+   {
+      // DATETIME_DAY is a plain constant (not enum-derived); it should not have
+      // documentation set on the completion item.
+      var (target, uri) = CreateTarget("DATETIME_DAY");
+
+      var items = GetCompletions(target, uri, prefix: "DATETIME_DAY");
+
+      var item = items.FirstOrDefault(i => i.Label == "DATETIME_DAY");
+      Assert.NotNull(item);
+      Assert.Null(item.Documentation);
+   }
 }
