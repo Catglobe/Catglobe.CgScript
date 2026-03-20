@@ -1,7 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
    <PropertyGroup>
       <TargetFramework>net9.0</TargetFramework>
       <IsPackable>false</IsPackable>
+      <IncludeBuildOutput>false</IncludeBuildOutput>
+      <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+      <IsPublishable>false</IsPublishable>
       <DefaultItemExcludes>$(DefaultItemExcludes);node_modules\**;dist\**</DefaultItemExcludes>
    </PropertyGroup>
+
+   <ItemGroup>
+      <_NpmSources Include="$(MSBuildThisFileDirectory)src/**/*.ts" />
+      <_NpmSources Include="$(MSBuildThisFileDirectory)package-lock.json" />
+   </ItemGroup>
+
+   <Target Name="BuildNpmBundle"
+           BeforeTargets="Build"
+           Inputs="@(_NpmSources)"
+           Outputs="$(MSBuildThisFileDirectory)../Catglobe.CgScript.EditorSupport.CodeMirror.AspNet/wwwroot/cgscript-cm6.js">
+      <Exec Command="npm ci" WorkingDirectory="$(MSBuildThisFileDirectory)" />
+      <Exec Command="npm run bundle" WorkingDirectory="$(MSBuildThisFileDirectory)" />
+   </Target>
+
 </Project>

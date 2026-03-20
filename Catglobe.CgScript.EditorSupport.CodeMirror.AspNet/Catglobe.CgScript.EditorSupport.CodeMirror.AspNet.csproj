@@ -17,6 +17,10 @@
       <Nullable>enable</Nullable>
       <ImplicitUsings>enable</ImplicitUsings>
       <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+      <!-- Run npm bundle generation before PrepareForBuild so the wwwroot file exists
+           when ResolveProjectStaticWebAssets and ResolveCurrentProjectStaticWebAssetsInputs
+           scan @(Content) for static web assets. Without this, clean builds miss the file. -->
+      <PrepareForBuildDependsOn>BuildNpmBundle;$(PrepareForBuildDependsOn)</PrepareForBuildDependsOn>
    </PropertyGroup>
 
    <ItemGroup>
@@ -26,23 +30,24 @@
       </Content>
    </ItemGroup>
 
-   <!--
-      Rebuild the npm bundle before building/packing this project.
-      Incremental: only re-runs when any .ts source file or package-lock.json is newer than the output bundle.
-   -->
+   <!-- Explicit Content item with relative path so ResolveCurrentProjectStaticWebAssetsInputs
+        picks it up (it filters @(Content) by identity starting with 'wwwroot/'). -->
    <ItemGroup>
-      <_NpmSources Include="../Catglobe.CgScript.EditorSupport.CodeMirror/src/**/*.ts" />
-      <_NpmSources Include="../Catglobe.CgScript.EditorSupport.CodeMirror/package-lock.json" />
+      <Content Include="wwwroot\cgscript-cm6.js" />
+   </ItemGroup>
+
+   <!-- Build the TypeScript bundle via the dedicated npm project.
+        Incremental: skip if inputs unchanged and output already exists. -->
+   <ItemGroup>
+      <_NpmSources Include="$(MSBuildThisFileDirectory)../Catglobe.CgScript.EditorSupport.CodeMirror/src/**/*.ts" />
+      <_NpmSources Include="$(MSBuildThisFileDirectory)../Catglobe.CgScript.EditorSupport.CodeMirror/package-lock.json" />
    </ItemGroup>
 
    <Target Name="BuildNpmBundle"
-           BeforeTargets="BeforeBuild"
            Inputs="@(_NpmSources)"
            Outputs="$(MSBuildThisFileDirectory)wwwroot/cgscript-cm6.js">
-      <Exec Command="npm ci"
-            WorkingDirectory="$(MSBuildThisFileDirectory)../Catglobe.CgScript.EditorSupport.CodeMirror" />
-      <Exec Command="npm run bundle"
-            WorkingDirectory="$(MSBuildThisFileDirectory)../Catglobe.CgScript.EditorSupport.CodeMirror" />
+      <MSBuild Projects="$(MSBuildThisFileDirectory)../Catglobe.CgScript.EditorSupport.CodeMirror/Catglobe.CgScript.EditorSupport.CodeMirror.csproj"
+               Targets="BuildNpmBundle" />
    </Target>
 
 </Project>

@@ -397,5 +397,4 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 /Catglobe.CgScript.EditorSupport.CodeMirror.AspNet/wwwroot/cgscript-cm6.js
-/Catglobe.CgScript.EditorSupport.CodeMirror/dist/index.js
-/Catglobe.CgScript.EditorSupport.CodeMirror/dist/index.d.ts
+/Catglobe.CgScript.EditorSupport.CodeMirror/dist
