@@ -18,7 +18,8 @@ public class CompletionGlobalVariableTests
             functions:       [],
             objects:         [],
             constants:       [],
-            globalVariables: globalVariables)
+            globalVariables: globalVariables,
+            enums:           [])
       { }
    }
 

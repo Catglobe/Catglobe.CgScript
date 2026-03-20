@@ -1109,11 +1109,11 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// <summary>
    /// Maps a type name to its canonical form used for compatibility comparison
    /// (e.g. "number" → "Number", "string" → "String").
-   /// Also normalises C# primitive aliases that bleed through from API documentation
-   /// (e.g. "int" → "Number") and strips the nullable suffix (e.g. "int?" → "Number").
-   /// Returns <c>null</c> for "object" / "Object" (the any-type) so that callers can
-   /// skip type checking rather than generate false-positive errors.
-   /// Class names pass through unchanged.
+   /// This intentionally mirrors the runtime metadata export in
+   /// <c>CgScriptMetadataRepository.MapType</c>, translating its display-oriented names
+   /// into the parser's canonical comparison types.
+   /// Returns <c>null</c> for any/object-like types so callers can skip type checking
+   /// rather than generate false positives.
    /// </summary>
    private static string? MapToCanonical(string declaredName)
    {
@@ -1125,22 +1125,21 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
       return declaredName switch
       {
-         // CgScript keyword types (declared by users in scripts)
-         "number"                                                             => "Number",
-         "string"                                                             => "String",
-         "bool"                                                               => "Boolean",
-         "array"                                                              => "Array",
-         "function"                                                           => "Function",
-         // C# numeric aliases that bleed through from API documentation
-         "int" or "long" or "short" or "byte"
+         // CgScript keyword types and runtime metadata aliases
+         "number" or "Number"
+            or "int" or "long" or "short" or "byte"
             or "double" or "float" or "decimal"                              => "Number",
-         // "boolean" also appears in some API docs (lowercase variant of bool)
-         "boolean"                                                            => "Boolean",
-         // "string-guid" is used in some API docs for GUID-valued strings
-         "string-guid"                                                        => "String",
-         // "object" / "Object" means any type — suppress type checking
-         "object" or "Object"                                                 => null,
-         _ => declaredName, // class name (e.g. "DateTime") unchanged
+         "string" or "String" or "string-guid"                               => "String",
+         "bool" or "Boolean" or "boolean"                                    => "Boolean",
+         "array" or "Array"
+            or "Array of objects" or "Array of ints" or "Array of strings"   => "Array",
+         "function" or "Function"                                             => "Function",
+         "DateTime"                                                           => "DateTime",
+         "Dictionary" or "Dictionary of numbers"                              => "Dictionary",
+         "Empty" or ""                                                        => "Empty",
+         // Runtime metadata uses these as any/object buckets
+         "object" or "Object" or "Params object"                              => null,
+         _ => declaredName, // class name unchanged
       };
    }
 

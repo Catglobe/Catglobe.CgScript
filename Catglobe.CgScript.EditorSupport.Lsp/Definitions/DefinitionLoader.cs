@@ -56,6 +56,26 @@ public sealed record ObjectDefinition(
    MethodDefinition[]? StaticMethods,
    PropertyDefinition[]? Properties);
 
+// ── JSON model for enums ──────────────────────────────────────────────────────
+
+public sealed record EnumValueDefinition(string Name, string? Doc, int Value, bool IsObsolete);
+
+/// <summary>
+/// A CgScript enum type (e.g. ColorCGO.Constants with [Cg("COLOR",…)]).
+/// <see cref="Prefix"/> is the constant-name prefix (e.g. "COLOR_");
+/// the values already carry the full prefixed name (e.g. "COLOR_RED").
+/// </summary>
+public sealed record EnumDefinition(string Prefix, string? Doc, EnumValueDefinition[] Values);
+
+// ── Combined payload ──────────────────────────────────────────────────────────
+
+public sealed record CgScriptDefinitionsPayload(
+   Dictionary<string, FunctionDefinition>? Functions,
+   Dictionary<string, ObjectDefinition>?   Objects,
+   IReadOnlyList<string>?                  Constants,
+   IReadOnlyDictionary<string, string>?    GlobalVariables,
+   Dictionary<string, EnumDefinition>?     Enums);
+
 // ── Loader ────────────────────────────────────────────────────────────────────
 
 /// <summary>
@@ -71,17 +91,18 @@ public class DefinitionLoader
    public IReadOnlyCollection<string>                     Constants { get; protected init; }
    /// <summary>Global variables pre-declared by the runtime, mapped to their type name (e.g. "Catglobe" → "GlobalNamespace").</summary>
    public IReadOnlyDictionary<string, string>             GlobalVariables { get; protected init; }
+   /// <summary>Enum types with their prefixed constant values (e.g. "COLOR_" → COLOR_RED, COLOR_GREEN…).</summary>
+   public IReadOnlyDictionary<string, EnumDefinition>     Enums { get; protected init; }
 
    /// <summary>Loads definitions from the embedded JSON resources.</summary>
    public DefinitionLoader()
    {
-      Functions       = Load<Dictionary<string, FunctionDefinition>>("CgScriptFunctionDefinitions.json")
-                        ?? new Dictionary<string, FunctionDefinition>();
-      Objects         = Load<Dictionary<string, ObjectDefinition>>("CgScriptObjectDefinitions.json")
-                        ?? new Dictionary<string, ObjectDefinition>();
-      Constants       = Load<string[]>("CgScriptConstants.json") ?? [];
-      GlobalVariables = Load<Dictionary<string, string>>("CgScriptGlobalVariables.json")
-                        ?? new Dictionary<string, string>();
+      var payload = Load<CgScriptDefinitionsPayload>("CgScriptDefinitions.json");
+      Functions       = payload?.Functions ?? new Dictionary<string, FunctionDefinition>();
+      Objects         = payload?.Objects ?? new Dictionary<string, ObjectDefinition>();
+      Constants       = payload?.Constants ?? [];
+      GlobalVariables = payload?.GlobalVariables ?? new Dictionary<string, string>();
+      Enums           = payload?.Enums ?? new Dictionary<string, EnumDefinition>();
    }
 
    /// <summary>Protected constructor for subclasses that supply their own definitions.</summary>
@@ -89,12 +110,14 @@ public class DefinitionLoader
       Dictionary<string, FunctionDefinition> functions,
       Dictionary<string, ObjectDefinition>   objects,
       IReadOnlyCollection<string>            constants,
-      Dictionary<string, string>             globalVariables)
+      IReadOnlyDictionary<string, string>    globalVariables,
+      Dictionary<string, EnumDefinition>     enums)
    {
       Functions       = functions;
       Objects         = objects;
       Constants       = constants;
       GlobalVariables = globalVariables;
+      Enums           = enums;
    }
 
    private static T? Load<T>(string resourceFileName)
