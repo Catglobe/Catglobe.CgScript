@@ -28,16 +28,19 @@
 
    <!--
       Rebuild the npm bundle before building/packing this project.
-      Incremental: only re-runs when any .ts source file is newer than the output bundle.
+      Incremental: only re-runs when any .ts source file or package-lock.json is newer than the output bundle.
    -->
    <ItemGroup>
       <_NpmSources Include="../Catglobe.CgScript.EditorSupport.CodeMirror/src/**/*.ts" />
+      <_NpmSources Include="../Catglobe.CgScript.EditorSupport.CodeMirror/package-lock.json" />
    </ItemGroup>
 
    <Target Name="BuildNpmBundle"
            BeforeTargets="BeforeBuild"
            Inputs="@(_NpmSources)"
            Outputs="$(MSBuildThisFileDirectory)wwwroot/cgscript-cm6.js">
+      <Exec Command="npm ci"
+            WorkingDirectory="$(MSBuildThisFileDirectory)../Catglobe.CgScript.EditorSupport.CodeMirror" />
       <Exec Command="npm run bundle"
             WorkingDirectory="$(MSBuildThisFileDirectory)../Catglobe.CgScript.EditorSupport.CodeMirror" />
    </Target>
