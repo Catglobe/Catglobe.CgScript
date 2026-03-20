@@ -259,7 +259,16 @@ public partial class CgScriptLanguageTarget
       foreach (var name in _definitions.Constants)
       {
          if (all || name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            items.Add(new CompletionItem { Label = name, Kind = CompletionItemKind.Constant });
+         {
+            var item = new CompletionItem { Label = name, Kind = CompletionItemKind.Constant };
+            if (EnumByConstant.TryGetValue(name, out var entry))
+               item.Documentation = new MarkupContent
+               {
+                  Kind  = MarkupKind.Markdown,
+                  Value = BuildEnumConstantDoc(name),
+               };
+            items.Add(item);
+         }
       }
 
       foreach (var (name, typeName) in _definitions.GlobalVariables)

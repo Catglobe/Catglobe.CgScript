@@ -25,6 +25,14 @@ public partial class CgScriptLanguageTarget
    // Set after construction to break the circular dependency (JsonRpc needs target, target needs JsonRpc).
    public JsonRpc? Rpc { get; set; }
 
+   // ── Enum constant lookup (lazily built once) ──────────────────────────────────
+   private Dictionary<string, (EnumDefinition Enum, EnumValueDefinition Value)>? _enumByConstant;
+
+   private Dictionary<string, (EnumDefinition Enum, EnumValueDefinition Value)> EnumByConstant
+      => _enumByConstant ??= _definitions.Enums.Values
+            .SelectMany(e => e.Values.Select(v => (Key: v.Name, Enum: e, Value: v)))
+            .ToDictionary(x => x.Key, x => (x.Enum, x.Value), StringComparer.OrdinalIgnoreCase);
+
    // ── Semantic tokens delta cache ───────────────────────────────────────────────
    private readonly ConcurrentDictionary<string, (int[] Data, string ResultId)> _semanticCache = new();
    private int _semanticResultIdCounter;
