@@ -2,6 +2,7 @@ using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Parsing;
 using System;
 using System.Collections.Concurrent;
+using System.Linq;
 
 namespace Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 
@@ -16,12 +17,16 @@ public sealed class DocumentStore
    private readonly DefinitionLoader _definitions;
    private readonly IReadOnlyDictionary<string, ObjectMemberInfo> _objectMemberInfos;
    private readonly IReadOnlyDictionary<string, FunctionInfo>     _functionInfos;
+   private readonly IReadOnlyCollection<string>                   _obsoleteFunctions;
+   private readonly IReadOnlyCollection<string>                   _obsoleteConstants;
 
    public DocumentStore(DefinitionLoader definitions)
    {
-      _definitions       = definitions;
-      _objectMemberInfos = BuildMemberInfos(definitions.Objects);
-      _functionInfos     = BuildFunctionInfos(definitions.Functions);
+      _definitions        = definitions;
+      _objectMemberInfos  = BuildMemberInfos(definitions.Objects);
+      _functionInfos      = BuildFunctionInfos(definitions.Functions);
+      _obsoleteFunctions  = BuildObsoleteFunctions(definitions.Functions);
+      _obsoleteConstants  = BuildObsoleteConstants(definitions.Enums);
    }
 
    public void Update(string uri, string text)
@@ -87,7 +92,9 @@ public sealed class DocumentStore
             _definitions.Constants,
             _objectMemberInfos,
             _definitions.GlobalVariables,
-            _functionInfos);
+            _functionInfos,
+            _obsoleteFunctions,
+            _obsoleteConstants);
       }
       catch (Exception ex)
       {
@@ -114,24 +121,35 @@ public sealed class DocumentStore
       var result = new Dictionary<string, ObjectMemberInfo>(StringComparer.Ordinal);
       foreach (var kvp in objects)
       {
-         var def             = kvp.Value;
-         var properties      = new Dictionary<string, bool>(StringComparer.Ordinal);
+         var def              = kvp.Value;
+         var properties       = new Dictionary<string, bool>(StringComparer.Ordinal);
          var propertyRetTypes = new Dictionary<string, string>(StringComparer.Ordinal);
+         var obsoleteProps    = new List<string>();
          if (def.Properties != null)
             foreach (var p in def.Properties)
             {
                properties[p.Name] = p.HasSetter;
                if (!string.IsNullOrEmpty(p.ReturnType))
                   propertyRetTypes[p.Name] = p.ReturnType;
+               if (p.IsObsolete)
+                  obsoleteProps.Add(p.Name);
             }
 
-         var methods = new List<string>();
+         var methods        = new List<string>();
+         var obsoleteMethods = new List<string>();
          if (def.Methods != null)
             foreach (var m in def.Methods)
                if (!string.IsNullOrEmpty(m.Name))
+               {
                   methods.Add(m.Name);
+                  if (m.IsObsolete)
+                     obsoleteMethods.Add(m.Name);
+               }
 
-         result[kvp.Key] = new ObjectMemberInfo(properties, methods, propertyRetTypes);
+         result[kvp.Key] = new ObjectMemberInfo(
+            properties, methods, propertyRetTypes,
+            obsoletePropertyNames: obsoleteProps.Count > 0 ? obsoleteProps : null,
+            obsoleteMethodNames:   obsoleteMethods.Count > 0 ? obsoleteMethods : null);
       }
       return result;
    }
@@ -146,7 +164,8 @@ public sealed class DocumentStore
          // New-style functions have Variants (overloads) instead of Parameters.
          if (def.IsNewStyle && def.Variants != null)
          {
-            var overloads = new List<IReadOnlyList<string>>(def.Variants.Length);
+            var overloads    = new List<IReadOnlyList<string>>(def.Variants.Length);
+            bool allObsolete  = def.Variants.Length > 0;
             foreach (var variant in def.Variants)
             {
                var paramTypes = new List<string>(variant.Param?.Length ?? 0);
@@ -154,8 +173,10 @@ public sealed class DocumentStore
                   foreach (var p in variant.Param)
                      paramTypes.Add(p.Type ?? "");
                overloads.Add(paramTypes);
+               if (!variant.IsObsolete)
+                  allObsolete = false;
             }
-            result[kvp.Key] = new FunctionInfo(overloads);
+            result[kvp.Key] = new FunctionInfo(overloads, isObsolete: allObsolete);
             continue;
          }
 
@@ -170,6 +191,31 @@ public sealed class DocumentStore
 
          result[kvp.Key] = new FunctionInfo(def.ReturnType, def.NumberOfRequiredArguments, paramInfos);
       }
+      return result;
+   }
+
+   private static IReadOnlyCollection<string> BuildObsoleteFunctions(
+      IReadOnlyDictionary<string, FunctionDefinition> functions)
+   {
+      var result = new HashSet<string>(StringComparer.Ordinal);
+      foreach (var kvp in functions)
+      {
+         var def = kvp.Value;
+         if (def.IsNewStyle && def.Variants != null && def.Variants.Length > 0
+             && def.Variants.All(v => v.IsObsolete))
+            result.Add(kvp.Key);
+      }
+      return result;
+   }
+
+   private static IReadOnlyCollection<string> BuildObsoleteConstants(
+      IReadOnlyDictionary<string, EnumDefinition> enums)
+   {
+      var result = new HashSet<string>(StringComparer.Ordinal);
+      foreach (var enumDef in enums.Values)
+         foreach (var v in enumDef.Values)
+            if (v.IsObsolete)
+               result.Add(v.Name);
       return result;
    }
 }

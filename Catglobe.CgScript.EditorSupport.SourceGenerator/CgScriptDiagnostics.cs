@@ -214,6 +214,14 @@ internal static class CgScriptDiagnostics
       defaultSeverity:    DiagnosticSeverity.Error,
       isEnabledByDefault: true);
 
+   public static readonly DiagnosticDescriptor ObsoleteUsage = new(
+      id:                 "CGS026",
+      title:              "Use of obsolete symbol",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Warning,
+      isEnabledByDefault: true);
+
    public static DiagnosticSeverity ToRoslyn(Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity s)
       => s == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
          ? DiagnosticSeverity.Error
@@ -247,6 +255,7 @@ internal static class CgScriptDiagnostics
          "CGS023" => ConstructorCallMismatch,
          "CGS024" => MethodCallMismatch,
          "CGS025" => IndexerCallMismatch,
+         "CGS026" => ObsoleteUsage,
          _ => throw new ArgumentOutOfRangeException(nameof(d), d.Code, "Unknown diagnostic code"),
       };
 }
