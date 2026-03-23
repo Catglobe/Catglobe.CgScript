@@ -38,7 +38,63 @@ public static class KnownNamesLoader
    /// </summary>
    public static IReadOnlyDictionary<string, FunctionInfo> FunctionDefinitions { get; } = LoadFunctionDefinitions();
 
+   /// <summary>Names of built-in functions that are marked obsolete/deprecated.</summary>
+   public static IReadOnlyCollection<string> ObsoleteFunctionNames { get; } = LoadObsoleteFunctionNames();
+
+   /// <summary>Names of built-in constants (enum values) that are marked obsolete/deprecated.</summary>
+   public static IReadOnlyCollection<string> ObsoleteConstantNames { get; } = LoadObsoleteConstantNames();
+
    // ── helpers ──────────────────────────────────────────────────────────────────
+
+   private static IReadOnlyCollection<string> LoadObsoleteFunctionNames()
+   {
+      if (!TryGetRootProperty("functions", out var functionsElement))
+         return System.Array.Empty<string>();
+
+      var result = new HashSet<string>(StringComparer.Ordinal);
+      foreach (var funcProp in functionsElement.EnumerateObject())
+      {
+         if (funcProp.Value.TryGetProperty("isNewStyle", out var isNewStyleEl) && isNewStyleEl.GetBoolean()
+             && funcProp.Value.TryGetProperty("variants", out var variantsEl))
+         {
+            bool allObsolete = true;
+            bool hasVariants = false;
+            foreach (var variant in variantsEl.EnumerateArray())
+            {
+               hasVariants = true;
+               if (!(variant.TryGetProperty("isObsolete", out var obsEl) && obsEl.GetBoolean()))
+               { allObsolete = false; break; }
+            }
+            if (hasVariants && allObsolete)
+               result.Add(funcProp.Name);
+         }
+      }
+      return result;
+   }
+
+   private static IReadOnlyCollection<string> LoadObsoleteConstantNames()
+   {
+      if (!TryGetRootProperty("enums", out var enumsElement))
+         return System.Array.Empty<string>();
+
+      var result = new HashSet<string>(StringComparer.Ordinal);
+      foreach (var enumProp in enumsElement.EnumerateObject())
+      {
+         if (!enumProp.Value.TryGetProperty("values", out var valuesEl))
+            continue;
+         foreach (var v in valuesEl.EnumerateArray())
+         {
+            if (v.TryGetProperty("isObsolete", out var obsEl) && obsEl.GetBoolean()
+                && v.TryGetProperty("name", out var nameEl))
+            {
+               var name = nameEl.GetString();
+               if (!string.IsNullOrEmpty(name))
+                  result.Add(name!);
+            }
+         }
+      }
+      return result;
+   }
 
    private static IReadOnlyDictionary<string, FunctionInfo> LoadFunctionDefinitions()
    {
@@ -53,7 +109,9 @@ public static class KnownNamesLoader
          if (funcProp.Value.TryGetProperty("isNewStyle", out var isNewStyleEl) && isNewStyleEl.GetBoolean()
              && funcProp.Value.TryGetProperty("variants", out var variantsEl))
          {
-            var overloads = new List<IReadOnlyList<string>>();
+            var overloads   = new List<IReadOnlyList<string>>();
+            bool allObsolete = true;
+            bool hasVariants = false;
             foreach (var variant in variantsEl.EnumerateArray())
             {
                var paramTypes = new List<string>();
@@ -61,8 +119,11 @@ public static class KnownNamesLoader
                   foreach (var p in paramEl.EnumerateArray())
                      paramTypes.Add(p.TryGetProperty("type", out var t) ? t.GetString() ?? "" : "");
                overloads.Add(paramTypes);
+               hasVariants = true;
+               if (!(variant.TryGetProperty("isObsolete", out var obsEl) && obsEl.GetBoolean()))
+                  allObsolete = false;
             }
-            result[funcProp.Name] = new FunctionInfo(overloads);
+            result[funcProp.Name] = new FunctionInfo(overloads, isObsolete: hasVariants && allObsolete);
             continue;
          }
 
@@ -112,9 +173,11 @@ public static class KnownNamesLoader
 
       foreach (var typeProp in objectsElement.EnumerateObject())
       {
-         var properties       = new Dictionary<string, bool>(StringComparer.Ordinal);
-         var propertyRetTypes = new Dictionary<string, string>(StringComparer.Ordinal);
-         var methods          = new List<string>();
+         var properties        = new Dictionary<string, bool>(StringComparer.Ordinal);
+         var propertyRetTypes  = new Dictionary<string, string>(StringComparer.Ordinal);
+         var obsoleteProps     = new HashSet<string>(StringComparer.Ordinal);
+         var methods           = new List<string>();
+         var obsoleteMethods   = new HashSet<string>(StringComparer.Ordinal);
          List<IReadOnlyList<string>>? constructorOverloads = null;
          Dictionary<string, List<IReadOnlyList<string>>>? methodOverloads = null;
 
@@ -133,6 +196,8 @@ public static class KnownNamesLoader
                      if (!string.IsNullOrEmpty(retType))
                         propertyRetTypes[name] = retType;
                   }
+                  if (p.TryGetProperty("isObsolete", out var obsEl) && obsEl.GetBoolean())
+                     obsoleteProps.Add(name);
                }
             }
          }
@@ -159,6 +224,8 @@ public static class KnownNamesLoader
                      methodOverloads[name] = overloads;
                   }
                   overloads.Add(ReadParamTypes(m));
+                  if (m.TryGetProperty("isObsolete", out var obsEl) && obsEl.GetBoolean())
+                     obsoleteMethods.Add(name);
                }
             }
          }
@@ -177,7 +244,9 @@ public static class KnownNamesLoader
             methods,
             propertyRetTypes,
             constructorOverloads,
-            frozenMethodOverloads);
+            frozenMethodOverloads,
+            obsoletePropertyNames: obsoleteProps.Count > 0 ? obsoleteProps : null,
+            obsoleteMethodNames:   obsoleteMethods.Count > 0 ? obsoleteMethods : null);
       }
 
       return result;

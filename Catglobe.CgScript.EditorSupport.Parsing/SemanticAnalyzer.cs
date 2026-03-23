@@ -30,6 +30,10 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    // ── Function definitions for argument type/arity validation ─────────────────
    private readonly IReadOnlyDictionary<string, FunctionInfo>? _functionDefinitions;
 
+   // ── Obsolete name sets for CGS026 ────────────────────────────────────────────
+   private readonly HashSet<string> _obsoleteFunctions;
+   private readonly HashSet<string> _obsoleteConstants;
+
    // ── Pass-1 result (populated before Pass 2 begins) ──────────────────────────
    private HashSet<string>         _globalVars  = new(StringComparer.Ordinal);
    private Dictionary<string, (int Line, int Column)> _globalVarLines = new(StringComparer.Ordinal);
@@ -58,9 +62,11 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       IEnumerable<string> knownFunctions,
       IEnumerable<string> knownObjects,
       IEnumerable<string> knownConstants,
-      IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions  = null,
+      IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions   = null,
       IEnumerable<string>?                           knownGlobalVariables = null,
-      IReadOnlyDictionary<string, FunctionInfo>?     functionDefinitions  = null)
+      IReadOnlyDictionary<string, FunctionInfo>?     functionDefinitions  = null,
+      IEnumerable<string>?                           obsoleteFunctions    = null,
+      IEnumerable<string>?                           obsoleteConstants    = null)
    {
       _knownFunctions    = new HashSet<string>(knownFunctions, StringComparer.Ordinal);
       _knownObjects      = new HashSet<string>(knownObjects,   StringComparer.Ordinal);
@@ -70,6 +76,12 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          : new HashSet<string>(knownGlobalVariables, StringComparer.Ordinal);
       _objectDefinitions   = objectDefinitions;
       _functionDefinitions = functionDefinitions;
+      _obsoleteFunctions   = obsoleteFunctions is null
+         ? new HashSet<string>(StringComparer.Ordinal)
+         : new HashSet<string>(obsoleteFunctions, StringComparer.Ordinal);
+      _obsoleteConstants   = obsoleteConstants is null
+         ? new HashSet<string>(StringComparer.Ordinal)
+         : new HashSet<string>(obsoleteConstants, StringComparer.Ordinal);
    }
 
    // ── Static entry point ───────────────────────────────────────────────────────
@@ -94,6 +106,14 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// Optional map of old-style function names to their signature info, used to
    /// validate call argument types and arity.
    /// </param>
+   /// <param name="obsoleteFunctions">
+   /// Optional set of function names that are marked obsolete.  Any call to one of
+   /// these functions emits CGS026.
+   /// </param>
+   /// <param name="obsoleteConstants">
+   /// Optional set of constant (enum value) names that are marked obsolete.  Any
+   /// reference to one of these constants emits CGS026.
+   /// </param>
    public static IReadOnlyList<Diagnostic> Analyze(
       IParseTree          tree,
       IEnumerable<string> knownFunctions,
@@ -101,14 +121,16 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       IEnumerable<string> knownConstants,
       IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions   = null,
       IReadOnlyDictionary<string, string>?           globalVariableTypes = null,
-      IReadOnlyDictionary<string, FunctionInfo>?     functionDefinitions = null)
+      IReadOnlyDictionary<string, FunctionInfo>?     functionDefinitions = null,
+      IEnumerable<string>?                           obsoleteFunctions   = null,
+      IEnumerable<string>?                           obsoleteConstants   = null)
    {
       // ── Pass 1: collect global declarations ──────────────────────────────────
       var collector = new ScopeCollector();
       collector.Visit(tree);
 
       // ── Pass 2: check usages ─────────────────────────────────────────────────
-      var analyzer = new SemanticAnalyzer(knownFunctions, knownObjects, knownConstants, objectDefinitions, globalVariableTypes?.Keys, functionDefinitions);
+      var analyzer = new SemanticAnalyzer(knownFunctions, knownObjects, knownConstants, objectDefinitions, globalVariableTypes?.Keys, functionDefinitions, obsoleteFunctions, obsoleteConstants);
       analyzer._globalVars     = collector.Vars;
       analyzer._globalVarLines = collector.VarLines;
       analyzer._diagnostics.AddRange(collector.Diagnostics);
@@ -493,6 +515,18 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                   token.Text.Length,
                   "CGS008"));
             }
+
+            // CGS026: obsolete constant reference
+            if (_knownConstants.Contains(name) && _obsoleteConstants.Contains(name))
+            {
+               _diagnostics.Add(new Diagnostic(
+                  DiagnosticSeverity.Warning,
+                  $"'{name}' is obsolete",
+                  token.Line,
+                  token.Column,
+                  token.Text.Length,
+                  "CGS026"));
+            }
          }
          // IDENTIFIER and optional INC/DEC are terminals — nothing further to visit
          return null;
@@ -577,22 +611,37 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                      token.Text.Length,
                      "CGS004"));
                }
-               else if (_functionDefinitions != null
-                        && _functionDefinitions.TryGetValue(token.Text, out var funcInfo))
+               else
                {
-                  // CGS022: validate argument types and arity
-                  var argTypes = InferArgumentTypes(ctx.parameters());
-
-                  if (!IsCallValid(funcInfo, argTypes))
+                  // CGS026: obsolete function call
+                  if (_obsoleteFunctions.Contains(token.Text))
                   {
-                     var formatStr = "(" + string.Join(", ", Array.ConvertAll(argTypes, t => t ?? "?")) + ")";
                      _diagnostics.Add(new Diagnostic(
-                        DiagnosticSeverity.Error,
-                        $"No overload of '{token.Text}' matches {formatStr}",
+                        DiagnosticSeverity.Warning,
+                        $"'{token.Text}' is obsolete",
                         token.Line,
                         token.Column,
                         token.Text.Length,
-                        "CGS022"));
+                        "CGS026"));
+                  }
+
+                  if (_functionDefinitions != null
+                      && _functionDefinitions.TryGetValue(token.Text, out var funcInfo))
+                  {
+                     // CGS022: validate argument types and arity
+                     var argTypes = InferArgumentTypes(ctx.parameters());
+
+                     if (!IsCallValid(funcInfo, argTypes))
+                     {
+                        var formatStr = "(" + string.Join(", ", Array.ConvertAll(argTypes, t => t ?? "?")) + ")";
+                        _diagnostics.Add(new Diagnostic(
+                           DiagnosticSeverity.Error,
+                           $"No overload of '{token.Text}' matches {formatStr}",
+                           token.Line,
+                           token.Column,
+                           token.Text.Length,
+                           "CGS022"));
+                     }
                   }
                }
             }
@@ -685,22 +734,37 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                         memberName.Length,
                         "CGS017"));
                   }
-                  else if (members.MethodOverloads != null
-                           && members.MethodOverloads.TryGetValue(memberName, out var methodOverloads))
+                  else
                   {
-                     // CGS024: validate method argument types and arity
-                     var argTypes = InferArgumentTypes(ctx.parameters());
-
-                     if (!IsAnyOverloadValid(methodOverloads, argTypes))
+                     // CGS026: obsolete method call
+                     if (members.ObsoleteMethodNames.Contains(memberName))
                      {
-                        var formatStr = "(" + string.Join(", ", System.Array.ConvertAll(argTypes, t => t ?? "?")) + ")";
                         _diagnostics.Add(new Diagnostic(
-                           DiagnosticSeverity.Error,
-                           $"No overload of '{baseType}.{memberName}' matches {formatStr}",
+                           DiagnosticSeverity.Warning,
+                           $"'{baseType}.{memberName}' is obsolete",
                            memberIdNode.Symbol.Line,
                            memberIdNode.Symbol.Column,
                            memberName.Length,
-                           "CGS024"));
+                           "CGS026"));
+                     }
+
+                     if (members.MethodOverloads != null
+                         && members.MethodOverloads.TryGetValue(memberName, out var methodOverloads))
+                     {
+                        // CGS024: validate method argument types and arity
+                        var argTypes = InferArgumentTypes(ctx.parameters());
+
+                        if (!IsAnyOverloadValid(methodOverloads, argTypes))
+                        {
+                           var formatStr = "(" + string.Join(", ", System.Array.ConvertAll(argTypes, t => t ?? "?")) + ")";
+                           _diagnostics.Add(new Diagnostic(
+                              DiagnosticSeverity.Error,
+                              $"No overload of '{baseType}.{memberName}' matches {formatStr}",
+                              memberIdNode.Symbol.Line,
+                              memberIdNode.Symbol.Column,
+                              memberName.Length,
+                              "CGS024"));
+                        }
                      }
                   }
                }
@@ -718,6 +782,18 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                   }
                   else
                   {
+                     // CGS026: obsolete property access
+                     if (members.ObsoletePropertyNames.Contains(memberName))
+                     {
+                        _diagnostics.Add(new Diagnostic(
+                           DiagnosticSeverity.Warning,
+                           $"'{baseType}.{memberName}' is obsolete",
+                           memberIdNode.Symbol.Line,
+                           memberIdNode.Symbol.Column,
+                           memberName.Length,
+                           "CGS026"));
+                     }
+
                      if (members.Properties.TryGetValue(memberName, out var hasSetter)
                          && !hasSetter
                          && IsLhsOfAssignment(ctx))

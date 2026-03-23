@@ -5,6 +5,7 @@ using Catglobe.CgScript.EditorSupport.Parsing;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 using StreamJsonRpc;
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Threading;
 using LspDiagnostic = Microsoft.VisualStudio.LanguageServer.Protocol.Diagnostic;
 using LspRange      = Microsoft.VisualStudio.LanguageServer.Protocol.Range;
@@ -89,8 +90,9 @@ public partial class CgScriptLanguageTarget
 
          foreach (var group in groups)
          {
-            var overloads = group.ToList();
-            var first     = overloads[0];
+            var overloads   = group.ToList();
+            var first       = overloads[0];
+            bool allObsolete = overloads.All(m => m.IsObsolete);
             items.Add(new CompletionItem
             {
                Label         = overloads.Count == 1
@@ -99,11 +101,11 @@ public partial class CgScriptLanguageTarget
                FilterText    = first.Name,
                InsertText    = first.Name,
                Kind          = CompletionItemKind.Method,
-               Detail        = first.ReturnType,
+               Detail        = allObsolete ? $"{first.ReturnType} (deprecated)" : first.ReturnType,
                Documentation = new SumType<string, MarkupContent>(new MarkupContent
                {
                   Kind  = MarkupKind.Markdown,
-                  Value = string.Join("\n\n---\n\n", overloads.Select(m =>
+                  Value = (allObsolete ? "**⚠ Deprecated**\n\n" : "") + string.Join("\n\n---\n\n", overloads.Select(m =>
                      (string.IsNullOrWhiteSpace(m.Doc) ? "" : $"{m.Doc}\n\n") + $"`{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param)})`")),
                }),
             });
@@ -119,11 +121,13 @@ public partial class CgScriptLanguageTarget
                FilterText    = prop.Name,
                InsertText    = prop.Name,
                Kind          = CompletionItemKind.Property,
-               Detail        = prop.ReturnType,
+               Detail        = prop.IsObsolete ? $"{prop.ReturnType} (deprecated)" : prop.ReturnType,
                Documentation = new SumType<string, MarkupContent>(new MarkupContent
                {
                   Kind  = MarkupKind.Markdown,
-                  Value = (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n") + $"`{prop.ReturnType} {prop.Name}`",
+                  Value = (prop.IsObsolete ? "**⚠ Deprecated**\n\n" : "")
+                          + (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n")
+                          + $"`{prop.ReturnType} {prop.Name}`",
                }),
             });
          }
@@ -230,19 +234,22 @@ public partial class CgScriptLanguageTarget
       foreach (var (name, fn) in _definitions.Functions)
       {
          if (all || name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+         {
+            bool fnObsolete = fn.IsNewStyle && fn.Variants?.Length > 0 && fn.Variants.All(v => v.IsObsolete);
             items.Add(new CompletionItem
             {
                Label         = BuildFunctionLabel(name, fn),
                FilterText    = name,
                InsertText    = name,
                Kind          = CompletionItemKind.Function,
-               Detail        = GetFunctionReturnType(fn),
+               Detail        = fnObsolete ? $"{GetFunctionReturnType(fn)} (deprecated)" : GetFunctionReturnType(fn),
                Documentation = new SumType<string, MarkupContent>(new MarkupContent
                {
                   Kind  = MarkupKind.Markdown,
                   Value = BuildFunctionHover(name, fn),
                }),
             });
+         }
       }
 
       foreach (var (name, obj) in _definitions.Objects)
@@ -260,8 +267,15 @@ public partial class CgScriptLanguageTarget
       {
          if (all || name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
          {
-            var item = new CompletionItem { Label = name, Kind = CompletionItemKind.Constant };
-            if (EnumByConstant.TryGetValue(name, out var entry))
+            bool inEnum      = EnumByConstant.TryGetValue(name, out var entry);
+            bool constObsolete = inEnum && entry.Value.IsObsolete;
+            var item = new CompletionItem
+            {
+               Label  = name,
+               Kind   = CompletionItemKind.Constant,
+               Detail = constObsolete ? "(deprecated)" : null,
+            };
+            if (inEnum)
                item.Documentation = new MarkupContent
                {
                   Kind  = MarkupKind.Markdown,
