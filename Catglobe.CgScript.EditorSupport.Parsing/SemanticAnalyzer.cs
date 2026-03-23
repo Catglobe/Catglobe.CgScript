@@ -393,6 +393,10 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          if (_functionParams != null)
             newScope.UnionWith(_functionParams);
          newScope.UnionWith(_extraLocals);
+         // Track type overrides (parameters and local declarations) so they can be restored after visiting the function body.
+         var addedTypes      = new HashSet<string>(StringComparer.Ordinal);
+         var overriddenTypes = new Dictionary<string, string>(StringComparer.Ordinal);
+
          var fpCtx = ctx.functionParameters();
          if (fpCtx != null)
          {
@@ -400,7 +404,22 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             {
                var id = decl.IDENTIFIER();
                if (id is not null)
-                  newScope.Add(id.Symbol.Text);
+               {
+                  var paramName = id.Symbol.Text;
+                  newScope.Add(paramName);
+                  // Seed _varTypes with the parameter's declared class type so that
+                  // TryResolveBaseType returns the parameter's type instead of any
+                  // same-named global variable's type (fixes false CGS025/CGS016/etc.).
+                  if (decl.typeSpec() is CgScriptParser.ClassNameTypeContext paramClassType)
+                  {
+                     var paramTypeName = paramClassType.IDENTIFIER().Symbol.Text;
+                     if (_varTypes.TryGetValue(paramName, out var prevType))
+                        overriddenTypes[paramName] = prevType;
+                     else
+                        addedTypes.Add(paramName);
+                     _varTypes[paramName] = paramTypeName;
+                  }
+               }
             }
          }
 
@@ -408,8 +427,6 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          // locally-declared variables inside the function don't trigger false positives.
          // For typed locals (ClassNameTypeContext declarations), also seed _varTypes so
          // that property/method access on them is validated rather than silently skipped.
-         var addedTypes      = new HashSet<string>(StringComparer.Ordinal);
-         var overriddenTypes = new Dictionary<string, string>(StringComparer.Ordinal);
          var blockCtx = ctx.block();
          if (blockCtx != null)
          {

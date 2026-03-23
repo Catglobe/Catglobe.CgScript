@@ -791,6 +791,30 @@ public class SemanticAnalyzerDiagnosticsTests
    }
 
    [Fact]
+   public void IndexerSetter_FunctionParamShadowsGlobal_NoCGS025()
+   {
+      // Regression: function parameter 'u' of type Dictionary must shadow the global
+      // variable 'u' of type User — the indexer setter u["Name"] = "Remove" should not
+      // produce a false CGS025 error referencing the global User type.
+      const string source =
+         "User u;\n" +
+         "u;\n" +
+         "someFunc(function(Dictionary u) {\n" +
+         "   u[\"Name\"] = \"Remove\";\n" +
+         "});";
+      var objDefs = new Dictionary<string, ObjectMemberInfo>
+      {
+         ["Dictionary"] = MakeDictionaryInfo(),
+         ["User"]       = new ObjectMemberInfo(
+            properties: new Dictionary<string, bool>(),
+            methodNames: []),
+      };
+      var diags = AnalyzeWithObjects(source, objDefs, functions: ["someFunc"]);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
    public void Indexer_RealDictionary_ValidStringKey_NoCGS025()
    {
       // Use the embedded Dictionary definition
