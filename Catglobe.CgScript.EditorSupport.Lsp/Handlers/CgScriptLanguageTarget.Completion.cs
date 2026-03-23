@@ -267,14 +267,15 @@ public partial class CgScriptLanguageTarget
       {
          if (all || name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
          {
-            bool constObsolete = EnumByConstant.TryGetValue(name, out var entry) && entry.Value.IsObsolete;
+            bool inEnum      = EnumByConstant.TryGetValue(name, out var entry);
+            bool constObsolete = inEnum && entry.Value.IsObsolete;
             var item = new CompletionItem
             {
                Label  = name,
                Kind   = CompletionItemKind.Constant,
                Detail = constObsolete ? "(deprecated)" : null,
             };
-            if (entry.Value != null)
+            if (inEnum)
                item.Documentation = new MarkupContent
                {
                   Kind  = MarkupKind.Markdown,
