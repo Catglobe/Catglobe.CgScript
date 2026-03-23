@@ -96,6 +96,38 @@ public class HoverTests
       Assert.Contains("Question", text);
    }
 
+   [Fact]
+   public void FunctionParameter_ShadowsGlobal_HoverShowsParameterType()
+   {
+      // Regression: when a function parameter has the same name as a global
+      // variable but a different type, hovering over the global usage (line 1)
+      // must show the global's type and hovering inside the function (line 3)
+      // must show the parameter's type — not the global's.
+      //   Line 0: User u;
+      //   Line 1: u;                       ← global — should hover as "User"
+      //   Line 2: someFunc(function(Dictionary u) {
+      //   Line 3:    u["Name"] = "Remove"; ← param  — should hover as "Dictionary"
+      //   Line 4: });
+      const string source =
+         "User u;\n" +
+         "u;\n" +
+         "someFunc(function(Dictionary u) {\n" +
+         "   u;\n" +
+         "});";
+      var (target, uri) = CreateTarget(source);
+
+      // Line 1 (0-based) — the bare global usage "u;"
+      var globalText = GetHoverText(target, uri, line: 1, character: 0);
+      Assert.NotNull(globalText);
+      Assert.Contains("User", globalText);
+
+      // Line 3 (0-based) — "u" inside the function body (the Dictionary parameter)
+      var paramText = GetHoverText(target, uri, line: 3, character: 3);
+      Assert.NotNull(paramText);
+      Assert.Contains("Dictionary", paramText);
+      Assert.DoesNotContain("User", paramText);
+   }
+
    // ── Enum constant hover ──────────────────────────────────────────────────
 
    [Fact]
