@@ -815,6 +815,54 @@ public class SemanticAnalyzerDiagnosticsTests
    }
 
    [Fact]
+   public void IndexerSetter_ForEachVarShadowsGlobal_NoCGS025()
+   {
+      // Regression: for-each loop variable 'u' shadows the global 'User u'.
+      // Inside the loop body, 'u' is the loop variable (untyped), so accessing
+      // u["key"] should NOT be validated against User's indexer.
+      const string source =
+         "User u;\n" +
+         "u;\n" +
+         "for (u for 1; 10) {\n" +
+         "   u[\"Name\"] = \"Remove\";\n" +
+         "}";
+      var objDefs = new Dictionary<string, ObjectMemberInfo>
+      {
+         ["Dictionary"] = MakeDictionaryInfo(),
+         ["User"]       = new ObjectMemberInfo(
+            properties: new Dictionary<string, bool>(),
+            methodNames: []),
+      };
+      var diags = AnalyzeWithObjects(source, objDefs, functions: []);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void IndexerSetter_CatchVarShadowsGlobal_NoCGS025()
+   {
+      // Regression: catch variable 'u' shadows the global 'User u'.
+      // Inside the catch body, 'u' is the catch variable (untyped), so accessing
+      // u["key"] should NOT be validated against User's indexer.
+      const string source =
+         "User u;\n" +
+         "u;\n" +
+         "try { } catch (u) {\n" +
+         "   u[\"Name\"] = \"Remove\";\n" +
+         "}";
+      var objDefs = new Dictionary<string, ObjectMemberInfo>
+      {
+         ["Dictionary"] = MakeDictionaryInfo(),
+         ["User"]       = new ObjectMemberInfo(
+            properties: new Dictionary<string, bool>(),
+            methodNames: []),
+      };
+      var diags = AnalyzeWithObjects(source, objDefs, functions: []);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
    public void Indexer_RealDictionary_ValidStringKey_NoCGS025()
    {
       // Use the embedded Dictionary definition

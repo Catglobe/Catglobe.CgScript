@@ -145,10 +145,15 @@ public partial class CgScriptLanguageTarget
 
          if (decl is not null)
          {
-            // Use the same ResolveVariableType logic as completion so that typed
-            // function parameters (and other non-statement declarations) are resolved
-            // correctly without duplicating the type-lookup implementation.
-            var typeLabel = ResolveVariableType(word, text, result.Tree) ?? "?";
+            // Use the declaration's source position to pick the exact typed symbol
+            // so that a function parameter of a different type shadows a same-named
+            // global (e.g. 'User u' global vs 'Dictionary u' parameter).
+            // CollectAll is a single parse-tree walk; the linear search is proportional
+            // to the number of declarations in the file, which is acceptable for hover.
+            var allSymbols = DocumentSymbolCollector.CollectAll(result.Tree);
+            var exactSym   = allSymbols.FirstOrDefault(
+               s => s.Name == word && s.NameLine == decl.Line && s.NameColumn == decl.Column);
+            var typeLabel  = exactSym?.TypeName ?? ResolveVariableType(word, text, result.Tree) ?? "?";
             return new Hover
             {
                Contents = HoverContent($"{typeLabel} {word}"),

@@ -548,8 +548,13 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          {
             var varName = idNode.Symbol.Text;
             _extraLocals.Add(varName);
+            // Suppress any same-named global's type so that TryResolveBaseType does
+            // not return the global type while the loop variable is in scope.
+            var hadLoopType = _varTypes.TryGetValue(varName, out var savedLoopType);
+            if (hadLoopType) _varTypes.Remove(varName);
             Visit(ctx.statement());
             _extraLocals.Remove(varName);
+            if (hadLoopType) _varTypes[varName] = savedLoopType!;
          }
          else
          {
@@ -789,6 +794,10 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       var catchToken = ctx.IDENTIFIER().Symbol;
       var catchVar   = catchToken.Text;
       _extraLocals.Add(catchVar);
+      // Suppress any same-named global's type so that TryResolveBaseType does
+      // not return the global type while the catch variable is in scope.
+      var hadCatchType = _varTypes.TryGetValue(catchVar, out var savedCatchType);
+      if (hadCatchType) _varTypes.Remove(catchVar);
 
       // Treat catch (exx) as a "use" of any same-named global declaration so that
       // `object exx; ... catch (exx) { }` does not trigger "declared but never used".
@@ -799,6 +808,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       Visit(ctx.statement(1));
 
       _extraLocals.Remove(catchVar);
+      if (hadCatchType) _varTypes[catchVar] = savedCatchType!;
       return null;
    }
 
