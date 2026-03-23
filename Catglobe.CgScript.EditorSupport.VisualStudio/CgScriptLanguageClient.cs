@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using System;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,6 +8,7 @@ using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Editor;
 using Microsoft.VisualStudio.Extensibility.LanguageServer;
+using Microsoft.VisualStudio.RpcContracts.LanguageServerProvider;
 namespace Catglobe.CgScript.EditorSupport.VisualStudio;
 
 #pragma warning disable VSEXTPREVIEW_LSP // API is in preview
@@ -48,6 +49,51 @@ public sealed class CgScriptLanguageServerProvider : LanguageServerProvider
       _ = LspSessionHost.RunAsync(serverSide, target, cancellationToken);
 
       return Task.FromResult<IDuplexPipe?>(clientSide);
+   }
+
+   // ── Retry on initialization failure ─────────────────────────────────────────
+   // When VS is opened directly from a solution file, some LSP infrastructure may
+   // not yet be fully initialized when the language server first activates.
+   // Retrying with a short back-off resolves the timing issue.
+
+   private int _restartAttempts;
+   private const int MaxRestartAttempts = 3;
+
+   /// <inheritdoc/>
+   public override async Task OnServerInitializationResultAsync(
+      ServerInitializationResult serverInitializationResult,
+      LanguageServerInitializationFailureInfo? initializationFailureInfo,
+      CancellationToken cancellationToken)
+   {
+      if (serverInitializationResult == ServerInitializationResult.Succeeded)
+      {
+         Interlocked.Exchange(ref _restartAttempts, 0);
+         return;
+      }
+
+      var attempt = Interlocked.Increment(ref _restartAttempts);
+      if (attempt > MaxRestartAttempts)
+         return;
+
+      cancellationToken.ThrowIfCancellationRequested();
+      // Wait before retrying, giving VS time to finish loading its LSP infrastructure.
+      await Task.Delay(TimeSpan.FromSeconds(3 * attempt), cancellationToken);
+      await RestartServerAsync();
+   }
+
+   /// <summary>
+   /// Restarts the language server by toggling <see cref="LanguageServerProvider.Enabled"/>.
+   /// The internal <see cref="System.Threading.SemaphoreSlim"/> in <see cref="LanguageServerProvider"/>
+   /// serialises the two <c>SetEnabledStateAsync</c> RPC calls so that "disable" always completes
+   /// before "enable" is sent, triggering a fresh <see cref="CreateServerConnectionAsync"/> call.
+   /// </summary>
+   private async Task RestartServerAsync()
+   {
+      Enabled = false;
+      // Yield so that the fire-and-forget StartStopAsync task triggered by Enabled=false can
+      // acquire the semaphore and begin its SetEnabledStateAsync(false) call before we set true.
+      await Task.Yield();
+      Enabled = true;
    }
 }
 
