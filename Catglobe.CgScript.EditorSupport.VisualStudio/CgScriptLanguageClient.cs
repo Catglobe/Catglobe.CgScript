@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,6 +7,7 @@ using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Editor;
 using Microsoft.VisualStudio.Extensibility.LanguageServer;
+using Microsoft.VisualStudio.RpcContracts.LanguageServerProvider;
 namespace Catglobe.CgScript.EditorSupport.VisualStudio;
 
 #pragma warning disable VSEXTPREVIEW_LSP // API is in preview
@@ -48,6 +48,18 @@ public sealed class CgScriptLanguageServerProvider : LanguageServerProvider
       _ = LspSessionHost.RunAsync(serverSide, target, cancellationToken);
 
       return Task.FromResult<IDuplexPipe?>(clientSide);
+   }
+
+   /// <inheritdoc/>
+   public override Task OnServerInitializationResultAsync(
+      ServerInitializationResult serverInitializationResult,
+      LanguageServerInitializationFailureInfo? initializationFailureInfo,
+      CancellationToken cancellationToken)
+   {
+      if (serverInitializationResult == ServerInitializationResult.Failed)
+         Enabled = false;
+
+      return base.OnServerInitializationResultAsync(serverInitializationResult, initializationFailureInfo, cancellationToken);
    }
 }
 
