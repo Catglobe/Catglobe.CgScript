@@ -1,5 +1,6 @@
 using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Parsing;
+using System;
 using System.Collections.Concurrent;
 
 namespace Catglobe.CgScript.EditorSupport.Lsp.Handlers;
@@ -30,18 +31,73 @@ public sealed class DocumentStore
       if (_docs.TryGetValue(uri, out var existing))
          _docs[uri] = (text, existing.Result);
 
-      var (cleanedText, _) = PreprocessorScanner.Strip(text);
-      var result     = CgScriptParseService.Parse(cleanedText);
-      var extraDiags = SemanticAnalyzer.Analyze(
-         result.Tree,
-         _definitions.Functions.Keys,
-         _definitions.Objects.Keys,
-         _definitions.Constants,
-         _objectMemberInfos,
-         _definitions.GlobalVariables,
-         _functionInfos);
-      var merged = ParseResult.WithExtra(result, extraDiags);
-      _docs[uri] = (text, merged);
+      // Each stage is caught independently so a failure in one step does not discard
+      // valid results from earlier steps.  The user always sees a diagnostic instead of
+      // a silent LSP disconnection.
+
+      // Stage 1: preprocessor stripping
+      string cleanedText;
+      var stageDiags = new List<Diagnostic>();
+      try
+      {
+         (cleanedText, _) = PreprocessorScanner.Strip(text);
+      }
+      catch (Exception ex)
+      {
+         stageDiags.Add(new Diagnostic(DiagnosticSeverity.Error,
+            $"Internal LSP error (preprocessor): {ex.Message}", 1, 0, 0, "CGS000"));
+         cleanedText = text; // fall back to raw text so later stages still run
+      }
+
+      // Stage 2: parsing
+      ParseResult? result = null;
+      try
+      {
+         result = CgScriptParseService.Parse(cleanedText);
+      }
+      catch (Exception ex)
+      {
+         stageDiags.Add(new Diagnostic(DiagnosticSeverity.Error,
+            $"Internal LSP error (parser): {ex.Message}", 1, 0, 0, "CGS000"));
+         // Fall back to an empty-program tree so semantic tokens / hover still have a valid tree.
+         try { result = CgScriptParseService.Parse(string.Empty); } catch { /* last resort */ }
+      }
+
+      if (result is null)
+      {
+         // If we have no tree at all we cannot proceed; leave the previous result in place.
+         if (stageDiags.Count > 0 && _docs.TryGetValue(uri, out var prev))
+            _docs[uri] = (text, ParseResult.WithExtra(prev.Result, stageDiags));
+         return;
+      }
+
+      // Stage 3: semantic analysis
+      // Policy for transient failures: a semantic analysis exception is likely triggered by an
+      // intermediate (incomplete) expression being typed.  Surfacing CGS000 on every keystroke
+      // would be very noisy.  Instead we store the syntax-only result (fresh, accurate line numbers)
+      // and skip semantic diagnostics for this cycle.  The next successful update restores them.
+      // The exception is logged to Debug output for LSP developer diagnostics.
+      IEnumerable<Diagnostic> extraDiags = [];
+      try
+      {
+         extraDiags = SemanticAnalyzer.Analyze(
+            result.Tree,
+            _definitions.Functions.Keys,
+            _definitions.Objects.Keys,
+            _definitions.Constants,
+            _objectMemberInfos,
+            _definitions.GlobalVariables,
+            _functionInfos);
+      }
+      catch (Exception ex)
+      {
+         System.Diagnostics.Debug.WriteLine(
+            $"[CgScript LSP] Semantic analysis error for '{uri}': {ex}");
+         // Leave extraDiags empty — syntax diagnostics from 'result' are preserved and the
+         // user sees no spurious CGS000 flash.  Semantic results resume on the next update.
+      }
+
+      _docs[uri] = (text, ParseResult.WithExtra(result, extraDiags.Concat(stageDiags)));
    }
 
    public void Remove(string uri) => _docs.TryRemove(uri, out _);

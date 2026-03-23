@@ -6,6 +6,14 @@ internal static class CgScriptDiagnostics
 {
    private const string Category = "CgScript";
 
+   public static readonly DiagnosticDescriptor InternalError = new(
+      id:                 "CGS000",
+      title:              "Internal LSP error",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
+
    public static readonly DiagnosticDescriptor DuplicateDeclaration = new(
       id:                 "CGS001",
       title:              "Duplicate variable declaration",

@@ -104,7 +104,15 @@ public partial class CgScriptLanguageTarget
 
    public void OnDidOpen(DidOpenTextDocumentParams p)
    {
-      _store.Update(p.TextDocument.Uri.ToString(), p.TextDocument.Text);
+      try
+      {
+         _store.Update(p.TextDocument.Uri.ToString(), p.TextDocument.Text);
+      }
+      catch (Exception ex)
+      {
+         _ = PublishErrorDiagnosticAsync(p.TextDocument.Uri, ex);
+         return;
+      }
       _ = PublishDiagnosticsAsync(p.TextDocument.Uri);
    }
 
@@ -112,8 +120,17 @@ public partial class CgScriptLanguageTarget
    {
       var uri     = p.TextDocument.Uri.ToString();
       var changes = p.ContentChanges ?? [];
-      // Apply incremental changes to build the new document text.
-      var newText = changes.Aggregate(_store.GetText(uri) ?? string.Empty, ApplyChange);
+      string newText;
+      try
+      {
+         // Apply incremental changes to build the new document text.
+         newText = changes.Aggregate(_store.GetText(uri) ?? string.Empty, ApplyChange);
+      }
+      catch (Exception ex)
+      {
+         _ = PublishErrorDiagnosticAsync(p.TextDocument.Uri, ex);
+         return;
+      }
       _store.Update(uri, newText);
       _ = PublishDiagnosticsAsync(p.TextDocument.Uri);
    }
@@ -136,14 +153,22 @@ public partial class CgScriptLanguageTarget
    // ── helpers    → see CgScriptLanguageTarget.Helpers.cs ───────────────────────
 
    // ── diagnostics (server-push notification) ────────────────────────────────────
-   private Task PublishDiagnosticsAsync(Uri uri)
+   private async Task PublishDiagnosticsAsync(Uri uri)
    {
-      if (Rpc is null) return Task.CompletedTask;
+      if (Rpc is null) return;
 
-      var result = _store.GetParseResult(uri.ToString());
-      if (result is null) return Task.CompletedTask;
+      // Each stage is isolated: a failure in one does not discard results from others.
+      var allDiags = new List<LspDiagnostic>();
+      bool fatalError = false;
+      Exception? fatalException = null;
 
-      var diags = result.Diagnostics.Select(d => new LspDiagnostic
+      // Stage 1: convert stored parse+semantic diagnostics to LSP format
+      try
+      {
+         var result = _store.GetParseResult(uri.ToString());
+         if (result is null) return;
+
+         allDiags.AddRange(result.Diagnostics.Select(d => new LspDiagnostic
          {
             Severity = d.Severity == Parsing.DiagnosticSeverity.Error
                ? Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Error
@@ -157,41 +182,107 @@ public partial class CgScriptLanguageTarget
                Start = new Position(d.Line - 1, d.Column),
                End   = new Position(d.Line - 1, d.Column + d.Length),
             },
-         Source = "cgscript",
-         }).ToArray();
-
-      // ── CGS014: warn on empty type="" attributes in XML doc comments ──────────────
-      var text = _store.GetText(uri.ToString());
-      if (text is not null)
+            Source = "cgscript",
+         }));
+      }
+      catch (Exception ex)
       {
-         var xmlDocDiags = new List<LspDiagnostic>();
-         var lines       = text.Split('\n');
-         for (int i = 0; i < lines.Length; i++)
-         {
-            var lineText = lines[i];
-            if (!lineText.TrimStart().StartsWith("///")) continue;
-
-            int col = lineText.IndexOf("type=\"\"", StringComparison.Ordinal);
-            if (col < 0) continue;
-
-            xmlDocDiags.Add(new LspDiagnostic
-            {
-               Severity = Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Warning,
-               Code     = new SumType<int, string>("CGS014"),
-               Message  = "XML doc comment 'type' attribute should not be empty - specify the parameter type (for example 'number', 'string', 'array')",
-               Range    = new LspRange
-               {
-                  Start = new Position(i, col),
-                  End   = new Position(i, col + "type=\"\"".Length),
-               },
-               Source = "cgscript",
-            });
-         }
-         if (xmlDocDiags.Count > 0)
-            diags = diags.Concat(xmlDocDiags).ToArray();
+         fatalError     = true;
+         fatalException = ex;
       }
 
+      if (!fatalError)
+      {
+         // Stage 2: CGS014 — warn on empty type="" attributes in XML doc comments
+         try
+         {
+            var text = _store.GetText(uri.ToString());
+            if (text is not null)
+            {
+               var lines = text.Split('\n');
+               for (int i = 0; i < lines.Length; i++)
+               {
+                  var lineText = lines[i];
+                  if (!lineText.TrimStart().StartsWith("///")) continue;
+
+                  int col = lineText.IndexOf("type=\"\"", StringComparison.Ordinal);
+                  if (col < 0) continue;
+
+                  allDiags.Add(new LspDiagnostic
+                  {
+                     Severity = Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Warning,
+                     Code     = new SumType<int, string>("CGS014"),
+                     Message  = "XML doc comment 'type' attribute should not be empty - specify the parameter type (for example 'number', 'string', 'array')",
+                     Range    = new LspRange
+                     {
+                        Start = new Position(i, col),
+                        End   = new Position(i, col + "type=\"\"".Length),
+                     },
+                     Source = "cgscript",
+                  });
+               }
+            }
+         }
+         catch (Exception ex)
+         {
+            // XML-doc scanning failed — add an error diagnostic but keep all other results.
+            allDiags.Add(new LspDiagnostic
+            {
+               Severity = Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Error,
+               Code     = new SumType<int, string>("CGS000"),
+               Message  = $"Internal LSP error (XML doc scan): {ex.Message}",
+               Range    = new LspRange { Start = new Position(0, 0), End = new Position(0, 0) },
+               Source   = "cgscript",
+            });
+         }
+      }
+      else
+      {
+         // Stage 1 failed entirely — surface only the error so the user is not left with stale diagnostics.
+         allDiags.Add(new LspDiagnostic
+         {
+            Severity = Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Error,
+            Code     = new SumType<int, string>("CGS000"),
+            Message  = $"Internal LSP error: {fatalException!.Message}",
+            Range    = new LspRange { Start = new Position(0, 0), End = new Position(0, 0) },
+            Source   = "cgscript",
+         });
+      }
+
+      // Stage 3: send the notification (with whatever diagnostics we managed to collect)
+      try
+      {
+         await Rpc.NotifyWithParameterObjectAsync(Methods.TextDocumentPublishDiagnosticsName,
+            new PublishDiagnosticParams { Uri = uri, Diagnostics = allDiags.ToArray() });
+      }
+      catch
+      {
+         // If the RPC send itself fails, swallow silently to avoid terminating the connection.
+      }
+   }
+
+   /// <summary>
+   /// Publishes a single CGS000 error diagnostic for <paramref name="uri"/> when an unexpected
+   /// exception occurs outside the normal parse/analyze pipeline (e.g. during text application).
+   /// </summary>
+   private Task PublishErrorDiagnosticAsync(Uri uri, Exception ex)
+   {
+      if (Rpc is null) return Task.CompletedTask;
       return Rpc.NotifyWithParameterObjectAsync(Methods.TextDocumentPublishDiagnosticsName,
-         new PublishDiagnosticParams { Uri = uri, Diagnostics = diags });
+         new PublishDiagnosticParams
+         {
+            Uri = uri,
+            Diagnostics =
+            [
+               new LspDiagnostic
+               {
+                  Severity = Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Error,
+                  Code     = new SumType<int, string>("CGS000"),
+                  Message  = $"Internal LSP error: {ex.Message}",
+                  Range    = new LspRange { Start = new Position(0, 0), End = new Position(0, 0) },
+                  Source   = "cgscript",
+               },
+            ],
+         });
    }
 }
