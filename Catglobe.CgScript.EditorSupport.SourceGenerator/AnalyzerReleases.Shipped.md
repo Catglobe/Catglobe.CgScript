@@ -74,3 +74,11 @@ CGS024 | CgScript | Error    | No matching method overload
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 CGS025 | CgScript | Error    | No matching indexer overload
+
+## Release 2.21.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+CGS026 | CgScript | Warning  | Use of obsolete symbol

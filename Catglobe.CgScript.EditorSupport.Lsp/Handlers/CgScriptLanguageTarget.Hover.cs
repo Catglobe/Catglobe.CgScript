@@ -5,6 +5,7 @@ using Catglobe.CgScript.EditorSupport.Parsing;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 using StreamJsonRpc;
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Threading;
 using LspDiagnostic = Microsoft.VisualStudio.LanguageServer.Protocol.Diagnostic;
 using LspRange      = Microsoft.VisualStudio.LanguageServer.Protocol.Range;
@@ -60,7 +61,8 @@ public partial class CgScriptLanguageTarget
                return new Hover
                {
                   Contents = HoverContent(
-                     (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n")
+                     (prop.IsObsolete ? "**⚠ Deprecated**\n\n" : "")
+                     + (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n")
                      + $"`{prop.ReturnType} {prop.Name}`"),
                };
 
@@ -70,10 +72,15 @@ public partial class CgScriptLanguageTarget
                .ToList();
             if (methods.Count == 0) continue;
 
+            bool allMethodsObsolete = methods.All(m => m.IsObsolete);
             var sb = new System.Text.StringBuilder();
+            if (allMethodsObsolete) sb.Append("**⚠ Deprecated**\n\n");
+            bool firstEntry = true;
             foreach (var m in methods)
             {
-               if (sb.Length > 0) sb.Append("\n\n---\n\n");
+               if (!firstEntry) sb.Append("\n\n---\n\n");
+               firstEntry = false;
+               if (m.IsObsolete && !allMethodsObsolete) sb.Append("**⚠ Deprecated**\n\n");
                if (!string.IsNullOrWhiteSpace(m.Doc)) sb.Append($"{m.Doc}\n\n");
                sb.Append($"`{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param ?? [])})`");
                if (m.Param?.Length > 0)
@@ -216,10 +223,15 @@ public partial class CgScriptLanguageTarget
    {
       if (fn.IsNewStyle && fn.Variants?.Length > 0)
       {
+         bool allObsolete = fn.Variants.All(v => v.IsObsolete);
          var sb = new System.Text.StringBuilder();
+         if (allObsolete) sb.Append("**⚠ Deprecated**\n\n");
+         bool firstEntry = true;
          foreach (var v in fn.Variants)
          {
-            if (sb.Length > 0) sb.Append("\n\n---\n\n");
+            if (!firstEntry) sb.Append("\n\n---\n\n");
+            firstEntry = false;
+            if (v.IsObsolete && !allObsolete) sb.Append("**⚠ Deprecated**\n\n");
             if (!string.IsNullOrWhiteSpace(v.Doc)) sb.Append($"{v.Doc}\n\n");
             sb.Append($"`{v.ReturnType} {name}({BuildVariantParamList(v.Param)})`");
             if (v.Param?.Length > 0)
@@ -300,6 +312,7 @@ public partial class CgScriptLanguageTarget
          return $"constant: {name}";
 
       var sb = new System.Text.StringBuilder();
+      if (entry.Value.IsObsolete) sb.Append("**⚠ Deprecated**\n\n");
       if (!string.IsNullOrWhiteSpace(entry.Enum.Doc))
          sb.Append(entry.Enum.Doc);
       if (!string.IsNullOrWhiteSpace(entry.Value.Doc))

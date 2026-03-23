@@ -23,7 +23,8 @@ public sealed record FunctionVariant(
    string                Name,
    string?               Doc,
    FunctionVariantParam[]? Param,
-   string                ReturnType);
+   string                ReturnType,
+   bool                  IsObsolete = false);
 
 public sealed record FunctionDefinition(
    string           Name,
@@ -39,14 +40,15 @@ public sealed record FunctionDefinition(
 
 public sealed record MethodParam(string Name, string Doc, string Type);
 
-public sealed record MethodDefinition(string Name, string? Doc, MethodParam[]? Param, string ReturnType);
+public sealed record MethodDefinition(string Name, string? Doc, MethodParam[]? Param, string ReturnType, bool IsObsolete = false);
 
 public sealed record PropertyDefinition(
    string Name,
    string? Doc,
    bool HasGetter,
    bool HasSetter,
-   string ReturnType);
+   string ReturnType,
+   bool IsObsolete = false);
 
 public sealed record ObjectDefinition(
    string Name,
@@ -62,10 +64,11 @@ public sealed record EnumValueDefinition(string Name, string? Doc, int Value, bo
 
 /// <summary>
 /// A CgScript enum type (e.g. ColorCGO.Constants with [Cg("COLOR",…)]).
+/// <see cref="Name"/> is the unique display name (e.g. "ColorCGO");
 /// <see cref="Prefix"/> is the constant-name prefix (e.g. "COLOR_");
 /// the values already carry the full prefixed name (e.g. "COLOR_RED").
 /// </summary>
-public sealed record EnumDefinition(string Prefix, string? Doc, EnumValueDefinition[] Values);
+public sealed record EnumDefinition(string Name, string Prefix, string? Doc, EnumValueDefinition[] Values);
 
 // ── Combined payload ──────────────────────────────────────────────────────────
 

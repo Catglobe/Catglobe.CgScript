@@ -32,23 +32,39 @@ public sealed class ObjectMemberInfo
    /// </summary>
    public IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyList<string>>>? MethodOverloads { get; }
 
+   /// <summary>Names of properties marked as obsolete/deprecated.</summary>
+   public IReadOnlyCollection<string> ObsoletePropertyNames { get; }
+
+   /// <summary>Names of methods marked as obsolete/deprecated.</summary>
+   public IReadOnlyCollection<string> ObsoleteMethodNames { get; }
+
    /// <param name="properties">Property names mapped to whether they have a setter.</param>
    /// <param name="methodNames">Method names (overloads share the same name).</param>
    /// <param name="propertyReturnTypes">Optional property return type map.</param>
    /// <param name="constructorOverloads">Optional list of constructor overloads (each overload is a list of param types).</param>
    /// <param name="methodOverloads">Optional method name → overloads map (each overload is a list of param types).</param>
+   /// <param name="obsoletePropertyNames">Optional set of obsolete property names.</param>
+   /// <param name="obsoleteMethodNames">Optional set of obsolete method names.</param>
    public ObjectMemberInfo(
       IReadOnlyDictionary<string, bool>   properties,
       IEnumerable<string>                 methodNames,
       IReadOnlyDictionary<string, string>? propertyReturnTypes = null,
       IReadOnlyList<IReadOnlyList<string>>? constructorOverloads = null,
-      IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyList<string>>>? methodOverloads = null)
+      IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyList<string>>>? methodOverloads = null,
+      IEnumerable<string>? obsoletePropertyNames = null,
+      IEnumerable<string>? obsoleteMethodNames   = null)
    {
-      Properties          = properties;
-      PropertyReturnTypes = propertyReturnTypes ?? new Dictionary<string, string>();
-      _methodNames        = new HashSet<string>(methodNames, StringComparer.Ordinal);
+      Properties           = properties;
+      PropertyReturnTypes  = propertyReturnTypes ?? new Dictionary<string, string>();
+      _methodNames         = new HashSet<string>(methodNames, StringComparer.Ordinal);
       ConstructorOverloads = constructorOverloads;
       MethodOverloads      = methodOverloads;
+      ObsoletePropertyNames = obsoletePropertyNames is null
+         ? (IReadOnlyCollection<string>)System.Array.Empty<string>()
+         : new HashSet<string>(obsoletePropertyNames, StringComparer.Ordinal);
+      ObsoleteMethodNames   = obsoleteMethodNames is null
+         ? (IReadOnlyCollection<string>)System.Array.Empty<string>()
+         : new HashSet<string>(obsoleteMethodNames, StringComparer.Ordinal);
    }
 
    /// <summary>Returns <c>true</c> when the type exposes a method with the given name.</summary>

@@ -32,30 +32,40 @@ public sealed class FunctionInfo
    /// </summary>
    public IReadOnlyList<IReadOnlyList<string>>? Variants { get; }
 
+   /// <summary>
+   /// <c>true</c> when this function (or all of its variants) is marked as obsolete/deprecated.
+   /// </summary>
+   public bool IsObsolete { get; }
+
    /// <param name="returnType">Function return type name.</param>
    /// <param name="numberOfRequiredArguments">Minimum required argument count.</param>
    /// <param name="parameters">Ordered list of parameter type info.</param>
+   /// <param name="isObsolete">Whether the function is obsolete.</param>
    public FunctionInfo(
       string?                          returnType,
       int                              numberOfRequiredArguments,
-      IReadOnlyList<FunctionParamInfo> parameters)
+      IReadOnlyList<FunctionParamInfo> parameters,
+      bool                             isObsolete = false)
    {
       ReturnType                = returnType;
       NumberOfRequiredArguments = numberOfRequiredArguments;
       Parameters                = parameters;
       Variants                  = null;
+      IsObsolete                = isObsolete;
    }
 
    /// <summary>Creates a <see cref="FunctionInfo"/> for a new-style function with overload variants.</summary>
    /// <param name="variants">
    /// The list of overloads, where each overload is an ordered list of raw parameter type strings.
    /// </param>
-   public FunctionInfo(IReadOnlyList<IReadOnlyList<string>> variants)
+   /// <param name="isObsolete">Whether the function is obsolete.</param>
+   public FunctionInfo(IReadOnlyList<IReadOnlyList<string>> variants, bool isObsolete = false)
    {
       ReturnType                = null;
       NumberOfRequiredArguments = 0;
       Parameters                = System.Array.Empty<FunctionParamInfo>();
       Variants                  = variants;
+      IsObsolete                = isObsolete;
    }
 }
 
