@@ -17,8 +17,6 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <!-- Ensure the JS bundle is built before the static web assets pipeline starts. -->
-    <PrepareForBuildDependsOn>BuildNpmBundle;$(PrepareForBuildDependsOn)</PrepareForBuildDependsOn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,11 +24,13 @@
       <Pack>true</Pack>
       <PackagePath></PackagePath>
     </Content>
+    <!-- Prevent TypeScript build outputs and npm config files from leaking into the NuGet package -->
+    <Content Update="$(MSBuildThisFileDirectory)dist\**" Pack="false" />
+    <Content Update="$(MSBuildThisFileDirectory)package.json" Pack="false" />
+    <Content Update="$(MSBuildThisFileDirectory)package-lock.json" Pack="false" />
+    <Content Update="$(MSBuildThisFileDirectory)tsconfig.json" Pack="false" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="wwwroot\" />
-  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.TypeScript.MSBuild" Version="5.9.3">
       <PrivateAssets>all</PrivateAssets>
@@ -56,18 +56,36 @@
   </Target>
 
   <!--
-    Register the generated file as a Content item for static web asset resolution.
-    This MUST be a separate non-incremental target so the registration happens even
-    when BuildNpmBundle is skipped due to its Inputs/Outputs up-to-date check.
-    BeforeTargets="ResolveStaticWebAssetsInputs" guarantees it runs before the
-    static-web-assets pipeline reads @(Content).
+    TypeScript MSBuild adds dist/*.js and dist/*.d.ts as Content items dynamically inside
+    GetTypeScriptOutputForPublishing, so a static <Content Update Pack="false"> can't suppress
+    them.  Remove them before _GetPackageFiles (NuGet pack content gathering) reads @(Content).
+  -->
+  <Target Name="RemoveTypeScriptDistFromContent"
+          BeforeTargets="_GetPackageFiles">
+    <ItemGroup>
+      <Content Remove="$(MSBuildThisFileDirectory)dist\**" />
+      <ContentWithTargetPath Remove="$(MSBuildThisFileDirectory)dist\**" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    Register the generated JS bundle as a Content item so ResolveProjectStaticWebAssets can
+    discover it and emit a proper StaticWebAsset item (and static-web-assets manifest entry).
+
+    Must run BEFORE ResolveProjectStaticWebAssets (which has BeforeTargets="AssignTargetPaths"
+    and reads @(Content) to populate @(StaticWebAsset)).  Using BeforeTargets="ResolveStaticWebAssetsInputs"
+    is too late — by then the SDK has already processed @(Content).
+
+    Kept as a separate non-incremental target so the registration happens even when
+    BuildNpmBundle is skipped by its Inputs/Outputs up-to-date check.
   -->
   <Target Name="RegisterNpmBundleContent"
           DependsOnTargets="BuildNpmBundle"
-          BeforeTargets="ResolveStaticWebAssetsInputs">
+          BeforeTargets="ResolveProjectStaticWebAssets">
     <ItemGroup>
       <Content Include="$(MSBuildThisFileDirectory)wwwroot\cgscript-cm6.js" />
     </ItemGroup>
   </Target>
 
 </Project>
+

@@ -198,10 +198,6 @@ public partial class CgScriptLanguageTarget
       return new MarkupContent { Kind = MarkupKind.PlainText, Value = plain };
    }
 
-   private static string BuildParamList(FunctionParam[]? parameters)
-      => parameters is null ? string.Empty
-         : string.Join(", ", parameters.Select(p => $"{p.ConstantType} {p.Name}{(p.IsOptional ? "?" : "")}"));
-
    private static string BuildVariantParamList(FunctionVariantParam[]? parameters)
       => parameters is null ? string.Empty
          : string.Join(", ", parameters.Select(p => $"{p.Type} {p.Name}"));
@@ -218,102 +214,69 @@ public partial class CgScriptLanguageTarget
       => "**⚠ Deprecated**" + (obsoleteDoc is null ? "" : $"\n\n{obsoleteDoc}") + "\n\n";
 
    private static string GetFunctionReturnType(FunctionDefinition fn)
-      => fn.IsNewStyle && fn.Variants?.Length > 0 ? fn.Variants[0].ReturnType : fn.ReturnType ?? string.Empty;
+      => fn.Variants?.Length > 0 ? fn.Variants[0].ReturnType : string.Empty;
 
    private static string BuildFunctionLabel(string name, FunctionDefinition fn)
    {
-      if (fn.IsNewStyle && fn.Variants?.Length > 0)
+      if (fn.Variants?.Length > 0)
       {
          var first = fn.Variants[0];
          return fn.Variants.Length == 1
             ? $"{name}({BuildVariantParamList(first.Param)})"
             : $"{name}(+{fn.Variants.Length} overloads)";
       }
-      return $"{name}({BuildParamList(fn.Parameters)})";
+      return $"{name}()";
    }
 
    /// <summary>Builds the markdown hover text for a built-in function.</summary>
    private static string BuildFunctionHover(string name, FunctionDefinition fn)
    {
-      if (fn.IsNewStyle && fn.Variants?.Length > 0)
+      if (fn.Variants is not { Length: > 0 })
+         return name;
+      bool allObsolete = fn.Variants.All(v => v.IsObsolete);
+      var sb = new System.Text.StringBuilder();
+      if (allObsolete) sb.Append("**⚠ Deprecated**\n\n");
+      bool firstEntry = true;
+      foreach (var v in fn.Variants)
       {
-         bool allObsolete = fn.Variants.All(v => v.IsObsolete);
-         var sb = new System.Text.StringBuilder();
-         if (allObsolete) sb.Append("**⚠ Deprecated**\n\n");
-         bool firstEntry = true;
-         foreach (var v in fn.Variants)
+         if (!firstEntry) sb.Append("\n\n---\n\n");
+         firstEntry = false;
+         if (v.IsObsolete && !allObsolete) sb.Append(DeprecatedPrefix(v.ObsoleteDoc));
+         else if (v.IsObsolete && v.ObsoleteDoc is not null) sb.Append($"{v.ObsoleteDoc}\n\n");
+         if (!string.IsNullOrWhiteSpace(v.Doc)) sb.Append($"{v.Doc}\n\n");
+         sb.Append($"`{v.ReturnType} {name}({BuildVariantParamList(v.Param)})`");
+         if (v.Param?.Length > 0)
          {
-            if (!firstEntry) sb.Append("\n\n---\n\n");
-            firstEntry = false;
-            if (v.IsObsolete && !allObsolete) sb.Append(DeprecatedPrefix(v.ObsoleteDoc));
-            else if (v.IsObsolete && v.ObsoleteDoc is not null) sb.Append($"{v.ObsoleteDoc}\n\n");
-            if (!string.IsNullOrWhiteSpace(v.Doc)) sb.Append($"{v.Doc}\n\n");
-            sb.Append($"`{v.ReturnType} {name}({BuildVariantParamList(v.Param)})`");
-            if (v.Param?.Length > 0)
-            {
-               sb.Append("\n\n**Parameters:**");
-               foreach (var p in v.Param)
-                  sb.Append($"\n- `{p.Type} {p.Name}` — {p.Doc}");
-            }
+            sb.Append("\n\n**Parameters:**");
+            foreach (var p in v.Param)
+               sb.Append($"\n- `{p.Type} {p.Name}` — {p.Doc}");
          }
-         return sb.ToString();
       }
-      // Old-style: no doc available, show signature + param types
-      var sig = $"`{fn.ReturnType} {name}({BuildParamList(fn.Parameters)})`";
-      if (fn.Parameters is null || fn.Parameters.Length == 0) return sig;
-      var doc = new System.Text.StringBuilder(sig);
-      doc.Append("\n\n**Parameters:**");
-      foreach (var p in fn.Parameters)
-         doc.Append($"\n- `{p.ConstantType} {p.Name}`{(p.IsOptional ? " *(optional)*" : "")}");
-      return doc.ToString();
+      return sb.ToString();
    }
 
    private static SignatureInformation[] BuildSignatureInfoList(string funcName, FunctionDefinition fn)
    {
-      if (fn.IsNewStyle && fn.Variants?.Length > 0)
+      if (fn.Variants is not { Length: > 0 })
+         return [];
+      return fn.Variants.Select(v => new SignatureInformation
       {
-         return fn.Variants.Select(v => new SignatureInformation
-         {
-            Label         = $"{v.ReturnType} {funcName}({BuildVariantParamList(v.Param)})",
-            Documentation = new SumType<string, MarkupContent>(
-               new MarkupContent { Kind = MarkupKind.Markdown, Value = v.Doc ?? string.Empty }),
-            Parameters    = (v.Param ?? []).Select(p =>
-               new ParameterInformation
-               {
-                  Label         = new SumType<string, Tuple<int, int>>($"{p.Type} {p.Name}"),
-                  Documentation = new SumType<string, MarkupContent>(p.Doc ?? string.Empty),
-               }).ToArray(),
-         }).ToArray();
-      }
-      return
-      [
-         new SignatureInformation
-         {
-            Label         = $"{fn.ReturnType} {funcName}({BuildParamList(fn.Parameters)})",
-            Documentation = new SumType<string, MarkupContent>(
-               new MarkupContent { Kind = MarkupKind.Markdown, Value = BuildFunctionHover(funcName, fn) }),
-            Parameters    = (fn.Parameters ?? []).Select(p =>
-               new ParameterInformation
-               {
-                  Label         = new SumType<string, Tuple<int, int>>($"{p.ConstantType} {p.Name}"),
-                  Documentation = new SumType<string, MarkupContent>(p.IsOptional ? "(optional)" : string.Empty),
-               }).ToArray(),
-         },
-      ];
+         Label         = $"{v.ReturnType} {funcName}({BuildVariantParamList(v.Param)})",
+         Documentation = new SumType<string, MarkupContent>(
+            new MarkupContent { Kind = MarkupKind.Markdown, Value = v.Doc ?? string.Empty }),
+         Parameters    = (v.Param ?? []).Select(p =>
+            new ParameterInformation
+            {
+               Label         = new SumType<string, Tuple<int, int>>($"{p.Type} {p.Name}"),
+               Documentation = new SumType<string, MarkupContent>(p.Doc ?? string.Empty),
+            }).ToArray(),
+      }).ToArray();
    }
 
    private static string BuildFunctionDoc(FunctionDefinition fn)
-   {
-      if (fn.IsNewStyle && fn.Variants?.Length > 0)
-         return string.Join("\n\n---\n\n", fn.Variants.Select(v => v.Doc ?? string.Empty));
-      if (fn.Parameters is null || fn.Parameters.Length == 0) return $"Returns {fn.ReturnType}";
-      var sb = new System.Text.StringBuilder();
-      sb.AppendLine($"Returns {fn.ReturnType}");
-      sb.AppendLine("Parameters:");
-      foreach (var p in fn.Parameters)
-         sb.AppendLine($"  {p.Name} : {p.ConstantType}{(p.IsOptional ? " (optional)" : "")}");
-      return sb.ToString();
-   }
+      => fn.Variants?.Length > 0
+         ? string.Join("\n\n---\n\n", fn.Variants.Select(v => v.Doc ?? string.Empty))
+         : string.Empty;
 
    /// <summary>
    /// Builds the markdown hover text for an enum-derived constant.

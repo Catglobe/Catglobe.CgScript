@@ -236,7 +236,7 @@ public partial class CgScriptLanguageTarget
       {
          if (all || name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
          {
-            bool fnObsolete = fn.IsNewStyle && fn.Variants?.Length > 0 && fn.Variants.All(v => v.IsObsolete);
+            bool fnObsolete = fn.Variants?.Length > 0 && fn.Variants.All(v => v.IsObsolete);
             items.Add(new CompletionItem
             {
                Label         = BuildFunctionLabel(name, fn),

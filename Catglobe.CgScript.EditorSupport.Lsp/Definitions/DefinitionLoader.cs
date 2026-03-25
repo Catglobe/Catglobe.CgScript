@@ -6,21 +6,10 @@ namespace Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 
 // ── JSON model for CgScriptFunctionDefinitions.json ───────────────────────────
 
-public sealed record FunctionParam(
-   string Name,
-   bool IsOptional,
-   string ConstantType,
-   string EnumType,
-   string ObjectType,
-   bool IsAllowedEmpty,
-   bool IsInteger,
-   bool IsPositive);
-
 /// <summary>One variant/overload in a new-style function definition.</summary>
 public sealed record FunctionVariantParam(string Name, string Doc, string Type);
 
 public sealed record FunctionVariant(
-   string                Name,
    string?               Doc,
    FunctionVariantParam[]? Param,
    string                ReturnType,
@@ -28,13 +17,6 @@ public sealed record FunctionVariant(
    string?               ObsoleteDoc = null);
 
 public sealed record FunctionDefinition(
-   string           Name,
-   // Old-style fields (IsNewStyle == false)
-   string?          ReturnType,
-   int              NumberOfRequiredArguments,
-   FunctionParam[]? Parameters,
-   // New-style fields (IsNewStyle == true)
-   bool             IsNewStyle,
    FunctionVariant[]? Variants);
 
 // ── JSON model for CgScriptObjectDefinitions.json ────────────────────────────
@@ -53,7 +35,6 @@ public sealed record PropertyDefinition(
    string? ObsoleteDoc = null);
 
 public sealed record ObjectDefinition(
-   string Name,
    string? Doc,
    MethodDefinition[]? Constructors,
    MethodDefinition[]? Methods,
@@ -66,11 +47,10 @@ public sealed record EnumValueDefinition(string Name, string? Doc, int Value, bo
 
 /// <summary>
 /// A CgScript enum type (e.g. ColorCGO.Constants with [Cg("COLOR",…)]).
-/// <see cref="Name"/> is the unique display name (e.g. "ColorCGO");
 /// <see cref="Prefix"/> is the constant-name prefix (e.g. "COLOR_");
 /// the values already carry the full prefixed name (e.g. "COLOR_RED").
 /// </summary>
-public sealed record EnumDefinition(string Name, string Prefix, string? Doc, EnumValueDefinition[] Values);
+public sealed record EnumDefinition(string Prefix, string? Doc, EnumValueDefinition[] Values);
 
 // ── Combined payload ──────────────────────────────────────────────────────────
 

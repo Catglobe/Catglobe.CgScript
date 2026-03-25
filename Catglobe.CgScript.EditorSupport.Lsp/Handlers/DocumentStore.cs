@@ -161,38 +161,23 @@ public sealed class DocumentStore
       foreach (var kvp in functions)
       {
          var def = kvp.Value;
-         // New-style functions have Variants (overloads) instead of Parameters.
-         if (def.IsNewStyle && def.Variants != null)
+         if (def.Variants == null) continue;
+         var overloads    = new List<IReadOnlyList<string>>(def.Variants.Length);
+         bool allObsolete  = def.Variants.Length > 0;
+         string? obsoleteDoc = null;
+         foreach (var variant in def.Variants)
          {
-            var overloads    = new List<IReadOnlyList<string>>(def.Variants.Length);
-            bool allObsolete  = def.Variants.Length > 0;
-            string? obsoleteDoc = null;
-            foreach (var variant in def.Variants)
-            {
-               var paramTypes = new List<string>(variant.Param?.Length ?? 0);
-               if (variant.Param != null)
-                  foreach (var p in variant.Param)
-                     paramTypes.Add(p.Type ?? "");
-               overloads.Add(paramTypes);
-               if (!variant.IsObsolete)
-                  allObsolete = false;
-               else
-                  obsoleteDoc ??= variant.ObsoleteDoc;
-            }
-            result[kvp.Key] = new FunctionInfo(overloads, isObsolete: allObsolete, obsoleteDoc: obsoleteDoc);
-            continue;
+            var paramTypes = new List<string>(variant.Param?.Length ?? 0);
+            if (variant.Param != null)
+               foreach (var p in variant.Param)
+                  paramTypes.Add(p.Type ?? "");
+            overloads.Add(paramTypes);
+            if (!variant.IsObsolete)
+               allObsolete = false;
+            else
+               obsoleteDoc ??= variant.ObsoleteDoc;
          }
-
-         // Skip old-style functions with no parameter information — their runtime
-         // signature is null, so def.Parameters is empty.  We have nothing to
-         // validate against and must not emit CGS022.
-         if (def.Parameters == null || def.Parameters.Length == 0) continue;
-
-         var paramInfos = new List<FunctionParamInfo>(def.Parameters.Length);
-         foreach (var p in def.Parameters)
-            paramInfos.Add(new FunctionParamInfo(p.ConstantType, p.ObjectType));
-
-         result[kvp.Key] = new FunctionInfo(def.ReturnType, def.NumberOfRequiredArguments, paramInfos);
+         result[kvp.Key] = new FunctionInfo(overloads, isObsolete: allObsolete, obsoleteDoc: obsoleteDoc);
       }
       return result;
    }
@@ -204,7 +189,7 @@ public sealed class DocumentStore
       foreach (var kvp in functions)
       {
          var def = kvp.Value;
-         if (def.IsNewStyle && def.Variants != null && def.Variants.Length > 0
+         if (def.Variants != null && def.Variants.Length > 0
              && def.Variants.All(v => v.IsObsolete))
             result[kvp.Key] = def.Variants.Select(v => v.ObsoleteDoc).FirstOrDefault(d => d != null);
       }

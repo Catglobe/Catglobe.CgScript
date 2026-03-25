@@ -1123,8 +1123,9 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             var funcName = primary.IDENTIFIER().Symbol.Text;
             if (_functionDefinitions != null && _functionDefinitions.TryGetValue(funcName, out var info))
             {
-               var rt = info.ReturnType;
-               return string.IsNullOrEmpty(rt) || rt == "Empty" ? null : rt;
+               // Return type inference from built-in functions is not available in FunctionInfo
+               // (it lives in FunctionDefinition.Variants[n].ReturnType, not passed to SemanticAnalyzer).
+               return null;
             }
          }
          return null;
@@ -1278,54 +1279,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// For new-style functions with variants, checks whether any variant accepts the call.
    /// </summary>
    private static bool IsCallValid(FunctionInfo funcInfo, string?[] argTypes)
-   {
-      // New-style functions: check if any variant (overload) accepts the arguments.
-      // Uses exact arg-count matching, mirroring the interpreter's FindRightOverLoad.
-      if (funcInfo.Variants != null)
-         return IsAnyVariantValid(funcInfo.Variants, argTypes);
-
-      if (argTypes.Length < funcInfo.NumberOfRequiredArguments)
-         return false;
-      // No parameter definitions available — can only enforce minimum arity (above).
-      // Treating as valid avoids false-positive CGS022 on functions whose signatures
-      // are unknown (e.g. old-style built-ins with empty parameter lists).
-      if (funcInfo.Parameters.Count == 0)
-         return true;
-      if (argTypes.Length > funcInfo.Parameters.Count)
-         return false;
-
-      for (var i = 0; i < argTypes.Length; i++)
-      {
-         if (i >= funcInfo.Parameters.Count) break;
-         if (!IsArgCompatible(argTypes[i], funcInfo.Parameters[i]))
-            return false;
-      }
-      return true;
-   }
-
-   private static bool IsArgCompatible(string? argType, FunctionParamInfo param)
-   {
-      if (argType == null) return true; // can't infer → don't report false positive
-      return param.ConstantType switch
-      {
-         "Number"  => argType == "Number",
-         "String"  => argType == "String",
-         "Boolean" => argType == "Boolean",
-         "Function"=> argType == "Function",
-         "Array"   => IsArrayArgCompatible(argType, param.ObjectType),
-         _         => true, // unknown param type → allow
-      };
-   }
-
-   private static bool IsArrayArgCompatible(string argType, string objectType)
-   {
-      // Generic array or any class name is acceptable for an Array parameter
-      if (argType == "Array") return true;
-      if (IsPrimitive(argType)) return false;
-      // Specific class name: check case-insensitively against the expected object sub-type
-      if (objectType == "NONE") return true;
-      return string.Equals(argType, objectType, StringComparison.OrdinalIgnoreCase);
-   }
+      => IsAnyVariantValid(funcInfo.Variants, argTypes);
 
    /// <summary>
    /// Returns <c>true</c> when at least one overload accepts the given argument types.

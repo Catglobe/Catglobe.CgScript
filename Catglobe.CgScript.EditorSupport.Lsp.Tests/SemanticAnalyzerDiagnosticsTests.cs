@@ -224,13 +224,7 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       var funcDefs = new Dictionary<string, FunctionInfo>
       {
-         ["DateTime_addDays"] = new FunctionInfo(
-            returnType:                  "Array",
-            numberOfRequiredArguments:   2,
-            parameters: [
-               new FunctionParamInfo("Array",  "DATETIME"),
-               new FunctionParamInfo("Number", "NONE"),
-            ]),
+         ["DateTime_addDays"] = new FunctionInfo([["Array", "Number"]]),
       };
 
       var diags = Analyze(
@@ -247,20 +241,11 @@ public class SemanticAnalyzerDiagnosticsTests
    [Fact]
    public void FunctionCalledWithCorrectArgs_NoCGS022()
    {
-      var getDateTimeFuncInfo = new FunctionInfo(
-         returnType:                "Array",
-         numberOfRequiredArguments: 0,
-         parameters:                []);
+      var getDateTimeFuncInfo = new FunctionInfo([[]]);
 
       var funcDefs = new Dictionary<string, FunctionInfo>
       {
-         ["DateTime_addDays"] = new FunctionInfo(
-            returnType:                  "Array",
-            numberOfRequiredArguments:   2,
-            parameters: [
-               new FunctionParamInfo("Array",  "DATETIME"),
-               new FunctionParamInfo("Number", "NONE"),
-            ]),
+         ["DateTime_addDays"] = new FunctionInfo([["Array", "Number"]]),
          ["getDateTime"] = getDateTimeFuncInfo,
       };
 
@@ -277,10 +262,7 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       var funcDefs = new Dictionary<string, FunctionInfo>
       {
-         ["myFunc"] = new FunctionInfo(
-            returnType:                  "Number",
-            numberOfRequiredArguments:   1,
-            parameters: [new FunctionParamInfo("Number", "NONE")]),
+         ["myFunc"] = new FunctionInfo([["Number"]]),
       };
 
       var diags = Analyze(
@@ -398,10 +380,7 @@ public class SemanticAnalyzerDiagnosticsTests
       // Error message must say "No overload of 'X' matches (...)", not "Doesn't has X with format (...)"
       var funcDefs = new Dictionary<string, FunctionInfo>
       {
-         ["myFunc"] = new FunctionInfo(
-            returnType:                  "Number",
-            numberOfRequiredArguments:   1,
-            parameters: [new FunctionParamInfo("Number", "NONE")]),
+         ["myFunc"] = new FunctionInfo([["Number"]]),
       };
 
       var diags = Analyze(

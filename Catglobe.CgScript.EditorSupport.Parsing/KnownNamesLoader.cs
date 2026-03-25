@@ -32,9 +32,8 @@ public static class KnownNamesLoader
    public static IReadOnlyList<string> GlobalVariableNames { get; } = LoadObjectKeys("globalVariables");
 
    /// <summary>
-   /// Full function definitions for old-style built-in functions, keyed by function name.
+   /// Full function definitions for built-in functions, keyed by function name.
    /// Used by <see cref="SemanticAnalyzer"/> to validate call argument types.
-   /// New-style functions (with variants/overloads) are excluded.
    /// </summary>
    public static IReadOnlyDictionary<string, FunctionInfo> FunctionDefinitions { get; } = LoadFunctionDefinitions();
 
@@ -105,49 +104,24 @@ public static class KnownNamesLoader
 
       foreach (var funcProp in functionsElement.EnumerateObject())
       {
-         // New-style functions have variants (overloads) instead of parameters.
-         if (funcProp.Value.TryGetProperty("isNewStyle", out var isNewStyleEl) && isNewStyleEl.GetBoolean()
-             && funcProp.Value.TryGetProperty("variants", out var variantsEl))
-         {
-            var overloads   = new List<IReadOnlyList<string>>();
-            bool allObsolete = true;
-            bool hasVariants = false;
-            foreach (var variant in variantsEl.EnumerateArray())
-            {
-               var paramTypes = new List<string>();
-               if (variant.TryGetProperty("param", out var paramEl))
-                  foreach (var p in paramEl.EnumerateArray())
-                     paramTypes.Add(p.TryGetProperty("type", out var t) ? t.GetString() ?? "" : "");
-               overloads.Add(paramTypes);
-               hasVariants = true;
-               if (!(variant.TryGetProperty("isObsolete", out var obsEl) && obsEl.GetBoolean()))
-                  allObsolete = false;
-            }
-            result[funcProp.Name] = new FunctionInfo(overloads, isObsolete: hasVariants && allObsolete);
-            continue;
-         }
-
-         var returnType  = funcProp.Value.TryGetProperty("returnType",                 out var rt)  ? rt.GetString() : null;
-         var numRequired = funcProp.Value.TryGetProperty("numberOfRequiredArguments",   out var nra) ? nra.GetInt32() : 0;
-
-         var paramInfos = new List<FunctionParamInfo>();
-         if (funcProp.Value.TryGetProperty("parameters", out var paramsEl))
-         {
-            foreach (var p in paramsEl.EnumerateArray())
-            {
-               var constantType = p.TryGetProperty("constantType", out var ct) ? ct.GetString() ?? "" : "";
-               var objectType   = p.TryGetProperty("objectType",   out var ot) ? ot.GetString() ?? "NONE" : "NONE";
-               paramInfos.Add(new FunctionParamInfo(constantType, objectType));
-            }
-         }
-
-         // Skip functions with no parameter information.  Old-style functions whose
-         // runtime signature is null also produce an empty array.
-         // We have nothing to validate against and must not emit CGS022.
-         if (paramInfos.Count == 0)
+         if (!funcProp.Value.TryGetProperty("variants", out var variantsEl))
             continue;
 
-         result[funcProp.Name] = new FunctionInfo(returnType, numRequired, paramInfos);
+         var overloads    = new List<IReadOnlyList<string>>();
+         bool allObsolete = true;
+         bool hasVariants = false;
+         foreach (var variant in variantsEl.EnumerateArray())
+         {
+            var paramTypes = new List<string>();
+            if (variant.TryGetProperty("param", out var paramEl))
+               foreach (var p in paramEl.EnumerateArray())
+                  paramTypes.Add(p.TryGetProperty("type", out var t) ? t.GetString() ?? "" : "");
+            overloads.Add(paramTypes);
+            hasVariants = true;
+            if (!(variant.TryGetProperty("isObsolete", out var obsEl) && obsEl.GetBoolean()))
+               allObsolete = false;
+         }
+         result[funcProp.Name] = new FunctionInfo(overloads, isObsolete: hasVariants && allObsolete);
       }
 
       return result;

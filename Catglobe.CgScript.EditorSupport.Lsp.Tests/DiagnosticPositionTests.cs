@@ -254,10 +254,7 @@ public class DiagnosticPositionTests
       // "myFunc(\"hello\");" — 'myFunc' starts at col 0, length 6
       var funcDefs = new Dictionary<string, FunctionInfo>
       {
-         ["myFunc"] = new FunctionInfo(
-            returnType:                "Number",
-            numberOfRequiredArguments: 1,
-            parameters: [new FunctionParamInfo("Number", "NONE")]),
+         ["myFunc"] = new FunctionInfo([["Number"]]),
       };
 
       var diags = Analyze(

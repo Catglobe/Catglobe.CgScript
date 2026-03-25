@@ -106,7 +106,7 @@ public class ObsoleteTests
    public void Completion_ObsoleteMethod_HasDeprecatedDetail()
    {
       var objDef = new ObjectDefinition(
-         "MyType", null,
+         null,
          Constructors: null,
          Methods: [new MethodDefinition("OldMethod", "Old doc", null, "void", IsObsolete: true)],
          StaticMethods: null,
@@ -132,7 +132,7 @@ public class ObsoleteTests
    public void Completion_NonObsoleteMethod_NoDeprecatedDetail()
    {
       var objDef = new ObjectDefinition(
-         "MyType", null,
+         null,
          Constructors: null,
          Methods: [new MethodDefinition("NewMethod", "New doc", null, "void", IsObsolete: false)],
          StaticMethods: null,
@@ -158,7 +158,7 @@ public class ObsoleteTests
    public void Completion_ObsoleteProperty_HasDeprecatedDetail()
    {
       var objDef = new ObjectDefinition(
-         "MyType", null,
+         null,
          Constructors: null,
          Methods: null,
          StaticMethods: null,
@@ -184,7 +184,7 @@ public class ObsoleteTests
    public void Hover_ObsoleteProperty_ShowsDeprecatedWarning()
    {
       var objDef = new ObjectDefinition(
-         "MyType", null,
+         null,
          Constructors: null,
          Methods: null,
          StaticMethods: null,
@@ -209,7 +209,7 @@ public class ObsoleteTests
    public void Hover_ObsoleteMethod_ShowsDeprecatedWarning()
    {
       var objDef = new ObjectDefinition(
-         "MyType", null,
+         null,
          Constructors: null,
          Methods: [new MethodDefinition("OldMethod", "Old method", null, "void", IsObsolete: true)],
          StaticMethods: null,
@@ -319,7 +319,7 @@ public class ObsoleteTests
    public void Hover_ObsoleteEnumConstant_ShowsDeprecatedWarning()
    {
       var enumDef = new EnumDefinition(
-         "TEST", "TEST_", null,
+         "TEST_", null,
          Values: [new EnumValueDefinition("TEST_OLD", "old value", 1, IsObsolete: true)]);
 
       var defs = BuildDefinitions(enums: new Dictionary<string, EnumDefinition>
@@ -341,7 +341,7 @@ public class ObsoleteTests
    public void Completion_ObsoleteEnumConstant_HasDeprecatedDetail()
    {
       var enumDef = new EnumDefinition(
-         "TEST", "TEST_", null,
+         "TEST_", null,
          Values: [new EnumValueDefinition("TEST_OLD", "old value", 1, IsObsolete: true)]);
 
       var defs = BuildDefinitions(enums: new Dictionary<string, EnumDefinition>
