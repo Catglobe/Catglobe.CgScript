@@ -37,9 +37,6 @@ jobs:
           node-version: 'lts/*'
       - name: Install dependencies
         run: npm clean-install
-      - name: Install CodeMirror package dependencies
-        run: npm clean-install
-        working-directory: Catglobe.CgScript.EditorSupport.CodeMirror.AspNet
       - name: Test
         run: dotnet test
       - name: NuGet login (OIDC → temp API key)
