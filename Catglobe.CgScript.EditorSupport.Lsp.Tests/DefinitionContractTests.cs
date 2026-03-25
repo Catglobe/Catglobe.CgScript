@@ -1,11 +1,11 @@
 using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
-using System.Text;
 
 namespace Catglobe.CgScript.EditorSupport.Lsp.Tests;
 
 /// <summary>
-/// Contract tests: every required field in the embedded CgScriptDefinitions.json
-/// must be non-null.  ObsoleteDoc is intentionally optional and is not checked.
+/// Verifies that the embedded CgScriptDefinitions.json deserialises without any
+/// null values in fields that the records declare as non-nullable.
+/// ObsoleteDoc is intentionally optional and is not checked.
 /// </summary>
 public class DefinitionContractTests
 {
@@ -14,60 +14,50 @@ public class DefinitionContractTests
    [Fact]
    public void Functions_AllVariants_HaveRequiredFields()
    {
-      var violations = new StringBuilder();
-      foreach (var (name, fn) in _defs.Functions)
+      Assert.All(_defs.Functions, kvp =>
       {
-         var variants = fn.Variants;
-         if (variants == null) { violations.AppendLine($"functions[{name}].variants is null"); continue; }
-         for (var i = 0; i < variants.Length; i++)
+         Assert.NotNull(kvp.Value.Variants);
+         Assert.All(kvp.Value.Variants, v =>
          {
-            var v = variants[i];
-            if (v.Doc        == null) violations.AppendLine($"functions[{name}].variants[{i}].doc is null");
-            if (v.Param      == null) violations.AppendLine($"functions[{name}].variants[{i}].param is null");
-            if (v.ReturnType == null) violations.AppendLine($"functions[{name}].variants[{i}].returnType is null");
-         }
-      }
-      Assert.True(violations.Length == 0, $"Required fields are null:\n{violations}");
+            Assert.NotNull(v.Doc);
+            Assert.NotNull(v.Param);
+            Assert.NotNull(v.ReturnType);
+         });
+      });
    }
 
    [Fact]
    public void Objects_AllMembers_HaveRequiredFields()
    {
-      var violations = new StringBuilder();
-      foreach (var (typeName, obj) in _defs.Objects)
+      Assert.All(_defs.Objects, kvp =>
       {
-         if (obj.Doc          == null) violations.AppendLine($"objects[{typeName}].doc is null");
-         if (obj.Constructors == null) violations.AppendLine($"objects[{typeName}].constructors is null");
-         if (obj.Methods      == null) violations.AppendLine($"objects[{typeName}].methods is null");
-         if (obj.StaticMethods == null) violations.AppendLine($"objects[{typeName}].staticMethods is null");
-         if (obj.Properties   == null) violations.AppendLine($"objects[{typeName}].properties is null");
-
-         foreach (var m in (obj.Constructors ?? []).Concat(obj.Methods ?? []).Concat(obj.StaticMethods ?? []))
+         var obj = kvp.Value;
+         Assert.NotNull(obj.Doc);
+         Assert.NotNull(obj.Constructors);
+         Assert.NotNull(obj.Methods);
+         Assert.NotNull(obj.StaticMethods);
+         Assert.NotNull(obj.Properties);
+         Assert.All(obj.Constructors.Concat(obj.Methods).Concat(obj.StaticMethods), m =>
          {
-            if (m.Doc        == null) violations.AppendLine($"objects[{typeName}].method[{m.Name}].doc is null");
-            if (m.Param      == null) violations.AppendLine($"objects[{typeName}].method[{m.Name}].param is null");
-            if (m.ReturnType == null) violations.AppendLine($"objects[{typeName}].method[{m.Name}].returnType is null");
-         }
-
-         foreach (var p in obj.Properties ?? [])
+            Assert.NotNull(m.Doc);
+            Assert.NotNull(m.Param);
+            Assert.NotNull(m.ReturnType);
+         });
+         Assert.All(obj.Properties, p =>
          {
-            if (p.Doc        == null) violations.AppendLine($"objects[{typeName}].property[{p.Name}].doc is null");
-            if (p.ReturnType == null) violations.AppendLine($"objects[{typeName}].property[{p.Name}].returnType is null");
-         }
-      }
-      Assert.True(violations.Length == 0, $"Required fields are null:\n{violations}");
+            Assert.NotNull(p.Doc);
+            Assert.NotNull(p.ReturnType);
+         });
+      });
    }
 
    [Fact]
    public void Enums_AllValues_HaveRequiredFields()
    {
-      var violations = new StringBuilder();
-      foreach (var (enumName, enumDef) in _defs.Enums)
+      Assert.All(_defs.Enums, kvp =>
       {
-         if (enumDef.Doc == null) violations.AppendLine($"enums[{enumName}].doc is null");
-         foreach (var v in enumDef.Values)
-            if (v.Doc == null) violations.AppendLine($"enums[{enumName}].values[{v.Name}].doc is null");
-      }
-      Assert.True(violations.Length == 0, $"Required fields are null:\n{violations}");
+         Assert.NotNull(kvp.Value.Doc);
+         Assert.All(kvp.Value.Values, v => Assert.NotNull(v.Doc));
+      });
    }
 }

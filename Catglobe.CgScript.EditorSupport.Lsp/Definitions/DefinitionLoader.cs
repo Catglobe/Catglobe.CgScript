@@ -10,24 +10,24 @@ namespace Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 public sealed record FunctionVariantParam(string Name, string Doc, string Type);
 
 public sealed record FunctionVariant(
-   string?               Doc,
-   FunctionVariantParam[]? Param,
+   string                Doc,
+   FunctionVariantParam[] Param,
    string                ReturnType,
    bool                  IsObsolete = false,
    string?               ObsoleteDoc = null);
 
 public sealed record FunctionDefinition(
-   FunctionVariant[]? Variants);
+   FunctionVariant[] Variants);
 
 // ── JSON model for CgScriptObjectDefinitions.json ────────────────────────────
 
 public sealed record MethodParam(string Name, string Doc, string Type);
 
-public sealed record MethodDefinition(string Name, string? Doc, MethodParam[]? Param, string ReturnType, bool IsObsolete = false, string? ObsoleteDoc = null);
+public sealed record MethodDefinition(string Name, string Doc, MethodParam[] Param, string ReturnType, bool IsObsolete = false, string? ObsoleteDoc = null);
 
 public sealed record PropertyDefinition(
    string Name,
-   string? Doc,
+   string Doc,
    bool HasGetter,
    bool HasSetter,
    string ReturnType,
@@ -35,22 +35,22 @@ public sealed record PropertyDefinition(
    string? ObsoleteDoc = null);
 
 public sealed record ObjectDefinition(
-   string? Doc,
-   MethodDefinition[]? Constructors,
-   MethodDefinition[]? Methods,
-   MethodDefinition[]? StaticMethods,
-   PropertyDefinition[]? Properties);
+   string Doc,
+   MethodDefinition[] Constructors,
+   MethodDefinition[] Methods,
+   MethodDefinition[] StaticMethods,
+   PropertyDefinition[] Properties);
 
 // ── JSON model for enums ──────────────────────────────────────────────────────
 
-public sealed record EnumValueDefinition(string Name, string? Doc, int Value, bool IsObsolete, string? ObsoleteDoc = null);
+public sealed record EnumValueDefinition(string Name, string Doc, int Value, bool IsObsolete, string? ObsoleteDoc = null);
 
 /// <summary>
 /// A CgScript enum type (e.g. ColorCGO.Constants with [Cg("COLOR",…)]).
 /// <see cref="Prefix"/> is the constant-name prefix (e.g. "COLOR_");
 /// the values already carry the full prefixed name (e.g. "COLOR_RED").
 /// </summary>
-public sealed record EnumDefinition(string Prefix, string? Doc, EnumValueDefinition[] Values);
+public sealed record EnumDefinition(string Prefix, string Doc, EnumValueDefinition[] Values);
 
 // ── Combined payload ──────────────────────────────────────────────────────────
 
