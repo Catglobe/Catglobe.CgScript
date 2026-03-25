@@ -82,3 +82,4 @@ CGS025 | CgScript | Error    | No matching indexer overload
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 CGS026 | CgScript | Warning  | Use of obsolete symbol
+CGS000 | CgScript | Error    | Internal LSP error

@@ -71,8 +71,8 @@ public class ObsoleteTests
       IEnumerable<string>? objects         = null,
       IEnumerable<string>? constants       = null,
       IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions = null,
-      IEnumerable<string>? obsoleteFunctions = null,
-      IEnumerable<string>? obsoleteConstants  = null)
+      IReadOnlyDictionary<string, string?>? obsoleteFunctions = null,
+      IReadOnlyDictionary<string, string?>? obsoleteConstants  = null)
    {
       var result = CgScriptParseService.Parse(source);
       return SemanticAnalyzer.Analyze(
@@ -236,7 +236,7 @@ public class ObsoleteTests
       var diags = AnalyzeDirect(
          "oldFunc();",
          functions:         ["oldFunc"],
-         obsoleteFunctions: ["oldFunc"]);
+         obsoleteFunctions: new Dictionary<string, string?> { ["oldFunc"] = null });
 
       Assert.Contains(diags, d => d.Code == "CGS026" && d.Message.Contains("oldFunc"));
    }
@@ -262,7 +262,7 @@ public class ObsoleteTests
          "number x = OLD_CONST; print(x);",
          functions:         ["print"],
          constants:         ["OLD_CONST"],
-         obsoleteConstants: ["OLD_CONST"]);
+         obsoleteConstants: new Dictionary<string, string?> { ["OLD_CONST"] = null });
 
       Assert.Contains(diags, d => d.Code == "CGS026" && d.Message.Contains("OLD_CONST"));
    }
@@ -275,7 +275,7 @@ public class ObsoleteTests
       var members = new ObjectMemberInfo(
          new Dictionary<string, bool> { ["OldProp"] = false },
          methodNames: [],
-         obsoletePropertyNames: ["OldProp"]);
+         obsoletePropertyNames: new Dictionary<string, string?> { ["OldProp"] = null });
 
       var objDefs = new Dictionary<string, ObjectMemberInfo>
       {
@@ -298,7 +298,7 @@ public class ObsoleteTests
       var members = new ObjectMemberInfo(
          properties:  new Dictionary<string, bool>(),
          methodNames: ["OldMethod"],
-         obsoleteMethodNames: ["OldMethod"]);
+         obsoleteMethodNames: new Dictionary<string, string?> { ["OldMethod"] = null });
 
       var objDefs = new Dictionary<string, ObjectMemberInfo>
       {

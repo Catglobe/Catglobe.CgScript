@@ -15,7 +15,6 @@
   <Project Path="Catglobe.CgScript.Deployment/Catglobe.CgScript.Deployment.csproj" />
   <Project Path="Catglobe.CgScript.EditorSupport.Lsp.Server/Catglobe.CgScript.EditorSupport.Lsp.Server.csproj" />
   <Project Path="Catglobe.CgScript.EditorSupport.CodeMirror.AspNet/Catglobe.CgScript.EditorSupport.CodeMirror.AspNet.csproj" />
-  <Project Path="Catglobe.CgScript.EditorSupport.CodeMirror/Catglobe.CgScript.EditorSupport.CodeMirror.csproj" />
   <Project Path="Catglobe.CgScript.EditorSupport.Lsp/Catglobe.CgScript.EditorSupport.Lsp.csproj" />
   <Project Path="Catglobe.CgScript.EditorSupport.Parsing/Catglobe.CgScript.EditorSupport.Parsing.csproj" />
   <Project Path="Catglobe.CgScript.EditorSupport.SourceGenerator/Catglobe.CgScript.EditorSupport.SourceGenerator.csproj" />

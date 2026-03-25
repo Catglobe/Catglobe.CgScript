@@ -105,8 +105,9 @@ public partial class CgScriptLanguageTarget
                Documentation = new SumType<string, MarkupContent>(new MarkupContent
                {
                   Kind  = MarkupKind.Markdown,
-                  Value = (allObsolete ? "**⚠ Deprecated**\n\n" : "") + string.Join("\n\n---\n\n", overloads.Select(m =>
-                     (string.IsNullOrWhiteSpace(m.Doc) ? "" : $"{m.Doc}\n\n") + $"`{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param)})`")),
+                  Value = (allObsolete ? DeprecatedPrefix(first.ObsoleteDoc) : "") + string.Join("\n\n---\n\n", overloads.Select(m =>
+                     (m.IsObsolete && !allObsolete ? DeprecatedPrefix(m.ObsoleteDoc) : "")
+                     + (string.IsNullOrWhiteSpace(m.Doc) ? "" : $"{m.Doc}\n\n") + $"`{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param)})`")),
                }),
             });
          }
@@ -125,7 +126,7 @@ public partial class CgScriptLanguageTarget
                Documentation = new SumType<string, MarkupContent>(new MarkupContent
                {
                   Kind  = MarkupKind.Markdown,
-                  Value = (prop.IsObsolete ? "**⚠ Deprecated**\n\n" : "")
+                  Value = (prop.IsObsolete ? DeprecatedPrefix(prop.ObsoleteDoc) : "")
                           + (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n")
                           + $"`{prop.ReturnType} {prop.Name}`",
                }),

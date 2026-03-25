@@ -61,7 +61,7 @@ public partial class CgScriptLanguageTarget
                return new Hover
                {
                   Contents = HoverContent(
-                     (prop.IsObsolete ? "**⚠ Deprecated**\n\n" : "")
+                     (prop.IsObsolete ? DeprecatedPrefix(prop.ObsoleteDoc) : "")
                      + (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n")
                      + $"`{prop.ReturnType} {prop.Name}`"),
                };
@@ -80,7 +80,8 @@ public partial class CgScriptLanguageTarget
             {
                if (!firstEntry) sb.Append("\n\n---\n\n");
                firstEntry = false;
-               if (m.IsObsolete && !allMethodsObsolete) sb.Append("**⚠ Deprecated**\n\n");
+               if (m.IsObsolete && !allMethodsObsolete) sb.Append(DeprecatedPrefix(m.ObsoleteDoc));
+               else if (m.IsObsolete && m.ObsoleteDoc is not null) sb.Append($"{m.ObsoleteDoc}\n\n");
                if (!string.IsNullOrWhiteSpace(m.Doc)) sb.Append($"{m.Doc}\n\n");
                sb.Append($"`{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param ?? [])})`");
                if (m.Param?.Length > 0)
@@ -113,9 +114,15 @@ public partial class CgScriptLanguageTarget
          if (!string.IsNullOrWhiteSpace(obj.Doc)) sb.Append(obj.Doc);
          if (obj.Constructors?.Length > 0)
          {
+            bool allCtorsObsolete = obj.Constructors.All(c => c.IsObsolete);
+            bool firstCtor = true;
             foreach (var ctor in obj.Constructors)
             {
                if (sb.Length > 0) sb.Append("\n\n---\n\n");
+               if (firstCtor && allCtorsObsolete) sb.Append("**⚠ Deprecated**\n\n");
+               firstCtor = false;
+               if (ctor.IsObsolete && !allCtorsObsolete) sb.Append(DeprecatedPrefix(ctor.ObsoleteDoc));
+               else if (ctor.IsObsolete && ctor.ObsoleteDoc is not null) sb.Append($"{ctor.ObsoleteDoc}\n\n");
                if (!string.IsNullOrWhiteSpace(ctor.Doc)) sb.Append($"{ctor.Doc}\n\n");
                sb.Append($"`new {word}({BuildMethodParamList(ctor.Param)})`");
                if (ctor.Param?.Length > 0)
@@ -203,6 +210,13 @@ public partial class CgScriptLanguageTarget
       => parameters is null ? string.Empty
          : string.Join(", ", parameters.Select(p => $"{p.Type} {p.Name}"));
 
+   /// <summary>
+   /// Returns the markdown prefix for a deprecated item.
+   /// Includes the optional <paramref name="obsoleteDoc"/> as an explanatory paragraph when provided.
+   /// </summary>
+   private static string DeprecatedPrefix(string? obsoleteDoc)
+      => "**⚠ Deprecated**" + (obsoleteDoc is null ? "" : $"\n\n{obsoleteDoc}") + "\n\n";
+
    private static string GetFunctionReturnType(FunctionDefinition fn)
       => fn.IsNewStyle && fn.Variants?.Length > 0 ? fn.Variants[0].ReturnType : fn.ReturnType ?? string.Empty;
 
@@ -231,7 +245,8 @@ public partial class CgScriptLanguageTarget
          {
             if (!firstEntry) sb.Append("\n\n---\n\n");
             firstEntry = false;
-            if (v.IsObsolete && !allObsolete) sb.Append("**⚠ Deprecated**\n\n");
+            if (v.IsObsolete && !allObsolete) sb.Append(DeprecatedPrefix(v.ObsoleteDoc));
+            else if (v.IsObsolete && v.ObsoleteDoc is not null) sb.Append($"{v.ObsoleteDoc}\n\n");
             if (!string.IsNullOrWhiteSpace(v.Doc)) sb.Append($"{v.Doc}\n\n");
             sb.Append($"`{v.ReturnType} {name}({BuildVariantParamList(v.Param)})`");
             if (v.Param?.Length > 0)
@@ -312,7 +327,7 @@ public partial class CgScriptLanguageTarget
          return $"constant: {name}";
 
       var sb = new System.Text.StringBuilder();
-      if (entry.Value.IsObsolete) sb.Append("**⚠ Deprecated**\n\n");
+      if (entry.Value.IsObsolete) sb.Append(DeprecatedPrefix(entry.Value.ObsoleteDoc));
       if (!string.IsNullOrWhiteSpace(entry.Enum.Doc))
          sb.Append(entry.Enum.Doc);
       if (!string.IsNullOrWhiteSpace(entry.Value.Doc))
@@ -398,7 +413,11 @@ public partial class CgScriptLanguageTarget
       {
          Label         = $"new {typeName}({BuildMethodParamList(c.Param)})",
          Documentation = new SumType<string, MarkupContent>(
-            new MarkupContent { Kind = MarkupKind.Markdown, Value = c.Doc ?? string.Empty }),
+            new MarkupContent
+            {
+               Kind  = MarkupKind.Markdown,
+               Value = (c.IsObsolete ? DeprecatedPrefix(c.ObsoleteDoc) : "") + (c.Doc ?? string.Empty),
+            }),
          Parameters    = (c.Param ?? []).Select(p =>
             new ParameterInformation
             {

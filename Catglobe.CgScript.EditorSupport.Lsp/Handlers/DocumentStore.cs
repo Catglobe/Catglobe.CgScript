@@ -17,8 +17,8 @@ public sealed class DocumentStore
    private readonly DefinitionLoader _definitions;
    private readonly IReadOnlyDictionary<string, ObjectMemberInfo> _objectMemberInfos;
    private readonly IReadOnlyDictionary<string, FunctionInfo>     _functionInfos;
-   private readonly IReadOnlyCollection<string>                   _obsoleteFunctions;
-   private readonly IReadOnlyCollection<string>                   _obsoleteConstants;
+   private readonly IReadOnlyDictionary<string, string?>          _obsoleteFunctions;
+   private readonly IReadOnlyDictionary<string, string?>          _obsoleteConstants;
 
    public DocumentStore(DefinitionLoader definitions)
    {
@@ -124,7 +124,7 @@ public sealed class DocumentStore
          var def              = kvp.Value;
          var properties       = new Dictionary<string, bool>(StringComparer.Ordinal);
          var propertyRetTypes = new Dictionary<string, string>(StringComparer.Ordinal);
-         var obsoleteProps    = new List<string>();
+         var obsoleteProps    = new Dictionary<string, string?>(StringComparer.Ordinal);
          if (def.Properties != null)
             foreach (var p in def.Properties)
             {
@@ -132,18 +132,18 @@ public sealed class DocumentStore
                if (!string.IsNullOrEmpty(p.ReturnType))
                   propertyRetTypes[p.Name] = p.ReturnType;
                if (p.IsObsolete)
-                  obsoleteProps.Add(p.Name);
+                  obsoleteProps[p.Name] = p.ObsoleteDoc;
             }
 
          var methods        = new List<string>();
-         var obsoleteMethods = new List<string>();
+         var obsoleteMethods = new Dictionary<string, string?>(StringComparer.Ordinal);
          if (def.Methods != null)
             foreach (var m in def.Methods)
                if (!string.IsNullOrEmpty(m.Name))
                {
                   methods.Add(m.Name);
                   if (m.IsObsolete)
-                     obsoleteMethods.Add(m.Name);
+                     obsoleteMethods[m.Name] = m.ObsoleteDoc;
                }
 
          result[kvp.Key] = new ObjectMemberInfo(
@@ -166,6 +166,7 @@ public sealed class DocumentStore
          {
             var overloads    = new List<IReadOnlyList<string>>(def.Variants.Length);
             bool allObsolete  = def.Variants.Length > 0;
+            string? obsoleteDoc = null;
             foreach (var variant in def.Variants)
             {
                var paramTypes = new List<string>(variant.Param?.Length ?? 0);
@@ -175,8 +176,10 @@ public sealed class DocumentStore
                overloads.Add(paramTypes);
                if (!variant.IsObsolete)
                   allObsolete = false;
+               else
+                  obsoleteDoc ??= variant.ObsoleteDoc;
             }
-            result[kvp.Key] = new FunctionInfo(overloads, isObsolete: allObsolete);
+            result[kvp.Key] = new FunctionInfo(overloads, isObsolete: allObsolete, obsoleteDoc: obsoleteDoc);
             continue;
          }
 
@@ -194,28 +197,28 @@ public sealed class DocumentStore
       return result;
    }
 
-   private static IReadOnlyCollection<string> BuildObsoleteFunctions(
+   private static IReadOnlyDictionary<string, string?> BuildObsoleteFunctions(
       IReadOnlyDictionary<string, FunctionDefinition> functions)
    {
-      var result = new HashSet<string>(StringComparer.Ordinal);
+      var result = new Dictionary<string, string?>(StringComparer.Ordinal);
       foreach (var kvp in functions)
       {
          var def = kvp.Value;
          if (def.IsNewStyle && def.Variants != null && def.Variants.Length > 0
              && def.Variants.All(v => v.IsObsolete))
-            result.Add(kvp.Key);
+            result[kvp.Key] = def.Variants.Select(v => v.ObsoleteDoc).FirstOrDefault(d => d != null);
       }
       return result;
    }
 
-   private static IReadOnlyCollection<string> BuildObsoleteConstants(
+   private static IReadOnlyDictionary<string, string?> BuildObsoleteConstants(
       IReadOnlyDictionary<string, EnumDefinition> enums)
    {
-      var result = new HashSet<string>(StringComparer.Ordinal);
+      var result = new Dictionary<string, string?>(StringComparer.Ordinal);
       foreach (var enumDef in enums.Values)
          foreach (var v in enumDef.Values)
             if (v.IsObsolete)
-               result.Add(v.Name);
+               result[v.Name] = v.ObsoleteDoc;
       return result;
    }
 }

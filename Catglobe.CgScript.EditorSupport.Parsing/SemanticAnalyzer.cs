@@ -30,9 +30,9 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    // ── Function definitions for argument type/arity validation ─────────────────
    private readonly IReadOnlyDictionary<string, FunctionInfo>? _functionDefinitions;
 
-   // ── Obsolete name sets for CGS026 ────────────────────────────────────────────
-   private readonly HashSet<string> _obsoleteFunctions;
-   private readonly HashSet<string> _obsoleteConstants;
+   // ── Obsolete name maps for CGS026 (name → optional deprecation message) ────────
+   private readonly Dictionary<string, string?> _obsoleteFunctions;
+   private readonly Dictionary<string, string?> _obsoleteConstants;
 
    // ── Pass-1 result (populated before Pass 2 begins) ──────────────────────────
    private HashSet<string>         _globalVars  = new(StringComparer.Ordinal);
@@ -62,11 +62,11 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       IEnumerable<string> knownFunctions,
       IEnumerable<string> knownObjects,
       IEnumerable<string> knownConstants,
-      IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions   = null,
+      IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions    = null,
       IEnumerable<string>?                           knownGlobalVariables = null,
       IReadOnlyDictionary<string, FunctionInfo>?     functionDefinitions  = null,
-      IEnumerable<string>?                           obsoleteFunctions    = null,
-      IEnumerable<string>?                           obsoleteConstants    = null)
+      IReadOnlyDictionary<string, string?>?          obsoleteFunctions    = null,
+      IReadOnlyDictionary<string, string?>?          obsoleteConstants    = null)
    {
       _knownFunctions    = new HashSet<string>(knownFunctions, StringComparer.Ordinal);
       _knownObjects      = new HashSet<string>(knownObjects,   StringComparer.Ordinal);
@@ -76,12 +76,14 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          : new HashSet<string>(knownGlobalVariables, StringComparer.Ordinal);
       _objectDefinitions   = objectDefinitions;
       _functionDefinitions = functionDefinitions;
-      _obsoleteFunctions   = obsoleteFunctions is null
-         ? new HashSet<string>(StringComparer.Ordinal)
-         : new HashSet<string>(obsoleteFunctions, StringComparer.Ordinal);
-      _obsoleteConstants   = obsoleteConstants is null
-         ? new HashSet<string>(StringComparer.Ordinal)
-         : new HashSet<string>(obsoleteConstants, StringComparer.Ordinal);
+      _obsoleteFunctions   = new Dictionary<string, string?>(StringComparer.Ordinal);
+      if (obsoleteFunctions != null)
+         foreach (var kvp in obsoleteFunctions)
+            _obsoleteFunctions[kvp.Key] = kvp.Value;
+      _obsoleteConstants   = new Dictionary<string, string?>(StringComparer.Ordinal);
+      if (obsoleteConstants != null)
+         foreach (var kvp in obsoleteConstants)
+            _obsoleteConstants[kvp.Key] = kvp.Value;
    }
 
    // ── Static entry point ───────────────────────────────────────────────────────
@@ -107,12 +109,12 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// validate call argument types and arity.
    /// </param>
    /// <param name="obsoleteFunctions">
-   /// Optional set of function names that are marked obsolete.  Any call to one of
-   /// these functions emits CGS026.
+   /// Optional map of function names that are marked obsolete to their deprecation message
+   /// (null value = no message).  Any call to a key function emits CGS026.
    /// </param>
    /// <param name="obsoleteConstants">
-   /// Optional set of constant (enum value) names that are marked obsolete.  Any
-   /// reference to one of these constants emits CGS026.
+   /// Optional map of constant (enum value) names that are marked obsolete to their deprecation
+   /// message (null value = no message).  Any reference to a key constant emits CGS026.
    /// </param>
    public static IReadOnlyList<Diagnostic> Analyze(
       IParseTree          tree,
@@ -122,8 +124,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions   = null,
       IReadOnlyDictionary<string, string>?           globalVariableTypes = null,
       IReadOnlyDictionary<string, FunctionInfo>?     functionDefinitions = null,
-      IEnumerable<string>?                           obsoleteFunctions   = null,
-      IEnumerable<string>?                           obsoleteConstants   = null)
+      IReadOnlyDictionary<string, string?>?          obsoleteFunctions   = null,
+      IReadOnlyDictionary<string, string?>?          obsoleteConstants   = null)
    {
       // ── Pass 1: collect global declarations ──────────────────────────────────
       var collector = new ScopeCollector();
@@ -534,11 +536,11 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             }
 
             // CGS026: obsolete constant reference
-            if (_knownConstants.Contains(name) && _obsoleteConstants.Contains(name))
+            if (_knownConstants.Contains(name) && _obsoleteConstants.TryGetValue(name, out var constDoc))
             {
                _diagnostics.Add(new Diagnostic(
                   DiagnosticSeverity.Warning,
-                  $"'{name}' is obsolete",
+                  $"'{name}' is obsolete" + (constDoc is null ? "" : $": {constDoc}"),
                   token.Line,
                   token.Column,
                   token.Text.Length,
@@ -636,11 +638,11 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                else
                {
                   // CGS026: obsolete function call
-                  if (_obsoleteFunctions.Contains(token.Text))
+                  if (_obsoleteFunctions.TryGetValue(token.Text, out var fnDoc))
                   {
                      _diagnostics.Add(new Diagnostic(
                         DiagnosticSeverity.Warning,
-                        $"'{token.Text}' is obsolete",
+                        $"'{token.Text}' is obsolete" + (fnDoc is null ? "" : $": {fnDoc}"),
                         token.Line,
                         token.Column,
                         token.Text.Length,
@@ -759,11 +761,11 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                   else
                   {
                      // CGS026: obsolete method call
-                     if (members.ObsoleteMethodNames.Contains(memberName))
+                     if (members.ObsoleteMethodNames.TryGetValue(memberName, out var methodDoc))
                      {
                         _diagnostics.Add(new Diagnostic(
                            DiagnosticSeverity.Warning,
-                           $"'{baseType}.{memberName}' is obsolete",
+                           $"'{baseType}.{memberName}' is obsolete" + (methodDoc is null ? "" : $": {methodDoc}"),
                            memberIdNode.Symbol.Line,
                            memberIdNode.Symbol.Column,
                            memberName.Length,
@@ -805,11 +807,11 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                   else
                   {
                      // CGS026: obsolete property access
-                     if (members.ObsoletePropertyNames.Contains(memberName))
+                     if (members.ObsoletePropertyNames.TryGetValue(memberName, out var propDoc))
                      {
                         _diagnostics.Add(new Diagnostic(
                            DiagnosticSeverity.Warning,
-                           $"'{baseType}.{memberName}' is obsolete",
+                           $"'{baseType}.{memberName}' is obsolete" + (propDoc is null ? "" : $": {propDoc}"),
                            memberIdNode.Symbol.Line,
                            memberIdNode.Symbol.Column,
                            memberName.Length,
@@ -1375,6 +1377,24 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    {
       foreach (var variant in variants)
       {
+         // A "Params object" last parameter marks a variadic variant: accepts any number of args.
+         if (variant.Count > 0 && variant[variant.Count - 1] == "Params object")
+         {
+            var fixedCount = variant.Count - 1;
+            if (argTypes.Length < fixedCount) continue;
+            bool fixedOk = true;
+            for (var i = 0; i < fixedCount; i++)
+            {
+               if (!IsMethodArgCompatible(argTypes[i], variant[i]))
+               {
+                  fixedOk = false;
+                  break;
+               }
+            }
+            if (fixedOk) return true;
+            continue;
+         }
+
          if (argTypes.Length != variant.Count) continue; // exact count required
          if (AllArgsCompatible(variant, argTypes)) return true;
       }

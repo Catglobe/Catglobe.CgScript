@@ -113,13 +113,13 @@ public class DefinitionLoaderEnumTests
    [Fact]
    public void PlainConstant_Completion_HasNoDocumentation()
    {
-      // DATETIME_DAY is a plain constant (not enum-derived); it should not have
+      // SYSTEM_RESOURCE_ID is a plain constant (not enum-derived); it should not have
       // documentation set on the completion item.
-      var (target, uri) = CreateTarget("DATETIME_DAY");
+      var (target, uri) = CreateTarget("SYSTEM_RESOURCE_ID");
 
-      var items = GetCompletions(target, uri, prefix: "DATETIME_DAY");
+      var items = GetCompletions(target, uri, prefix: "SYSTEM_RESOURCE_ID");
 
-      var item = items.FirstOrDefault(i => i.Label == "DATETIME_DAY");
+      var item = items.FirstOrDefault(i => i.Label == "SYSTEM_RESOURCE_ID");
       Assert.NotNull(item);
       Assert.Null(item.Documentation);
    }

@@ -175,9 +175,9 @@ public static class KnownNamesLoader
       {
          var properties        = new Dictionary<string, bool>(StringComparer.Ordinal);
          var propertyRetTypes  = new Dictionary<string, string>(StringComparer.Ordinal);
-         var obsoleteProps     = new HashSet<string>(StringComparer.Ordinal);
+         var obsoleteProps     = new Dictionary<string, string?>(StringComparer.Ordinal);
          var methods           = new List<string>();
-         var obsoleteMethods   = new HashSet<string>(StringComparer.Ordinal);
+         var obsoleteMethods   = new Dictionary<string, string?>(StringComparer.Ordinal);
          List<IReadOnlyList<string>>? constructorOverloads = null;
          Dictionary<string, List<IReadOnlyList<string>>>? methodOverloads = null;
 
@@ -197,7 +197,10 @@ public static class KnownNamesLoader
                         propertyRetTypes[name] = retType;
                   }
                   if (p.TryGetProperty("isObsolete", out var obsEl) && obsEl.GetBoolean())
-                     obsoleteProps.Add(name);
+                   {
+                      var doc = p.TryGetProperty("obsoleteDoc", out var docEl) ? docEl.GetString() : null;
+                      obsoleteProps[name] = doc;
+                   }
                }
             }
          }
@@ -225,7 +228,10 @@ public static class KnownNamesLoader
                   }
                   overloads.Add(ReadParamTypes(m));
                   if (m.TryGetProperty("isObsolete", out var obsEl) && obsEl.GetBoolean())
-                     obsoleteMethods.Add(name);
+                   {
+                      var doc2 = m.TryGetProperty("obsoleteDoc", out var docEl2) ? docEl2.GetString() : null;
+                      obsoleteMethods[name] = doc2;
+                   }
                }
             }
          }

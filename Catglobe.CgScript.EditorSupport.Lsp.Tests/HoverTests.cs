@@ -166,14 +166,14 @@ public class HoverTests
    [Fact]
    public void PlainConstant_Hover_ShowsFallbackText()
    {
-      // DATETIME_DAY is a plain constant (not enum-derived); hover should show
-      // the "constant: DATETIME_DAY" fallback.
-      const string source = "DATETIME_DAY;";
+      // SYSTEM_RESOURCE_ID is a plain constant (not enum-derived); hover should show
+      // the "constant: SYSTEM_RESOURCE_ID" fallback.
+      const string source = "SYSTEM_RESOURCE_ID;";
       var (target, uri) = CreateTarget(source);
 
       var text = GetHoverText(target, uri, line: 0, character: 0);
 
       Assert.NotNull(text);
-      Assert.Contains("constant: DATETIME_DAY", text);
+      Assert.Contains("constant: SYSTEM_RESOURCE_ID", text);
    }
 }

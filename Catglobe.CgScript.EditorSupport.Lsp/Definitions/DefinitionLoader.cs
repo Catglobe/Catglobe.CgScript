@@ -24,7 +24,8 @@ public sealed record FunctionVariant(
    string?               Doc,
    FunctionVariantParam[]? Param,
    string                ReturnType,
-   bool                  IsObsolete = false);
+   bool                  IsObsolete = false,
+   string?               ObsoleteDoc = null);
 
 public sealed record FunctionDefinition(
    string           Name,
@@ -40,7 +41,7 @@ public sealed record FunctionDefinition(
 
 public sealed record MethodParam(string Name, string Doc, string Type);
 
-public sealed record MethodDefinition(string Name, string? Doc, MethodParam[]? Param, string ReturnType, bool IsObsolete = false);
+public sealed record MethodDefinition(string Name, string? Doc, MethodParam[]? Param, string ReturnType, bool IsObsolete = false, string? ObsoleteDoc = null);
 
 public sealed record PropertyDefinition(
    string Name,
@@ -48,7 +49,8 @@ public sealed record PropertyDefinition(
    bool HasGetter,
    bool HasSetter,
    string ReturnType,
-   bool IsObsolete = false);
+   bool IsObsolete = false,
+   string? ObsoleteDoc = null);
 
 public sealed record ObjectDefinition(
    string Name,
@@ -60,7 +62,7 @@ public sealed record ObjectDefinition(
 
 // ── JSON model for enums ──────────────────────────────────────────────────────
 
-public sealed record EnumValueDefinition(string Name, string? Doc, int Value, bool IsObsolete);
+public sealed record EnumValueDefinition(string Name, string? Doc, int Value, bool IsObsolete, string? ObsoleteDoc = null);
 
 /// <summary>
 /// A CgScript enum type (e.g. ColorCGO.Constants with [Cg("COLOR",…)]).

@@ -37,21 +37,30 @@ public sealed class FunctionInfo
    /// </summary>
    public bool IsObsolete { get; }
 
+   /// <summary>
+   /// Optional deprecation message to show alongside the "⚠ Deprecated" warning.
+   /// <c>null</c> when no message was provided.
+   /// </summary>
+   public string? ObsoleteDoc { get; }
+
    /// <param name="returnType">Function return type name.</param>
    /// <param name="numberOfRequiredArguments">Minimum required argument count.</param>
    /// <param name="parameters">Ordered list of parameter type info.</param>
    /// <param name="isObsolete">Whether the function is obsolete.</param>
+   /// <param name="obsoleteDoc">Optional deprecation message.</param>
    public FunctionInfo(
       string?                          returnType,
       int                              numberOfRequiredArguments,
       IReadOnlyList<FunctionParamInfo> parameters,
-      bool                             isObsolete = false)
+      bool                             isObsolete  = false,
+      string?                          obsoleteDoc = null)
    {
       ReturnType                = returnType;
       NumberOfRequiredArguments = numberOfRequiredArguments;
       Parameters                = parameters;
       Variants                  = null;
       IsObsolete                = isObsolete;
+      ObsoleteDoc               = obsoleteDoc;
    }
 
    /// <summary>Creates a <see cref="FunctionInfo"/> for a new-style function with overload variants.</summary>
@@ -59,13 +68,15 @@ public sealed class FunctionInfo
    /// The list of overloads, where each overload is an ordered list of raw parameter type strings.
    /// </param>
    /// <param name="isObsolete">Whether the function is obsolete.</param>
-   public FunctionInfo(IReadOnlyList<IReadOnlyList<string>> variants, bool isObsolete = false)
+   /// <param name="obsoleteDoc">Optional deprecation message.</param>
+   public FunctionInfo(IReadOnlyList<IReadOnlyList<string>> variants, bool isObsolete = false, string? obsoleteDoc = null)
    {
       ReturnType                = null;
       NumberOfRequiredArguments = 0;
       Parameters                = System.Array.Empty<FunctionParamInfo>();
       Variants                  = variants;
       IsObsolete                = isObsolete;
+      ObsoleteDoc               = obsoleteDoc;
    }
 }
 
