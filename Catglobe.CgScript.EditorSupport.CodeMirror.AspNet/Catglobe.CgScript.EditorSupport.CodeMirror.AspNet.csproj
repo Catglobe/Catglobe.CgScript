@@ -17,9 +17,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <!-- Run npm bundle generation before PrepareForBuild so the wwwroot file exists
-           when ResolveProjectStaticWebAssets and ResolveCurrentProjectStaticWebAssetsInputs
-           scan @(Content) for static web assets. Without this, clean builds miss the file. -->
+    <!-- Ensure the JS bundle is built before the static web assets pipeline starts. -->
     <PrepareForBuildDependsOn>BuildNpmBundle;$(PrepareForBuildDependsOn)</PrepareForBuildDependsOn>
   </PropertyGroup>
 
@@ -55,9 +53,20 @@
 
   <Target Name="BuildNpmBundle" Inputs="@(_NpmSources)" Outputs="$(MSBuildThisFileDirectory)wwwroot/cgscript-cm6.js" DependsOnTargets="CompileTypeScriptWithTSConfig;NpmInstall">
     <Exec Command="node esbuild.mjs" WorkingDirectory="$(MSBuildThisFileDirectory)" EnvironmentVariables="PATH=$(PATH.Replace(';','%3B'))%3B$(VsNodeDir.Replace(';','%3B'))" />
+  </Target>
 
+  <!--
+    Register the generated file as a Content item for static web asset resolution.
+    This MUST be a separate non-incremental target so the registration happens even
+    when BuildNpmBundle is skipped due to its Inputs/Outputs up-to-date check.
+    BeforeTargets="ResolveStaticWebAssetsInputs" guarantees it runs before the
+    static-web-assets pipeline reads @(Content).
+  -->
+  <Target Name="RegisterNpmBundleContent"
+          DependsOnTargets="BuildNpmBundle"
+          BeforeTargets="ResolveStaticWebAssetsInputs">
     <ItemGroup>
-      <Content Include="wwwroot\cgscript-cm6.js" />
+      <Content Include="$(MSBuildThisFileDirectory)wwwroot\cgscript-cm6.js" />
     </ItemGroup>
   </Target>
 
