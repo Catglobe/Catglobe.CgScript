@@ -20,15 +20,8 @@ namespace Catglobe.CgScript.EditorSupport.VisualStudio;
 /// side in a background task, and the client side is returned to VS as an <see cref="IDuplexPipe"/>.
 /// </summary>
 [VisualStudioContribution]
-public sealed class CgScriptLanguageServerProvider : LanguageServerProvider
+public sealed class CgScriptLanguageServerProvider(CategoryObserver settingsObserver) : LanguageServerProvider
 {
-   private readonly CategoryObserver _settingsObserver;
-
-   public CgScriptLanguageServerProvider(CategoryObserver settingsObserver)
-   {
-      _settingsObserver = settingsObserver;
-   }
-
    /// <summary>Document type for <c>.cgs</c> files — required by the LSP activation filter.</summary>
    [VisualStudioContribution]
    public static DocumentTypeConfiguration CgScriptDocumentType => new("cgscript")
@@ -52,7 +45,7 @@ public sealed class CgScriptLanguageServerProvider : LanguageServerProvider
       var serverSide = new InProcessDuplexPipe(clientToServer.Reader, serverToClient.Writer);
       var clientSide = new InProcessDuplexPipe(serverToClient.Reader, clientToServer.Writer);
 
-      var snapshot    = await _settingsObserver.GetSnapshotAsync(cancellationToken);
+      var snapshot    = await settingsObserver.GetSnapshotAsync(cancellationToken);
       var siteUrl     = snapshot?.SiteUrlSetting.ValueOrDefault(string.Empty) ?? string.Empty;
       var definitions = string.IsNullOrWhiteSpace(siteUrl)
          ? new DefinitionLoader()
