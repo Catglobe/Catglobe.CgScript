@@ -17,7 +17,7 @@ internal class CgScriptSettings
    /// Base URL of the Catglobe site (e.g. https://localhost:5001).
    /// Empty means use bundled definitions.
    /// </summary>
-   public string SiteUrl { get; set; } = string.Empty;
+   public string SiteUrl { get; set; } = "https://voxmeter.catglobe.com";
 
    public static CgScriptSettings Load()
    {
