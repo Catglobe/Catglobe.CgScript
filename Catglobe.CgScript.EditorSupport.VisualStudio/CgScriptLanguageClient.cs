@@ -4,13 +4,15 @@ using System.Threading.Tasks;
 using Catglobe.CgScript.EditorSupport.Lsp;
 using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
+using Catglobe.CgScript.EditorSupport.VisualStudio.Settings;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Editor;
 using Microsoft.VisualStudio.Extensibility.LanguageServer;
 using Microsoft.VisualStudio.RpcContracts.LanguageServerProvider;
 namespace Catglobe.CgScript.EditorSupport.VisualStudio;
 
-#pragma warning disable VSEXTPREVIEW_LSP // API is in preview
+#pragma warning disable VSEXTPREVIEW_LSP      // API is in preview
+#pragma warning disable VSEXTPREVIEW_SETTINGS // API is in preview
 
 /// <summary>
 /// Provides an in-process CgScript LSP session to Visual Studio.
@@ -20,6 +22,13 @@ namespace Catglobe.CgScript.EditorSupport.VisualStudio;
 [VisualStudioContribution]
 public sealed class CgScriptLanguageServerProvider : LanguageServerProvider
 {
+   private readonly CategoryObserver _settingsObserver;
+
+   public CgScriptLanguageServerProvider(CategoryObserver settingsObserver)
+   {
+      _settingsObserver = settingsObserver;
+   }
+
    /// <summary>Document type for <c>.cgs</c> files — required by the LSP activation filter.</summary>
    [VisualStudioContribution]
    public static DocumentTypeConfiguration CgScriptDocumentType => new("cgscript")
@@ -43,10 +52,11 @@ public sealed class CgScriptLanguageServerProvider : LanguageServerProvider
       var serverSide = new InProcessDuplexPipe(clientToServer.Reader, serverToClient.Writer);
       var clientSide = new InProcessDuplexPipe(serverToClient.Reader, clientToServer.Writer);
 
-      var settings    = CgScriptSettings.Load();
-      var definitions = string.IsNullOrWhiteSpace(settings.SiteUrl)
+      var snapshot    = await _settingsObserver.GetSnapshotAsync(cancellationToken);
+      var siteUrl     = snapshot?.SiteUrlSetting.ValueOrDefault(string.Empty) ?? string.Empty;
+      var definitions = string.IsNullOrWhiteSpace(siteUrl)
          ? new DefinitionLoader()
-         : await DefinitionLoader.CreateFromUrlAsync(settings.SiteUrl, cancellationToken);
+         : await DefinitionLoader.CreateFromUrlAsync(siteUrl, cancellationToken);
       var target = new CgScriptLanguageTarget(new DocumentStore(definitions), definitions);
       _ = LspSessionHost.RunAsync(serverSide, target, cancellationToken);
 
@@ -66,6 +76,7 @@ public sealed class CgScriptLanguageServerProvider : LanguageServerProvider
    }
 }
 
+#pragma warning restore VSEXTPREVIEW_SETTINGS
 #pragma warning restore VSEXTPREVIEW_LSP
 
 /// <summary>Minimal <see cref="IDuplexPipe"/> wrapper around a <see cref="PipeReader"/>/<see cref="PipeWriter"/> pair.</summary>

@@ -69,6 +69,11 @@ public sealed record CgScriptDefinitionsPayload(
 /// </summary>
 public class DefinitionLoader
 {
+   /// <summary>
+   /// Set when definitions were fetched from a URL but the response could not be parsed.
+   /// The LSP surfaces this as a persistent CGS001 error diagnostic on every open document.
+   /// </summary>
+   public string? LoadError { get; private init; }
    private static readonly Assembly _asm = typeof(Catglobe.CgScript.EditorSupport.Parsing.KnownNamesLoader).Assembly;
 
    public IReadOnlyDictionary<string, FunctionDefinition> Functions { get; protected init; }
@@ -110,6 +115,15 @@ public class DefinitionLoader
             payload?.Constants       ?? [],
             payload?.GlobalVariables ?? new Dictionary<string, string>(),
             payload?.Enums           ?? new Dictionary<string, EnumDefinition>());
+      }
+      catch (JsonException ex)
+      {
+         System.Diagnostics.Debug.WriteLine($"[CgScript] Failed to parse definitions from {url}: {ex.Message}. Plugin may be out of date.");
+         return new DefinitionLoader
+         {
+            LoadError = $"CgScript plugin is out of date: the definition response from '{url}' could not be parsed " +
+                        $"({ex.Message}). Please upgrade the CgScript plugin.",
+         };
       }
       catch (Exception ex)
       {

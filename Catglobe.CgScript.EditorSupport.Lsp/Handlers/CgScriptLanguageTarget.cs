@@ -162,6 +162,19 @@ public partial class CgScriptLanguageTarget
       bool fatalError = false;
       Exception? fatalException = null;
 
+      // Stage 0: surface a persistent error if the live definition fetch failed to parse
+      if (_definitions.LoadError is { } loadError)
+      {
+         allDiags.Add(new LspDiagnostic
+         {
+            Severity = Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Error,
+            Code     = new SumType<int, string>("CGS027"),
+            Message  = loadError,
+            Range    = new LspRange { Start = new Position(0, 0), End = new Position(0, 0) },
+            Source   = "cgscript",
+         });
+      }
+
       // Stage 1: convert stored parse+semantic diagnostics to LSP format
       try
       {
