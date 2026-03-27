@@ -4,11 +4,11 @@
 
     <TextBlock FontWeight="SemiBold" Margin="0,0,0,8">Site URL</TextBlock>
     <TextBox Text="{Binding SiteUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-             ToolTip="Base URL of the Catglobe site, e.g. https://localhost:5001" />
+             ToolTip="Base URL of the Catglobe site, e.g. https://voxmeter.catglobe.com" />
 
     <TextBlock TextWrapping="Wrap" Foreground="Gray" Margin="0,4,0,12">
       Base URL of the Catglobe site to fetch live definitions from
-      (e.g. https://localhost:5001). Leave empty to use the bundled definitions.
+      (e.g. https://voxmeter.catglobe.com).
     </TextBlock>
 
     <Button Command="{Binding SaveCommand}" HorizontalAlignment="Left">Save</Button>
