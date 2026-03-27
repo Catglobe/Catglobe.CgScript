@@ -6,7 +6,10 @@ using System.IO.Pipelines;
 // Redirect stderr so logging doesn't corrupt the JSON-RPC stream on stdout.
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-var definitions = new DefinitionLoader();
+var siteUrl     = args.SkipWhile(a => a != "--site").Skip(1).FirstOrDefault();
+var definitions = siteUrl is not null
+   ? await DefinitionLoader.CreateFromUrlAsync(siteUrl)
+   : new DefinitionLoader();
 var store       = new DocumentStore(definitions);
 var target      = new CgScriptLanguageTarget(store, definitions);
 

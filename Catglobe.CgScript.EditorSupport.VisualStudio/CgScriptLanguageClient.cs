@@ -34,7 +34,7 @@ public sealed class CgScriptLanguageServerProvider : LanguageServerProvider
           [DocumentFilter.FromDocumentType(CgScriptDocumentType)]);
 
    /// <inheritdoc/>
-   public override Task<IDuplexPipe?> CreateServerConnectionAsync(CancellationToken cancellationToken)
+   public override async Task<IDuplexPipe?> CreateServerConnectionAsync(CancellationToken cancellationToken)
    {
       // Two pipes: VS writes to clientToServer; server reads from it (and vice versa).
       var clientToServer = new Pipe();
@@ -43,11 +43,14 @@ public sealed class CgScriptLanguageServerProvider : LanguageServerProvider
       var serverSide = new InProcessDuplexPipe(clientToServer.Reader, serverToClient.Writer);
       var clientSide = new InProcessDuplexPipe(serverToClient.Reader, clientToServer.Writer);
 
-      var definitions = new DefinitionLoader();
+      var settings    = CgScriptSettings.Load();
+      var definitions = string.IsNullOrWhiteSpace(settings.SiteUrl)
+         ? new DefinitionLoader()
+         : await DefinitionLoader.CreateFromUrlAsync(settings.SiteUrl, cancellationToken);
       var target = new CgScriptLanguageTarget(new DocumentStore(definitions), definitions);
       _ = LspSessionHost.RunAsync(serverSide, target, cancellationToken);
 
-      return Task.FromResult<IDuplexPipe?>(clientSide);
+      return clientSide;
    }
 
    /// <inheritdoc/>

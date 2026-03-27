@@ -1,3 +1,5 @@
 {
-  "Catglobe.CgScript.EditorSupport.VisualStudio.CgScriptLanguageServerProvider.DisplayName": "CgScript Language Server"
+  "Catglobe.CgScript.EditorSupport.VisualStudio.CgScriptLanguageServerProvider.DisplayName": "CgScript Language Server",
+  "CgScript.Windows.Settings.Title": "CgScript Settings",
+  "CgScript.Commands.OpenSettings.DisplayName": "CgScript Settings..."
 }

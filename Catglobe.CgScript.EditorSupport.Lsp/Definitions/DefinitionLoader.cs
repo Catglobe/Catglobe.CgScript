@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -88,6 +89,33 @@ public class DefinitionLoader
       Constants       = payload?.Constants ?? [];
       GlobalVariables = payload?.GlobalVariables ?? new Dictionary<string, string>();
       Enums           = payload?.Enums ?? new Dictionary<string, EnumDefinition>();
+   }
+
+   /// <summary>
+   /// Fetches definitions from <paramref name="siteUrl"/>/api/cgscript/definitions.
+   /// Falls back to the bundled definitions if the request fails.
+   /// </summary>
+   public static async Task<DefinitionLoader> CreateFromUrlAsync(string siteUrl, CancellationToken ct = default)
+   {
+      var url = $"{siteUrl.TrimEnd('/')}/api/cgscript/definitions";
+      try
+      {
+         using var http    = new HttpClient();
+         await using var stream = await http.GetStreamAsync(url, ct);
+         var payload = await JsonSerializer.DeserializeAsync<CgScriptDefinitionsPayload>(
+            stream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }, ct);
+         return new DefinitionLoader(
+            payload?.Functions       ?? new Dictionary<string, FunctionDefinition>(),
+            payload?.Objects         ?? new Dictionary<string, ObjectDefinition>(),
+            payload?.Constants       ?? [],
+            payload?.GlobalVariables ?? new Dictionary<string, string>(),
+            payload?.Enums           ?? new Dictionary<string, EnumDefinition>());
+      }
+      catch (Exception ex)
+      {
+         System.Diagnostics.Debug.WriteLine($"[CgScript] Failed to load definitions from {url}: {ex.Message}. Using bundled definitions.");
+         return new DefinitionLoader();
+      }
    }
 
    /// <summary>Protected constructor for subclasses that supply their own definitions.</summary>

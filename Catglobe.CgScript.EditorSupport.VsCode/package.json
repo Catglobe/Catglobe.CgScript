@@ -38,6 +38,12 @@
           "enum": ["off", "messages", "verbose"],
           "default": "off",
           "description": "Traces the communication between VS Code and the CgScript language server."
+        },
+        "cgscript.siteUrl": {
+          "scope": "window",
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Base URL of the Catglobe site to fetch live definitions from (e.g. `https://localhost:5001`). Leave empty to use the bundled definitions. Restart the language server after changing this setting."
         }
       }
     }
