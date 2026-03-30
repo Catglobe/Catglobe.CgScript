@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
@@ -70,6 +70,9 @@ public sealed record CgScriptDefinitionsPayload(
 /// </summary>
 public class DefinitionLoader
 {
+   /// <summary>TraceSource used for definition loading events. Configure listeners in the host process.</summary>
+   public static readonly TraceSource TraceSource = new("CgScript.Definitions", SourceLevels.Warning);
+
    /// <summary>
    /// Set when definitions were fetched from a URL but the response could not be parsed.
    /// The LSP surfaces this as a persistent CGS001 error diagnostic on every open document.
@@ -101,10 +104,10 @@ public class DefinitionLoader
    /// Fetches definitions from <paramref name="siteUrl"/>/api/cgscript/definitions.
    /// Falls back to the bundled definitions if the request fails.
    /// </summary>
-   public static async Task<DefinitionLoader> CreateFromUrlAsync(string siteUrl, ILogger? logger = null, CancellationToken ct = default)
+   public static async Task<DefinitionLoader> CreateFromUrlAsync(string siteUrl, CancellationToken ct = default)
    {
       var url = $"{siteUrl.TrimEnd('/')}/api/cgscript/definitions";
-      logger?.LogInformation("Loading CgScript definitions from {Url}", url);
+      TraceSource.TraceInformation("Loading CgScript definitions from {0}", url);
       try
       {
          using var http    = new HttpClient();
@@ -117,15 +120,15 @@ public class DefinitionLoader
             payload?.Constants       ?? [],
             payload?.GlobalVariables ?? new Dictionary<string, string>(),
             payload?.Enums           ?? new Dictionary<string, EnumDefinition>());
-         logger?.LogInformation(
-            "Loaded definitions from {Url}: {Functions} functions, {Objects} objects, {Constants} constants",
+         TraceSource.TraceInformation(
+            "Loaded definitions from {0}: {1} functions, {2} objects, {3} constants",
             url, result.Functions.Count, result.Objects.Count, result.Constants.Count);
          return result;
       }
       catch (JsonException ex)
       {
-         logger?.LogError(ex, "Failed to parse definitions from {Url} — plugin may be out of date", url);
-         System.Diagnostics.Debug.WriteLine($"[CgScript] Failed to parse definitions from {url}: {ex.Message}. Plugin may be out of date.");
+         TraceSource.TraceEvent(TraceEventType.Error, 0,
+            "Failed to parse definitions from {0} — plugin may be out of date: {1}", url, ex.Message);
          return new DefinitionLoader
          {
             LoadError = $"CgScript plugin is out of date: the definition response from '{url}' could not be parsed " +
@@ -134,8 +137,8 @@ public class DefinitionLoader
       }
       catch (Exception ex)
       {
-         logger?.LogWarning(ex, "Failed to fetch definitions from {Url} — falling back to bundled definitions", url);
-         System.Diagnostics.Debug.WriteLine($"[CgScript] Failed to load definitions from {url}: {ex.Message}. Using bundled definitions.");
+         TraceSource.TraceEvent(TraceEventType.Warning, 0,
+            "Failed to fetch definitions from {0} — falling back to bundled definitions: {1}", url, ex.Message);
          return new DefinitionLoader();
       }
    }
