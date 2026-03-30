@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
@@ -100,24 +101,30 @@ public class DefinitionLoader
    /// Fetches definitions from <paramref name="siteUrl"/>/api/cgscript/definitions.
    /// Falls back to the bundled definitions if the request fails.
    /// </summary>
-   public static async Task<DefinitionLoader> CreateFromUrlAsync(string siteUrl, CancellationToken ct = default)
+   public static async Task<DefinitionLoader> CreateFromUrlAsync(string siteUrl, ILogger? logger = null, CancellationToken ct = default)
    {
       var url = $"{siteUrl.TrimEnd('/')}/api/cgscript/definitions";
+      logger?.LogInformation("Loading CgScript definitions from {Url}", url);
       try
       {
          using var http    = new HttpClient();
          await using var stream = await http.GetStreamAsync(url, ct);
          var payload = await JsonSerializer.DeserializeAsync<CgScriptDefinitionsPayload>(
             stream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }, ct);
-         return new DefinitionLoader(
+         var result = new DefinitionLoader(
             payload?.Functions       ?? new Dictionary<string, FunctionDefinition>(),
             payload?.Objects         ?? new Dictionary<string, ObjectDefinition>(),
             payload?.Constants       ?? [],
             payload?.GlobalVariables ?? new Dictionary<string, string>(),
             payload?.Enums           ?? new Dictionary<string, EnumDefinition>());
+         logger?.LogInformation(
+            "Loaded definitions from {Url}: {Functions} functions, {Objects} objects, {Constants} constants",
+            url, result.Functions.Count, result.Objects.Count, result.Constants.Count);
+         return result;
       }
       catch (JsonException ex)
       {
+         logger?.LogError(ex, "Failed to parse definitions from {Url} — plugin may be out of date", url);
          System.Diagnostics.Debug.WriteLine($"[CgScript] Failed to parse definitions from {url}: {ex.Message}. Plugin may be out of date.");
          return new DefinitionLoader
          {
@@ -127,6 +134,7 @@ public class DefinitionLoader
       }
       catch (Exception ex)
       {
+         logger?.LogWarning(ex, "Failed to fetch definitions from {Url} — falling back to bundled definitions", url);
          System.Diagnostics.Debug.WriteLine($"[CgScript] Failed to load definitions from {url}: {ex.Message}. Using bundled definitions.");
          return new DefinitionLoader();
       }
