@@ -24,6 +24,24 @@ public partial class CgScriptLanguageTarget
       return Math.Min(i + character, text.Length);
    }
 
+   /// <summary>
+   /// Converts a character offset in <paramref name="text"/> to an ANTLR-style position
+   /// (1-based line, 0-based column).  Carriage-return characters (<c>\r</c>) are skipped
+   /// so that Windows-style <c>\r\n</c> line endings are treated as a single line break,
+   /// matching ANTLR's internal normalization.
+   /// </summary>
+   private static (int Line, int Column) OffsetToAntlrPosition(string text, int offset)
+   {
+      int line = 1, col = 0;
+      for (int i = 0; i < offset && i < text.Length; i++)
+      {
+         if (text[i] == '\r') continue; // skip — ANTLR normalises \r\n to \n
+         if (text[i] == '\n') { line++; col = 0; }
+         else col++;
+      }
+      return (line, col);
+   }
+
    /// <summary>Returns the identifier prefix ending at <paramref name="offset"/> (may be empty).</summary>
    private static string GetWordPrefix(string text, int offset)
    {

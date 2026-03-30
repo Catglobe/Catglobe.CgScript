@@ -41,7 +41,7 @@ public partial class CgScriptLanguageTarget
       var parseResult = _store.GetParseResult(p.TextDocument.Uri.ToString());
       var list = afterDot
          ? MemberCompletions(text, prefixStart - 1, prefix, parseResult?.Tree)
-         : TopLevelCompletions(prefix, text, parseResult?.Tree);
+         : TopLevelCompletions(prefix, text, parseResult?.Tree, prefixStart);
       return new SumType<CompletionItem[], CompletionList>(list);
    }
 
@@ -66,7 +66,7 @@ public partial class CgScriptLanguageTarget
          else
          {
             // Resolve variable or chained property expression (e.g. Catglobe.Json)
-            exact = ResolveReceiverObjectAtDot(text, dotPos, tree);
+            exact = ResolveReceiverObjectAtDot(text, dotPos, tree, dotPos);
          }
       }
 
@@ -144,7 +144,7 @@ public partial class CgScriptLanguageTarget
    /// Returns <c>null</c> when the type cannot be determined.
    /// </summary>
    private ObjectDefinition? ResolveReceiverObjectAtDot(
-      string text, int dotPos, Antlr4.Runtime.Tree.IParseTree? tree)
+      string text, int dotPos, Antlr4.Runtime.Tree.IParseTree? tree, int cursorOffset = -1)
    {
       var receiverName = GetIdentifierBefore(text, dotPos);
       if (receiverName is null) return null;
@@ -154,7 +154,7 @@ public partial class CgScriptLanguageTarget
          return direct;
 
       // Resolve as a local or global variable
-      var typeName = ResolveVariableType(receiverName, text, tree);
+      var typeName = ResolveVariableType(receiverName, text, tree, cursorOffset);
       if (typeName != null && TryGetObjectDefinition(typeName, out var fromVar))
          return fromVar;
 
@@ -164,7 +164,7 @@ public partial class CgScriptLanguageTarget
       int idStart = idEnd - receiverName.Length;
       if (idStart > 0 && text[idStart - 1] == '.')
       {
-         var innerObj = ResolveReceiverObjectAtDot(text, idStart - 1, tree);
+         var innerObj = ResolveReceiverObjectAtDot(text, idStart - 1, tree, cursorOffset);
          if (innerObj != null)
          {
             var prop = (innerObj.Properties ?? [])
@@ -179,14 +179,27 @@ public partial class CgScriptLanguageTarget
    }
 
    /// <summary>
-   /// Resolves a variable name to its declared type by checking the parse tree (all
-   /// scopes) first, then falling back to a simple text scan.
+   /// Resolves a variable name to its declared type, respecting scope at the given
+   /// cursor offset.  When <paramref name="cursorOffset"/> is non-negative and a parse
+   /// tree is available, only variables visible at that position are considered, so
+   /// function parameters do not shadow outer-scope variables outside their function.
+   /// Falls back to a line-by-line text scan and then runtime global variables.
    /// </summary>
-   private string? ResolveVariableType(string varName, string text, Antlr4.Runtime.Tree.IParseTree? tree)
+   private string? ResolveVariableType(string varName, string text, Antlr4.Runtime.Tree.IParseTree? tree, int cursorOffset = -1)
    {
       if (tree != null)
       {
-         var sym = DocumentSymbolCollector.CollectAll(tree).FirstOrDefault(s => s.Name == varName);
+         IReadOnlyList<Parsing.DocumentSymbolInfo> symbols;
+         if (cursorOffset >= 0)
+         {
+            var (line, col) = OffsetToAntlrPosition(text, cursorOffset);
+            symbols = DocumentSymbolCollector.CollectAtPosition(tree, line, col);
+         }
+         else
+         {
+            symbols = DocumentSymbolCollector.CollectAll(tree);
+         }
+         var sym = symbols.FirstOrDefault(s => s.Name == varName);
          if (sym != null) return sym.TypeName;
       }
       // Text-based fallback: search each line for "TypeName varName"
@@ -209,15 +222,32 @@ public partial class CgScriptLanguageTarget
    /// Returns top-level completions (functions, types, keywords, constants, and local
    /// variables) filtered by whatever identifier prefix the user has already typed.
    /// </summary>
-   private CompletionList TopLevelCompletions(string prefix, string text = "", IParseTree? tree = null)
+   private CompletionList TopLevelCompletions(string prefix, string text = "", IParseTree? tree = null, int cursorOffset = -1)
    {
       bool all = prefix.Length == 0;
       var items = new List<CompletionItem>();
 
-      // Local variables declared in this document (including function parameters)
-      var localVars = tree != null
-         ? DocumentSymbolCollector.CollectAll(tree)
-         : CollectVariablesFromText(text);
+      // Local variables visible at the cursor position.
+      // CollectAtPosition is used when we have a parse tree and a cursor offset so that
+      // function parameters are only shown when the cursor is inside that function's body,
+      // preventing duplicate entries and type mismatches for same-named variables.
+      IReadOnlyList<Parsing.DocumentSymbolInfo> localVars;
+      if (tree != null)
+      {
+         if (cursorOffset >= 0)
+         {
+            var (cursorLine, cursorCol) = OffsetToAntlrPosition(text, cursorOffset);
+            localVars = DocumentSymbolCollector.CollectAtPosition(tree, cursorLine, cursorCol);
+         }
+         else
+         {
+            localVars = DocumentSymbolCollector.CollectAll(tree);
+         }
+      }
+      else
+      {
+         localVars = CollectVariablesFromText(text);
+      }
       foreach (var sym in localVars)
       {
          if (sym.Kind is not "variable" and not "parameter") continue;
