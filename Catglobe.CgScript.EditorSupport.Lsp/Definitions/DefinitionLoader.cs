@@ -71,7 +71,7 @@ public sealed record CgScriptDefinitionsPayload(
 public class DefinitionLoader
 {
    /// <summary>TraceSource used for definition loading events. Configure listeners in the host process.</summary>
-   public static readonly TraceSource TraceSource = new("CgScript.Definitions", SourceLevels.Warning);
+   public static readonly TraceSource TraceSource = new("CgScript.Definitions", SourceLevels.Information);
 
    /// <summary>
    /// Set when definitions were fetched from a URL but the response could not be parsed.
