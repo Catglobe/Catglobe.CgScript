@@ -15,10 +15,6 @@
   "files": [
     "dist"
   ],
-  "scripts": {
-    "build": "tsc -p ./ && node esbuild.mjs",
-    "bundle": "node esbuild.mjs"
-  },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.2",

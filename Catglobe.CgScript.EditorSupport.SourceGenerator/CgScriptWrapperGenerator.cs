@@ -296,8 +296,12 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
       SourceText              text,
       string                  source)
    {
+      // Strip preprocessor directives (#IF env … #ENDIF) before parsing so that
+      // valid conditional blocks do not produce false-positive syntax errors.
+      var (cleanedSource, _) = PreprocessorScanner.Strip(source);
+
       // Parse and analyse
-      var parseResult = CgScriptParseService.Parse(source);
+      var parseResult = CgScriptParseService.Parse(cleanedSource);
       var allDiags    = new List<Parsing.Diagnostic>(parseResult.Diagnostics);
 
       var semanticDiags = SemanticAnalyzer.Analyze(

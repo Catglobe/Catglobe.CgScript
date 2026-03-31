@@ -40,6 +40,39 @@ public static class DocumentSymbolCollector
    public static IReadOnlyList<DocumentSymbolInfo> CollectAll(IParseTree tree)
       => CollectCore(tree, globalOnly: false);
 
+   /// <summary>
+   /// Collects variable declarations that are visible at the given cursor position.
+   /// Global-scope variables are always included.  Function parameters are included
+   /// only when the cursor falls within the body of their enclosing function literal,
+   /// and they shadow any global variable with the same name.
+   /// </summary>
+   /// <param name="tree">The parse tree to walk.</param>
+   /// <param name="cursorLine">1-based line number (ANTLR convention).</param>
+   /// <param name="cursorColumn">0-based column number (ANTLR convention).</param>
+   public static IReadOnlyList<DocumentSymbolInfo> CollectAtPosition(
+      IParseTree tree, int cursorLine, int cursorColumn)
+   {
+      // Pass 1: global-scope variables (always visible)
+      var globals = CollectCore(tree, globalOnly: true);
+
+      // Pass 2: parameters from every function literal that encloses the cursor
+      var paramVisitor = new ScopedParamCollector(cursorLine, cursorColumn);
+      paramVisitor.Visit(tree);
+      var parameters = paramVisitor.Symbols;
+
+      if (parameters.Count == 0)
+         return globals;
+
+      // Merge: parameters shadow globals that share the same name
+      var result = new Dictionary<string, DocumentSymbolInfo>(StringComparer.Ordinal);
+      foreach (var sym in globals)
+         result[sym.Name] = sym;
+      foreach (var sym in parameters)
+         result[sym.Name] = sym;   // inner-scope parameter wins
+
+      return [.. result.Values];
+   }
+
    private static IReadOnlyList<DocumentSymbolInfo> CollectCore(IParseTree tree, bool globalOnly)
    {
       var visitor = new Collector(globalOnly);
@@ -117,6 +150,130 @@ public static class DocumentSymbolCollector
          }
 
          return VisitChildren(ctx);
+      }
+
+      /// <summary>
+      /// Collects function literal parameters as typed symbols so that
+      /// type-resolution and completion can find their declared types.
+      /// Only collected when <c>CollectAll</c> is used (not for the document outline).
+      /// </summary>
+      public override object? VisitFunctionParameters(
+         CgScriptParser.FunctionParametersContext ctx)
+      {
+         if (!_globalOnly)
+         {
+            foreach (var decl in ctx.declaration())
+            {
+               var idToken = decl.IDENTIFIER()?.Symbol;
+               if (idToken is null) continue;
+
+               var typeText = decl.typeSpec()?.GetText() ?? "";
+               if (string.IsNullOrEmpty(typeText)) continue;
+
+               var stopToken = decl.Stop;
+               Symbols.Add(new DocumentSymbolInfo(
+                  Name:        idToken.Text,
+                  Kind:        "parameter",
+                  TypeName:    typeText,
+                  StartLine:   decl.Start.Line,
+                  StartColumn: decl.Start.Column,
+                  EndLine:     stopToken?.Line   ?? decl.Start.Line,
+                  EndColumn:   stopToken is not null
+                                  ? stopToken.Column + stopToken.Text.Length
+                                  : decl.Start.Column,
+                  NameLine:    idToken.Line,
+                  NameColumn:  idToken.Column,
+                  NameLength:  idToken.Text.Length));
+            }
+         }
+
+         // Do not recurse into children: parameter declarations are not statements
+         // and contain nothing else the collector needs to visit.
+         return null;
+      }
+   }
+
+   // ── Scope-aware parameter visitor ────────────────────────────────────────────
+
+   /// <summary>
+   /// Collects function parameters only for function literals whose range contains
+   /// the cursor position.  Used by <see cref="CollectAtPosition"/>.
+   /// </summary>
+   private sealed class ScopedParamCollector : CgScriptParserBaseVisitor<object?>
+   {
+      private readonly int _cursorLine;   // 1-based
+      private readonly int _cursorColumn; // 0-based
+      private bool _currentFunctionContainsCursor;
+
+      public List<DocumentSymbolInfo> Symbols { get; } = [];
+
+      public ScopedParamCollector(int cursorLine, int cursorColumn)
+      {
+         _cursorLine   = cursorLine;
+         _cursorColumn = cursorColumn;
+      }
+
+      public override object? VisitPrimaryExpr(CgScriptParser.PrimaryExprContext ctx)
+      {
+         if (ctx.FUNCTION() is not null)
+         {
+            bool saved = _currentFunctionContainsCursor;
+            _currentFunctionContainsCursor = IsPositionInRange(ctx);
+            VisitChildren(ctx);
+            _currentFunctionContainsCursor = saved;
+            return null;
+         }
+         return VisitChildren(ctx);
+      }
+
+      public override object? VisitFunctionParameters(CgScriptParser.FunctionParametersContext ctx)
+      {
+         if (_currentFunctionContainsCursor)
+         {
+            foreach (var decl in ctx.declaration())
+            {
+               var idToken  = decl.IDENTIFIER()?.Symbol;
+               if (idToken is null) continue;
+               var typeText = decl.typeSpec()?.GetText() ?? "";
+               if (string.IsNullOrEmpty(typeText)) continue;
+
+               var stopToken = decl.Stop;
+               Symbols.Add(new DocumentSymbolInfo(
+                  Name:        idToken.Text,
+                  Kind:        "parameter",
+                  TypeName:    typeText,
+                  StartLine:   decl.Start.Line,
+                  StartColumn: decl.Start.Column,
+                  EndLine:     stopToken?.Line   ?? decl.Start.Line,
+                  EndColumn:   stopToken is not null
+                                  ? stopToken.Column + stopToken.Text.Length
+                                  : decl.Start.Column,
+                  NameLine:    idToken.Line,
+                  NameColumn:  idToken.Column,
+                  NameLength:  idToken.Text.Length));
+            }
+         }
+         // Do not recurse — parameter declarations contain nothing else to visit.
+         return null;
+      }
+
+      /// <summary>Returns true when the cursor falls within the span of <paramref name="ctx"/>.</summary>
+      private bool IsPositionInRange(Antlr4.Runtime.ParserRuleContext ctx)
+      {
+         int startLine = ctx.Start.Line;
+         int stopLine  = ctx.Stop?.Line ?? startLine;
+
+         if (_cursorLine < startLine || _cursorLine > stopLine) return false;
+         if (_cursorLine == startLine && _cursorColumn < ctx.Start.Column) return false;
+         if (_cursorLine == stopLine)
+         {
+            int stopEndCol = ctx.Stop is not null
+                                ? ctx.Stop.Column + ctx.Stop.Text.Length
+                                : ctx.Start.Column;
+            if (_cursorColumn > stopEndCol) return false;
+         }
+
+         return true;
       }
    }
 }

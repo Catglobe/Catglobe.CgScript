@@ -23,5 +23,6 @@ public class ExtensionEntrypoint : Extension
    protected override void InitializeServices(IServiceCollection serviceCollection)
    {
       base.InitializeServices(serviceCollection);
+      serviceCollection.AddSettingsObservers();
    }
 }

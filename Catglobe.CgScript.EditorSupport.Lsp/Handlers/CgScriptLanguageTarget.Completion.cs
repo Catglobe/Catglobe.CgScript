@@ -5,6 +5,7 @@ using Catglobe.CgScript.EditorSupport.Parsing;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 using StreamJsonRpc;
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Threading;
 using LspDiagnostic = Microsoft.VisualStudio.LanguageServer.Protocol.Diagnostic;
 using LspRange      = Microsoft.VisualStudio.LanguageServer.Protocol.Range;
@@ -40,7 +41,7 @@ public partial class CgScriptLanguageTarget
       var parseResult = _store.GetParseResult(p.TextDocument.Uri.ToString());
       var list = afterDot
          ? MemberCompletions(text, prefixStart - 1, prefix, parseResult?.Tree)
-         : TopLevelCompletions(prefix, text, parseResult?.Tree);
+         : TopLevelCompletions(prefix, text, parseResult?.Tree, prefixStart);
       return new SumType<CompletionItem[], CompletionList>(list);
    }
 
@@ -58,14 +59,14 @@ public partial class CgScriptLanguageTarget
       if (receiverName != null)
       {
          // Direct match: receiver IS a type name (e.g. "Tenant.StaticMethod")
-         if (_definitions.Objects.TryGetValue(receiverName, out exact))
+         if (TryGetObjectDefinition(receiverName, out exact))
          {
             isStaticAccess = true;
          }
          else
          {
             // Resolve variable or chained property expression (e.g. Catglobe.Json)
-            exact = ResolveReceiverObjectAtDot(text, dotPos, tree);
+            exact = ResolveReceiverObjectAtDot(text, dotPos, tree, dotPos);
          }
       }
 
@@ -83,13 +84,15 @@ public partial class CgScriptLanguageTarget
             : (obj.Methods ?? []);
 
          var groups = methods
+            .Where(m => m.Name != "[]")
             .Where(m => prefix.Length == 0 || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             .GroupBy(m => m.Name);
 
          foreach (var group in groups)
          {
-            var overloads = group.ToList();
-            var first     = overloads[0];
+            var overloads   = group.ToList();
+            var first       = overloads[0];
+            bool allObsolete = overloads.All(m => m.IsObsolete);
             items.Add(new CompletionItem
             {
                Label         = overloads.Count == 1
@@ -98,12 +101,13 @@ public partial class CgScriptLanguageTarget
                FilterText    = first.Name,
                InsertText    = first.Name,
                Kind          = CompletionItemKind.Method,
-               Detail        = first.ReturnType,
+               Detail        = allObsolete ? $"{first.ReturnType} (deprecated)" : first.ReturnType,
                Documentation = new SumType<string, MarkupContent>(new MarkupContent
                {
                   Kind  = MarkupKind.Markdown,
-                  Value = string.Join("\n\n---\n\n", overloads.Select(m =>
-                     (string.IsNullOrWhiteSpace(m.Doc) ? "" : $"{m.Doc}\n\n") + $"`{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param)})`")),
+                  Value = (allObsolete ? DeprecatedPrefix(first.ObsoleteDoc) : "") + string.Join("\n\n---\n\n", overloads.Select(m =>
+                     (m.IsObsolete && !allObsolete ? DeprecatedPrefix(m.ObsoleteDoc) : "")
+                     + (string.IsNullOrWhiteSpace(m.Doc) ? "" : $"{m.Doc}\n\n") + $"`{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param)})`")),
                }),
             });
          }
@@ -118,11 +122,13 @@ public partial class CgScriptLanguageTarget
                FilterText    = prop.Name,
                InsertText    = prop.Name,
                Kind          = CompletionItemKind.Property,
-               Detail        = prop.ReturnType,
+               Detail        = prop.IsObsolete ? $"{prop.ReturnType} (deprecated)" : prop.ReturnType,
                Documentation = new SumType<string, MarkupContent>(new MarkupContent
                {
                   Kind  = MarkupKind.Markdown,
-                  Value = (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n") + $"`{prop.ReturnType} {prop.Name}`",
+                  Value = (prop.IsObsolete ? DeprecatedPrefix(prop.ObsoleteDoc) : "")
+                          + (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n")
+                          + $"`{prop.ReturnType} {prop.Name}`",
                }),
             });
          }
@@ -138,18 +144,18 @@ public partial class CgScriptLanguageTarget
    /// Returns <c>null</c> when the type cannot be determined.
    /// </summary>
    private ObjectDefinition? ResolveReceiverObjectAtDot(
-      string text, int dotPos, Antlr4.Runtime.Tree.IParseTree? tree)
+      string text, int dotPos, Antlr4.Runtime.Tree.IParseTree? tree, int cursorOffset = -1)
    {
       var receiverName = GetIdentifierBefore(text, dotPos);
       if (receiverName is null) return null;
 
       // Direct match: receiver is a known type name (static / namespace access)
-      if (_definitions.Objects.TryGetValue(receiverName, out var direct))
+      if (TryGetObjectDefinition(receiverName, out var direct))
          return direct;
 
       // Resolve as a local or global variable
-      var typeName = ResolveVariableType(receiverName, text, tree);
-      if (typeName != null && _definitions.Objects.TryGetValue(typeName, out var fromVar))
+      var typeName = ResolveVariableType(receiverName, text, tree, cursorOffset);
+      if (typeName != null && TryGetObjectDefinition(typeName, out var fromVar))
          return fromVar;
 
       // Chained: check for another dot to the left of this identifier and recurse
@@ -158,13 +164,13 @@ public partial class CgScriptLanguageTarget
       int idStart = idEnd - receiverName.Length;
       if (idStart > 0 && text[idStart - 1] == '.')
       {
-         var innerObj = ResolveReceiverObjectAtDot(text, idStart - 1, tree);
+         var innerObj = ResolveReceiverObjectAtDot(text, idStart - 1, tree, cursorOffset);
          if (innerObj != null)
          {
             var prop = (innerObj.Properties ?? [])
                .FirstOrDefault(p => string.Equals(p.Name, receiverName, StringComparison.Ordinal));
             if (prop?.ReturnType != null
-                && _definitions.Objects.TryGetValue(prop.ReturnType, out var propType))
+                && TryGetObjectDefinition(prop.ReturnType, out var propType))
                return propType;
          }
       }
@@ -173,14 +179,27 @@ public partial class CgScriptLanguageTarget
    }
 
    /// <summary>
-   /// Resolves a variable name to its declared type by checking the parse tree (all
-   /// scopes) first, then falling back to a simple text scan.
+   /// Resolves a variable name to its declared type, respecting scope at the given
+   /// cursor offset.  When <paramref name="cursorOffset"/> is non-negative and a parse
+   /// tree is available, only variables visible at that position are considered, so
+   /// function parameters do not shadow outer-scope variables outside their function.
+   /// Falls back to a line-by-line text scan and then runtime global variables.
    /// </summary>
-   private string? ResolveVariableType(string varName, string text, Antlr4.Runtime.Tree.IParseTree? tree)
+   private string? ResolveVariableType(string varName, string text, Antlr4.Runtime.Tree.IParseTree? tree, int cursorOffset = -1)
    {
       if (tree != null)
       {
-         var sym = DocumentSymbolCollector.CollectAll(tree).FirstOrDefault(s => s.Name == varName);
+         IReadOnlyList<Parsing.DocumentSymbolInfo> symbols;
+         if (cursorOffset >= 0)
+         {
+            var (line, col) = OffsetToAntlrPosition(text, cursorOffset);
+            symbols = DocumentSymbolCollector.CollectAtPosition(tree, line, col);
+         }
+         else
+         {
+            symbols = DocumentSymbolCollector.CollectAll(tree);
+         }
+         var sym = symbols.FirstOrDefault(s => s.Name == varName);
          if (sym != null) return sym.TypeName;
       }
       // Text-based fallback: search each line for "TypeName varName"
@@ -203,18 +222,35 @@ public partial class CgScriptLanguageTarget
    /// Returns top-level completions (functions, types, keywords, constants, and local
    /// variables) filtered by whatever identifier prefix the user has already typed.
    /// </summary>
-   private CompletionList TopLevelCompletions(string prefix, string text = "", IParseTree? tree = null)
+   private CompletionList TopLevelCompletions(string prefix, string text = "", IParseTree? tree = null, int cursorOffset = -1)
    {
       bool all = prefix.Length == 0;
       var items = new List<CompletionItem>();
 
-      // Local variables declared in this document
-      var localVars = tree != null
-         ? DocumentSymbolCollector.CollectAll(tree)
-         : CollectVariablesFromText(text);
+      // Local variables visible at the cursor position.
+      // CollectAtPosition is used when we have a parse tree and a cursor offset so that
+      // function parameters are only shown when the cursor is inside that function's body,
+      // preventing duplicate entries and type mismatches for same-named variables.
+      IReadOnlyList<Parsing.DocumentSymbolInfo> localVars;
+      if (tree != null)
+      {
+         if (cursorOffset >= 0)
+         {
+            var (cursorLine, cursorCol) = OffsetToAntlrPosition(text, cursorOffset);
+            localVars = DocumentSymbolCollector.CollectAtPosition(tree, cursorLine, cursorCol);
+         }
+         else
+         {
+            localVars = DocumentSymbolCollector.CollectAll(tree);
+         }
+      }
+      else
+      {
+         localVars = CollectVariablesFromText(text);
+      }
       foreach (var sym in localVars)
       {
-         if (sym.Kind != "variable") continue;
+         if (sym.Kind is not "variable" and not "parameter") continue;
          if (!all && !sym.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
          items.Add(new CompletionItem
          {
@@ -229,19 +265,22 @@ public partial class CgScriptLanguageTarget
       foreach (var (name, fn) in _definitions.Functions)
       {
          if (all || name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+         {
+            bool fnObsolete = fn.Variants?.Length > 0 && fn.Variants.All(v => v.IsObsolete);
             items.Add(new CompletionItem
             {
                Label         = BuildFunctionLabel(name, fn),
                FilterText    = name,
                InsertText    = name,
                Kind          = CompletionItemKind.Function,
-               Detail        = GetFunctionReturnType(fn),
+               Detail        = fnObsolete ? $"{GetFunctionReturnType(fn)} (deprecated)" : GetFunctionReturnType(fn),
                Documentation = new SumType<string, MarkupContent>(new MarkupContent
                {
                   Kind  = MarkupKind.Markdown,
                   Value = BuildFunctionHover(name, fn),
                }),
             });
+         }
       }
 
       foreach (var (name, obj) in _definitions.Objects)
@@ -258,7 +297,23 @@ public partial class CgScriptLanguageTarget
       foreach (var name in _definitions.Constants)
       {
          if (all || name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            items.Add(new CompletionItem { Label = name, Kind = CompletionItemKind.Constant });
+         {
+            bool inEnum      = EnumByConstant.TryGetValue(name, out var entry);
+            bool constObsolete = inEnum && entry.Value.IsObsolete;
+            var item = new CompletionItem
+            {
+               Label  = name,
+               Kind   = CompletionItemKind.Constant,
+               Detail = constObsolete ? "(deprecated)" : null,
+            };
+            if (inEnum)
+               item.Documentation = new MarkupContent
+               {
+                  Kind  = MarkupKind.Markdown,
+                  Value = BuildEnumConstantDoc(name),
+               };
+            items.Add(item);
+         }
       }
 
       foreach (var (name, typeName) in _definitions.GlobalVariables)

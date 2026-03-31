@@ -16,8 +16,8 @@ import {
 } from "@codemirror/autocomplete";
 import { tags } from "@lezer/highlight";
 import {
-   LSPClient, languageServerExtensions, languageServerSupport,
-   type Transport,
+   LSPClient, LSPPlugin, languageServerExtensions,
+   type LSPClientExtension, type Transport,
 } from "@codemirror/lsp-client";
 
 export type { Transport, Extension };
@@ -200,21 +200,17 @@ export function createCgScriptLanguage() {
 // ─── LSP Transport ────────────────────────────────────────────────────────────
 
 export interface SplitTransport {
-   rawTransport: Transport;
-   lspTransport: Transport;
+   transport: Transport;
    closed: Promise<CloseEvent>;
 }
 
 export async function openTransport(uri: string): Promise<SplitTransport> {
    const sock = new WebSocket(uri);
-   let rawHandlers: Array<(m: string) => void> = [];
-   let lspHandlers: Array<(m: string) => void> = [];
+   let handlers: Array<(m: string) => void> = [];
 
    sock.onmessage = e => {
       const msg = e.data as string;
-      for (const h of rawHandlers) h(msg);
-      try { const { id } = JSON.parse(msg); if (typeof id === "string" && id.startsWith("sem-")) return; } catch { /* non-JSON — pass through */ }
-      for (const h of lspHandlers) h(msg);
+      for (const h of handlers) h(msg);
    };
 
    const closed = new Promise<CloseEvent>(resolve => { sock.onclose = resolve; });
@@ -222,15 +218,10 @@ export async function openTransport(uri: string): Promise<SplitTransport> {
 
    return new Promise((resolve, reject) => {
       sock.onopen = () => resolve({
-         rawTransport: {
+         transport: {
             send: sendMsg,
-            subscribe(h)   { rawHandlers.push(h); },
-            unsubscribe(h) { rawHandlers = rawHandlers.filter(x => x !== h); },
-         },
-         lspTransport: {
-            send: sendMsg,
-            subscribe(h)   { lspHandlers.push(h); },
-            unsubscribe(h) { lspHandlers = lspHandlers.filter(x => x !== h); },
+            subscribe(h)   { handlers.push(h); },
+            unsubscribe(h) { handlers = handlers.filter(x => x !== h); },
          },
          closed,
       });
@@ -270,21 +261,18 @@ export const SEMANTIC_CLASSES: Array<string | null> = [
    "cm-cgs-macro",     // 12: macro (preprocessor directive)
 ];
 
-let _semReqCounter = 0;
-
-export function makeSemanticTokensViewPlugin(transport: Transport, fileUri: string): Extension[] {
-   class SemanticPlugin {
+/// An LSPClientExtension that requests semantic tokens from the language
+/// server and applies syntax highlighting decorations. Pass to the
+/// LSPClient extensions option alongside languageServerExtensions().
+export function makeSemanticTokensViewPlugin(): LSPClientExtension {
+   const plugin = ViewPlugin.fromClass(class {
       private _view: EditorView;
-      private _pendingId: string | null = null;
+      private _reqCounter = 0;
       private _debounce: ReturnType<typeof setTimeout> | null = null;
       private _started = false;
-      private _onMsg: (raw: string) => void;
 
       constructor(view: EditorView) {
-         this._view  = view;
-         this._onMsg = this._handleMsg.bind(this);
-         transport.subscribe(this._onMsg);
-         // Initial request fired on first update() call (after didOpen completes).
+         this._view = view;
       }
 
       update(upd: ViewUpdate) {
@@ -299,58 +287,68 @@ export function makeSemanticTokensViewPlugin(transport: Transport, fileUri: stri
       }
 
       destroy() {
-         transport.unsubscribe(this._onMsg);
          if (this._debounce) clearTimeout(this._debounce);
       }
 
       private _request() {
-         const id = `sem-${++_semReqCounter}`;
-         this._pendingId = id;
-         transport.send(JSON.stringify({
-            jsonrpc: "2.0", id,
-            method: "textDocument/semanticTokens/full",
-            params: { textDocument: { uri: fileUri } },
-         }));
+         const lsp = LSPPlugin.get(this._view);
+         if (!lsp) return;
+         lsp.client.sync();
+         const myCount = ++this._reqCounter;
+         lsp.client.request<{ textDocument: { uri: string } }, { data?: number[] } | null>(
+            "textDocument/semanticTokens/full",
+            { textDocument: { uri: lsp.uri } }
+         ).then(result => {
+            if (myCount !== this._reqCounter) return; // stale — a newer request is in flight
+            this._applyTokens(result?.data ?? []);
+         }).catch(() => { /* disconnected or server error — ignore */ });
       }
 
-      private _handleMsg(raw: string) {
-         try {
-            const msg = JSON.parse(raw) as { id?: string; result?: { data?: number[] } };
-            if (msg.id !== this._pendingId) return;
-            const data = msg.result?.data;
-            if (!data?.length) {
-               this._view.dispatch({ effects: setSemanticDecos.of(Decoration.none) });
-               return;
-            }
+      private _applyTokens(data: number[]) {
+         if (!data.length) {
+            this._view.dispatch({ effects: setSemanticDecos.of(Decoration.none) });
+            return;
+         }
 
-            const doc   = this._view.state.doc;
-            const decos: Range<Decoration>[] = [];
-            let line = 0, col = 0;
+         const doc   = this._view.state.doc;
+         const decos: Range<Decoration>[] = [];
+         let line = 0, col = 0;
 
-            for (let i = 0; i + 4 < data.length; i += 5) {
-               const dl = data[i], dc = data[i + 1], len = data[i + 2], type = data[i + 3];
-               if (dl > 0) { line += dl; col = dc; } else { col += dc; }
+         for (let i = 0; i + 4 < data.length; i += 5) {
+            const dl = data[i], dc = data[i + 1], len = data[i + 2], type = data[i + 3];
+            if (dl > 0) { line += dl; col = dc; } else { col += dc; }
 
-               const cls = type < SEMANTIC_CLASSES.length ? SEMANTIC_CLASSES[type] : null;
-               if (!cls || line + 1 > doc.lines) continue;
+            const cls = type < SEMANTIC_CLASSES.length ? SEMANTIC_CLASSES[type] : null;
+            if (!cls || line + 1 > doc.lines) continue;
 
-               const lineObj = doc.line(line + 1);
-               const from    = lineObj.from + col;
-               const to      = from + len;
-               if (to > doc.length) continue;
-               decos.push(Decoration.mark({ class: cls }).range(from, to));
-            }
+            const lineObj = doc.line(line + 1);
+            const from    = lineObj.from + col;
+            const to      = from + len;
+            if (to > doc.length) continue;
+            decos.push(Decoration.mark({ class: cls }).range(from, to));
+         }
 
-            this._view.dispatch({
-               effects: setSemanticDecos.of(
-                  decos.length ? Decoration.set(decos, true) : Decoration.none
-               ),
-            });
-         } catch (e) { console.error("[cgscript] semantic token decode error", e); }
+         this._view.dispatch({
+            effects: setSemanticDecos.of(
+               decos.length ? Decoration.set(decos, true) : Decoration.none
+            ),
+         });
       }
-   }
+   });
 
-   return [ViewPlugin.fromClass(SemanticPlugin)];
+   return {
+      clientCapabilities: {
+         textDocument: {
+            semanticTokens: {
+               requests: { full: true },
+               tokenTypes: [],
+               tokenModifiers: [],
+               formats: ["relative"],
+            },
+         },
+      },
+      editorExtension: [semanticDecoField, plugin],
+   };
 }
 
 // ─── Themes ───────────────────────────────────────────────────────────────────
@@ -510,12 +508,9 @@ export class CodeMirrorForCgScript {
       this.#view = new EditorView({ state: startState, parent });
    }
 
-   connectLsp(lspClient: LSPClient, transport: Transport, fileUri: string) {
+   connectLsp(lspClient: LSPClient, fileUri: string) {
       this.#view.dispatch({
-         effects: this.#lspCompartment.reconfigure([
-            languageServerSupport(lspClient, fileUri, "cgscript"),
-            ...makeSemanticTokensViewPlugin(transport, fileUri),
-         ]),
+         effects: this.#lspCompartment.reconfigure(lspClient.plugin(fileUri, "cgscript")),
       });
    }
 
@@ -557,10 +552,10 @@ export async function manageLspConnection(wsUri: string, cm: CodeMirrorForCgScri
    let delay = 2000;
    while (true) {
       try {
-         const { rawTransport, lspTransport, closed } = await openTransport(wsUri);
+         const { transport, closed } = await openTransport(wsUri);
          delay = 2000;
-         const lspClient = new LSPClient({ extensions: languageServerExtensions() }).connect(lspTransport);
-         cm.connectLsp(lspClient, rawTransport, fileUri);
+         const lspClient = new LSPClient({ extensions: [...languageServerExtensions(), makeSemanticTokensViewPlugin()] }).connect(transport);
+         cm.connectLsp(lspClient, fileUri);
          await closed;
       } catch (e) {
          console.warn(`CgScript LSP: connection failed, retrying in ${delay}ms`, e);
