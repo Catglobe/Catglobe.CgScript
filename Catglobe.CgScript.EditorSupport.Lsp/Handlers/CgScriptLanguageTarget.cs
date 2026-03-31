@@ -31,6 +31,8 @@ public partial class CgScriptLanguageTarget
 
    // ── Client capability flags (set during Initialize) ───────────────────────────
    private bool _clientSupportsMarkdownHover;
+   private bool _clientSupportsMarkdownCompletion;
+   private bool _clientSupportsMarkdownSignature;
    private bool _clientSupportsSnippets;
 
    public CgScriptLanguageTarget(DocumentStore store, DefinitionLoader definitions)
@@ -43,9 +45,13 @@ public partial class CgScriptLanguageTarget
 
    public InitializeResult Initialize(InitializeParams? p = null)
    {
-      var hoverFormats = p?.Capabilities?.TextDocument?.Hover?.ContentFormat;
-      _clientSupportsMarkdownHover = hoverFormats?.Contains(MarkupKind.Markdown) ?? false;
-      _clientSupportsSnippets        = p?.Capabilities?.TextDocument?.Completion?.CompletionItem?.SnippetSupport ?? false;
+      var hoverFormats      = p?.Capabilities?.TextDocument?.Hover?.ContentFormat;
+      var completionFormats = p?.Capabilities?.TextDocument?.Completion?.CompletionItem?.DocumentationFormat;
+      var signatureFormats  = p?.Capabilities?.TextDocument?.SignatureHelp?.SignatureInformation?.DocumentationFormat;
+      _clientSupportsMarkdownHover      = hoverFormats?.Contains(MarkupKind.Markdown)      ?? false;
+      _clientSupportsMarkdownCompletion = completionFormats?.Contains(MarkupKind.Markdown) ?? false;
+      _clientSupportsMarkdownSignature  = signatureFormats?.Contains(MarkupKind.Markdown)  ?? false;
+      _clientSupportsSnippets           = p?.Capabilities?.TextDocument?.Completion?.CompletionItem?.SnippetSupport ?? false;
       return new InitializeResult
       {
          Capabilities = new ServerCapabilities

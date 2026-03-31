@@ -5,9 +5,8 @@ using Microsoft.VisualStudio.LanguageServer.Protocol;
 namespace Catglobe.CgScript.EditorSupport.Lsp.Tests;
 
 /// <summary>
-/// Verifies that object type completion items expose their documentation as
-/// <see cref="MarkupContent"/> with <see cref="MarkupKind.Markdown"/> so that
-/// LSP clients render the documentation with markdown formatting.
+/// Verifies that object type completion items expose their documentation respecting
+/// the client's declared <c>completionItem.documentationFormat</c> capability.
 /// </summary>
 public class CompletionObjectTests
 {
@@ -24,13 +23,15 @@ public class CompletionObjectTests
 
    private static CompletionItem[] GetCompletions(
       Dictionary<string, ObjectDefinition> objects,
-      string prefix = "")
+      string             prefix         = "",
+      InitializeParams?  initializeParams = null)
    {
       var uri         = "file:///test.cgs";
       var definitions = new TestDefinitionLoader(objects);
       var store       = new DocumentStore(definitions);
       store.Update(uri, prefix);
       var target = new CgScriptLanguageTarget(store, definitions);
+      target.Initialize(initializeParams);
 
       var p = new CompletionParams
       {
@@ -44,26 +45,44 @@ public class CompletionObjectTests
       return [];
    }
 
+   private static InitializeParams MarkdownCapabilityParams() => new InitializeParams
+   {
+      Capabilities = new ClientCapabilities
+      {
+         TextDocument = new TextDocumentClientCapabilities
+         {
+            Completion = new CompletionSetting
+            {
+               CompletionItem = new CompletionItemSetting
+               {
+                  DocumentationFormat = [MarkupKind.Markdown],
+               },
+            },
+         },
+      },
+   };
+
+   // ── Without markdown capability: PlainText ────────────────────────────────
+
    [Fact]
-   public void ObjectCompletion_Documentation_IsMarkupContent()
+   public void ObjectCompletion_WithoutMarkdownCapability_Documentation_IsPlainText()
    {
       var objects = new Dictionary<string, ObjectDefinition>
       {
          ["MyObject"] = new ObjectDefinition("MyObject", "My **object** doc", null, null, null, null),
       };
 
-      var items = GetCompletions(objects, prefix: "MyObject");
+      var items = GetCompletions(objects, prefix: "MyObject"); // no initializeParams → no markdown capability
 
       var item = items.FirstOrDefault(i => i.Label == "MyObject");
       Assert.NotNull(item);
       Assert.True(item.Documentation.HasValue);
       Assert.True(item.Documentation.Value.TryGetSecond(out var markup));
-      Assert.NotNull(markup);
-      Assert.Equal(MarkupKind.Markdown, markup.Kind);
+      Assert.Equal(MarkupKind.PlainText, markup?.Kind);
    }
 
    [Fact]
-   public void ObjectCompletion_Documentation_ContainsDocText()
+   public void ObjectCompletion_WithoutMarkdownCapability_Documentation_StripsMarkdown()
    {
       var objects = new Dictionary<string, ObjectDefinition>
       {
@@ -76,11 +95,31 @@ public class CompletionObjectTests
       Assert.NotNull(item);
       Assert.True(item.Documentation.HasValue);
       Assert.True(item.Documentation.Value.TryGetSecond(out var markup));
+      Assert.Equal("My object doc", markup?.Value);
+   }
+
+   // ── With markdown capability: Markdown ────────────────────────────────────
+
+   [Fact]
+   public void ObjectCompletion_WithMarkdownCapability_Documentation_IsMarkdown()
+   {
+      var objects = new Dictionary<string, ObjectDefinition>
+      {
+         ["MyObject"] = new ObjectDefinition("MyObject", "My **object** doc", null, null, null, null),
+      };
+
+      var items = GetCompletions(objects, prefix: "MyObject", initializeParams: MarkdownCapabilityParams());
+
+      var item = items.FirstOrDefault(i => i.Label == "MyObject");
+      Assert.NotNull(item);
+      Assert.True(item.Documentation.HasValue);
+      Assert.True(item.Documentation.Value.TryGetSecond(out var markup));
+      Assert.Equal(MarkupKind.Markdown, markup?.Kind);
       Assert.Equal("My **object** doc", markup?.Value);
    }
 
    [Fact]
-   public void ObjectCompletion_NullDoc_Documentation_IsMarkupContent_WithEmptyValue()
+   public void ObjectCompletion_NullDoc_Documentation_IsPlainTextWithEmptyValue()
    {
       var objects = new Dictionary<string, ObjectDefinition>
       {
@@ -93,7 +132,7 @@ public class CompletionObjectTests
       Assert.NotNull(item);
       Assert.True(item.Documentation.HasValue);
       Assert.True(item.Documentation.Value.TryGetSecond(out var markup));
-      Assert.Equal(MarkupKind.Markdown, markup?.Kind);
+      Assert.Equal(MarkupKind.PlainText, markup?.Kind);
       Assert.Equal(string.Empty, markup?.Value);
    }
 }

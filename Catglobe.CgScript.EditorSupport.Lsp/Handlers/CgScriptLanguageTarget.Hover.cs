@@ -161,6 +161,15 @@ public partial class CgScriptLanguageTarget
 
    // ── string builders ───────────────────────────────────────────────────────────
 
+   /// <summary>Strips inline markdown syntax for clients that only understand plain text.</summary>
+   private static string StripMarkdown(string markdown)
+   {
+      var plain = System.Text.RegularExpressions.Regex.Replace(markdown, @"`([^`]*)`", "$1");
+      plain = System.Text.RegularExpressions.Regex.Replace(plain, @"\*\*([^*]*)\*\*", "$1");
+      plain = System.Text.RegularExpressions.Regex.Replace(plain, @"\*([^*]*)\*", "$1");
+      return plain.Replace("\n\n---\n\n", "\n\n");
+   }
+
    /// <summary>
    /// Converts a markdown-formatted string to <see cref="MarkupContent"/> respecting
    /// what the client declared during <c>initialize</c>. VS doesn't declare markdown
@@ -170,13 +179,29 @@ public partial class CgScriptLanguageTarget
    {
       if (_clientSupportsMarkdownHover)
          return new MarkupContent { Kind = MarkupKind.Markdown, Value = markdown };
+      return new MarkupContent { Kind = MarkupKind.PlainText, Value = StripMarkdown(markdown) };
+   }
 
-      // Strip inline markdown for clients that only understand plain text
-      var plain = System.Text.RegularExpressions.Regex.Replace(markdown, @"`([^`]*)`", "$1");
-      plain = System.Text.RegularExpressions.Regex.Replace(plain, @"\*\*([^*]*)\*\*", "$1");
-      plain = System.Text.RegularExpressions.Regex.Replace(plain, @"\*([^*]*)\*", "$1");
-      plain = plain.Replace("\n\n---\n\n", "\n\n");
-      return new MarkupContent { Kind = MarkupKind.PlainText, Value = plain };
+   /// <summary>
+   /// Returns documentation for a completion item, respecting the client's declared
+   /// <c>completionItem.documentationFormat</c> capability.
+   /// </summary>
+   private SumType<string, MarkupContent> CompletionDoc(string markdown)
+   {
+      var kind  = _clientSupportsMarkdownCompletion ? MarkupKind.Markdown : MarkupKind.PlainText;
+      var value = _clientSupportsMarkdownCompletion ? markdown : StripMarkdown(markdown);
+      return new SumType<string, MarkupContent>(new MarkupContent { Kind = kind, Value = value });
+   }
+
+   /// <summary>
+   /// Returns documentation for a signature-help item, respecting the client's declared
+   /// <c>signatureHelp.signatureInformation.documentationFormat</c> capability.
+   /// </summary>
+   private SumType<string, MarkupContent> SignatureDoc(string markdown)
+   {
+      var kind  = _clientSupportsMarkdownSignature ? MarkupKind.Markdown : MarkupKind.PlainText;
+      var value = _clientSupportsMarkdownSignature ? markdown : StripMarkdown(markdown);
+      return new SumType<string, MarkupContent>(new MarkupContent { Kind = kind, Value = value });
    }
 
    private static string BuildParamList(FunctionParam[]? parameters)
@@ -236,20 +261,19 @@ public partial class CgScriptLanguageTarget
       return doc.ToString();
    }
 
-   private static SignatureInformation[] BuildSignatureInfoList(string funcName, FunctionDefinition fn)
+   private SignatureInformation[] BuildSignatureInfoList(string funcName, FunctionDefinition fn)
    {
       if (fn.IsNewStyle && fn.Variants?.Length > 0)
       {
          return fn.Variants.Select(v => new SignatureInformation
          {
             Label         = $"{v.ReturnType} {funcName}({BuildVariantParamList(v.Param)})",
-            Documentation = new SumType<string, MarkupContent>(
-               new MarkupContent { Kind = MarkupKind.Markdown, Value = v.Doc ?? string.Empty }),
+            Documentation = SignatureDoc(v.Doc ?? string.Empty),
             Parameters    = (v.Param ?? []).Select(p =>
                new ParameterInformation
                {
                   Label         = new SumType<string, Tuple<int, int>>($"{p.Type} {p.Name}"),
-                  Documentation = new SumType<string, MarkupContent>(new MarkupContent { Kind = MarkupKind.Markdown, Value = p.Doc ?? string.Empty }),
+                  Documentation = SignatureDoc(p.Doc ?? string.Empty),
                }).ToArray(),
          }).ToArray();
       }
@@ -258,13 +282,12 @@ public partial class CgScriptLanguageTarget
          new SignatureInformation
          {
             Label         = $"{fn.ReturnType} {funcName}({BuildParamList(fn.Parameters)})",
-            Documentation = new SumType<string, MarkupContent>(
-               new MarkupContent { Kind = MarkupKind.Markdown, Value = BuildFunctionHover(funcName, fn) }),
+            Documentation = SignatureDoc(BuildFunctionHover(funcName, fn)),
             Parameters    = (fn.Parameters ?? []).Select(p =>
                new ParameterInformation
                {
                   Label         = new SumType<string, Tuple<int, int>>($"{p.ConstantType} {p.Name}"),
-                  Documentation = new SumType<string, MarkupContent>(new MarkupContent { Kind = MarkupKind.Markdown, Value = p.IsOptional ? "(optional)" : string.Empty }),
+                  Documentation = SignatureDoc(p.IsOptional ? "(optional)" : string.Empty),
                }).ToArray(),
          },
       ];
@@ -323,13 +346,12 @@ public partial class CgScriptLanguageTarget
       return methods.Select(m => new SignatureInformation
       {
          Label         = $"{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param)})",
-         Documentation = new SumType<string, MarkupContent>(
-            new MarkupContent { Kind = MarkupKind.Markdown, Value = m.Doc ?? string.Empty }),
+         Documentation = SignatureDoc(m.Doc ?? string.Empty),
          Parameters    = (m.Param ?? []).Select(p =>
             new ParameterInformation
             {
                Label         = new SumType<string, Tuple<int, int>>($"{p.Type} {p.Name}"),
-               Documentation = new SumType<string, MarkupContent>(new MarkupContent { Kind = MarkupKind.Markdown, Value = p.Doc ?? string.Empty }),
+               Documentation = SignatureDoc(p.Doc ?? string.Empty),
             }).ToArray(),
       }).ToArray();
    }
@@ -351,17 +373,16 @@ public partial class CgScriptLanguageTarget
    }
 
    /// <summary>Builds one <see cref="SignatureInformation"/> per constructor overload.</summary>
-   private static SignatureInformation[] BuildConstructorSignatureInfoList(string typeName, MethodDefinition[] ctors)
+   private SignatureInformation[] BuildConstructorSignatureInfoList(string typeName, MethodDefinition[] ctors)
       => ctors.Select(c => new SignatureInformation
       {
          Label         = $"new {typeName}({BuildMethodParamList(c.Param)})",
-         Documentation = new SumType<string, MarkupContent>(
-            new MarkupContent { Kind = MarkupKind.Markdown, Value = c.Doc ?? string.Empty }),
+         Documentation = SignatureDoc(c.Doc ?? string.Empty),
          Parameters    = (c.Param ?? []).Select(p =>
             new ParameterInformation
             {
                Label         = new SumType<string, Tuple<int, int>>($"{p.Type} {p.Name}"),
-               Documentation = new SumType<string, MarkupContent>(new MarkupContent { Kind = MarkupKind.Markdown, Value = p.Doc ?? string.Empty }),
+               Documentation = SignatureDoc(p.Doc ?? string.Empty),
             }).ToArray(),
       }).ToArray();
 }

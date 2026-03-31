@@ -99,12 +99,8 @@ public partial class CgScriptLanguageTarget
                InsertText    = first.Name,
                Kind          = CompletionItemKind.Method,
                Detail        = first.ReturnType,
-               Documentation = new SumType<string, MarkupContent>(new MarkupContent
-               {
-                  Kind  = MarkupKind.Markdown,
-                  Value = string.Join("\n\n---\n\n", overloads.Select(m =>
-                     (string.IsNullOrWhiteSpace(m.Doc) ? "" : $"{m.Doc}\n\n") + $"`{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param)})`")),
-               }),
+               Documentation = CompletionDoc(string.Join("\n\n---\n\n", overloads.Select(m =>
+                  (string.IsNullOrWhiteSpace(m.Doc) ? "" : $"{m.Doc}\n\n") + $"`{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param)})`"))),
             });
          }
 
@@ -119,11 +115,7 @@ public partial class CgScriptLanguageTarget
                InsertText    = prop.Name,
                Kind          = CompletionItemKind.Property,
                Detail        = prop.ReturnType,
-               Documentation = new SumType<string, MarkupContent>(new MarkupContent
-               {
-                  Kind  = MarkupKind.Markdown,
-                  Value = (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n") + $"`{prop.ReturnType} {prop.Name}`",
-               }),
+               Documentation = CompletionDoc((string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n") + $"`{prop.ReturnType} {prop.Name}`"),
             });
          }
       }
@@ -236,11 +228,7 @@ public partial class CgScriptLanguageTarget
                InsertText    = name,
                Kind          = CompletionItemKind.Function,
                Detail        = GetFunctionReturnType(fn),
-               Documentation = new SumType<string, MarkupContent>(new MarkupContent
-               {
-                  Kind  = MarkupKind.Markdown,
-                  Value = BuildFunctionHover(name, fn),
-               }),
+               Documentation = CompletionDoc(BuildFunctionHover(name, fn)),
             });
       }
 
@@ -251,11 +239,7 @@ public partial class CgScriptLanguageTarget
             {
                Label         = name,
                Kind          = CompletionItemKind.Class,
-               Documentation = new SumType<string, MarkupContent>(new MarkupContent
-               {
-                  Kind  = MarkupKind.Markdown,
-                  Value = obj.Doc ?? string.Empty,
-               }),
+               Documentation = CompletionDoc(obj.Doc ?? string.Empty),
             });
       }
 
