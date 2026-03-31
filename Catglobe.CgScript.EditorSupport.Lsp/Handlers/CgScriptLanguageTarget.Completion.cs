@@ -102,13 +102,9 @@ public partial class CgScriptLanguageTarget
                InsertText    = first.Name,
                Kind          = CompletionItemKind.Method,
                Detail        = allObsolete ? $"{first.ReturnType} (deprecated)" : first.ReturnType,
-               Documentation = new SumType<string, MarkupContent>(new MarkupContent
-               {
-                  Kind  = MarkupKind.Markdown,
-                  Value = (allObsolete ? DeprecatedPrefix(first.ObsoleteDoc) : "") + string.Join("\n\n---\n\n", overloads.Select(m =>
-                     (m.IsObsolete && !allObsolete ? DeprecatedPrefix(m.ObsoleteDoc) : "")
-                     + (string.IsNullOrWhiteSpace(m.Doc) ? "" : $"{m.Doc}\n\n") + $"`{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param)})`")),
-               }),
+               Documentation = CompletionDoc((allObsolete ? DeprecatedPrefix(first.ObsoleteDoc) : "") + string.Join("\n\n---\n\n", overloads.Select(m =>
+                  (m.IsObsolete && !allObsolete ? DeprecatedPrefix(m.ObsoleteDoc) : "")
+                  + (string.IsNullOrWhiteSpace(m.Doc) ? "" : $"{m.Doc}\n\n") + $"`{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param)})`"))),
             });
          }
 
@@ -123,13 +119,9 @@ public partial class CgScriptLanguageTarget
                InsertText    = prop.Name,
                Kind          = CompletionItemKind.Property,
                Detail        = prop.IsObsolete ? $"{prop.ReturnType} (deprecated)" : prop.ReturnType,
-               Documentation = new SumType<string, MarkupContent>(new MarkupContent
-               {
-                  Kind  = MarkupKind.Markdown,
-                  Value = (prop.IsObsolete ? DeprecatedPrefix(prop.ObsoleteDoc) : "")
-                          + (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n")
-                          + $"`{prop.ReturnType} {prop.Name}`",
-               }),
+               Documentation = CompletionDoc((prop.IsObsolete ? DeprecatedPrefix(prop.ObsoleteDoc) : "")
+                              + (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n")
+                              + $"`{prop.ReturnType} {prop.Name}`"),
             });
          }
       }
@@ -274,11 +266,7 @@ public partial class CgScriptLanguageTarget
                InsertText    = name,
                Kind          = CompletionItemKind.Function,
                Detail        = fnObsolete ? $"{GetFunctionReturnType(fn)} (deprecated)" : GetFunctionReturnType(fn),
-               Documentation = new SumType<string, MarkupContent>(new MarkupContent
-               {
-                  Kind  = MarkupKind.Markdown,
-                  Value = BuildFunctionHover(name, fn),
-               }),
+               Documentation = CompletionDoc(BuildFunctionHover(name, fn)),
             });
          }
       }
@@ -290,7 +278,7 @@ public partial class CgScriptLanguageTarget
             {
                Label         = name,
                Kind          = CompletionItemKind.Class,
-               Documentation = obj.Doc,
+               Documentation = CompletionDoc(obj.Doc ?? string.Empty),
             });
       }
 
@@ -307,11 +295,7 @@ public partial class CgScriptLanguageTarget
                Detail = constObsolete ? "(deprecated)" : null,
             };
             if (inEnum)
-               item.Documentation = new MarkupContent
-               {
-                  Kind  = MarkupKind.Markdown,
-                  Value = BuildEnumConstantDoc(name),
-               };
+               item.Documentation = CompletionDoc(BuildEnumConstantDoc(name));
             items.Add(item);
          }
       }
