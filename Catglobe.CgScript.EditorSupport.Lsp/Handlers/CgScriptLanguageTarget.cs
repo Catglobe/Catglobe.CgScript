@@ -104,15 +104,18 @@ public partial class CgScriptLanguageTarget
 
    public void OnDidOpen(DidOpenTextDocumentParams p)
    {
+      var uri = p.TextDocument.Uri.ToString();
       try
       {
-         _store.Update(p.TextDocument.Uri.ToString(), p.TextDocument.Text);
+         _store.Update(uri, p.TextDocument.Text);
       }
       catch (Exception ex)
       {
          _ = PublishErrorDiagnosticAsync(p.TextDocument.Uri, ex);
          return;
       }
+      // Clear semantic cache to force full semantic tokens request on first access
+      _semanticCache.TryRemove(uri, out _);
       _ = PublishDiagnosticsAsync(p.TextDocument.Uri);
    }
 
@@ -139,7 +142,9 @@ public partial class CgScriptLanguageTarget
 
    public void OnDidClose(DidCloseTextDocumentParams p)
    {
-      _store.Remove(p.TextDocument.Uri.ToString());
+      var uri = p.TextDocument.Uri.ToString();
+      _store.Remove(uri);
+      _semanticCache.TryRemove(uri, out _);
       _ = Rpc?.NotifyWithParameterObjectAsync(Methods.TextDocumentPublishDiagnosticsName,
          new PublishDiagnosticParams { Uri = p.TextDocument.Uri, Diagnostics = [] });
    }
