@@ -5,6 +5,7 @@ using Catglobe.CgScript.EditorSupport.Parsing;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 using StreamJsonRpc;
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Threading;
 using LspDiagnostic = Microsoft.VisualStudio.LanguageServer.Protocol.Diagnostic;
 using LspRange      = Microsoft.VisualStudio.LanguageServer.Protocol.Range;
@@ -39,12 +40,12 @@ public partial class CgScriptLanguageTarget
          bool isStaticAccess = false;
          if (receiverName != null)
          {
-            if (_definitions.Objects.TryGetValue(receiverName, out exactObj))
+            if (TryGetObjectDefinition(receiverName, out exactObj))
                isStaticAccess = true;
             else
             {
                var typeName = ResolveVariableType(receiverName, text, _store.GetParseResult(p.TextDocument.Uri.ToString())?.Tree);
-               if (typeName != null) _definitions.Objects.TryGetValue(typeName, out exactObj);
+               if (typeName != null) TryGetObjectDefinition(typeName, out exactObj);
             }
          }
          IEnumerable<ObjectDefinition> candidates = exactObj != null
@@ -60,7 +61,8 @@ public partial class CgScriptLanguageTarget
                return new Hover
                {
                   Contents = HoverContent(
-                     (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n")
+                     (prop.IsObsolete ? DeprecatedPrefix(prop.ObsoleteDoc) : "")
+                     + (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n")
                      + $"`{prop.ReturnType} {prop.Name}`"),
                };
 
@@ -70,10 +72,16 @@ public partial class CgScriptLanguageTarget
                .ToList();
             if (methods.Count == 0) continue;
 
+            bool allMethodsObsolete = methods.All(m => m.IsObsolete);
             var sb = new System.Text.StringBuilder();
+            if (allMethodsObsolete) sb.Append("**⚠ Deprecated**\n\n");
+            bool firstEntry = true;
             foreach (var m in methods)
             {
-               if (sb.Length > 0) sb.Append("\n\n---\n\n");
+               if (!firstEntry) sb.Append("\n\n---\n\n");
+               firstEntry = false;
+               if (m.IsObsolete && !allMethodsObsolete) sb.Append(DeprecatedPrefix(m.ObsoleteDoc));
+               else if (m.IsObsolete && m.ObsoleteDoc is not null) sb.Append($"{m.ObsoleteDoc}\n\n");
                if (!string.IsNullOrWhiteSpace(m.Doc)) sb.Append($"{m.Doc}\n\n");
                sb.Append($"`{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param ?? [])})`");
                if (m.Param?.Length > 0)
@@ -106,9 +114,15 @@ public partial class CgScriptLanguageTarget
          if (!string.IsNullOrWhiteSpace(obj.Doc)) sb.Append(obj.Doc);
          if (obj.Constructors?.Length > 0)
          {
+            bool allCtorsObsolete = obj.Constructors.All(c => c.IsObsolete);
+            bool firstCtor = true;
             foreach (var ctor in obj.Constructors)
             {
                if (sb.Length > 0) sb.Append("\n\n---\n\n");
+               if (firstCtor && allCtorsObsolete) sb.Append("**⚠ Deprecated**\n\n");
+               firstCtor = false;
+               if (ctor.IsObsolete && !allCtorsObsolete) sb.Append(DeprecatedPrefix(ctor.ObsoleteDoc));
+               else if (ctor.IsObsolete && ctor.ObsoleteDoc is not null) sb.Append($"{ctor.ObsoleteDoc}\n\n");
                if (!string.IsNullOrWhiteSpace(ctor.Doc)) sb.Append($"{ctor.Doc}\n\n");
                sb.Append($"`new {word}({BuildMethodParamList(ctor.Param)})`");
                if (ctor.Param?.Length > 0)
@@ -130,7 +144,7 @@ public partial class CgScriptLanguageTarget
       {
          return new Hover
          {
-            Contents = HoverContent($"constant: {word}"),
+            Contents = HoverContent(BuildEnumConstantDoc(word)),
          };
       }
 
@@ -145,10 +159,15 @@ public partial class CgScriptLanguageTarget
 
          if (decl is not null)
          {
-            // Use CollectAll to find declarations at any nesting depth.
-            var sym = DocumentSymbolCollector.CollectAll(result.Tree)
-               .FirstOrDefault(s => s.Name == word);
-            var typeLabel = sym is not null ? sym.TypeName : "?";
+            // Use the declaration's source position to pick the exact typed symbol
+            // so that a function parameter of a different type shadows a same-named
+            // global (e.g. 'User u' global vs 'Dictionary u' parameter).
+            // CollectAll is a single parse-tree walk; the linear search is proportional
+            // to the number of declarations in the file, which is acceptable for hover.
+            var allSymbols = DocumentSymbolCollector.CollectAll(result.Tree);
+            var exactSym   = allSymbols.FirstOrDefault(
+               s => s.Name == word && s.NameLine == decl.Line && s.NameColumn == decl.Column);
+            var typeLabel  = exactSym?.TypeName ?? ResolveVariableType(word, text, result.Tree) ?? "?";
             return new Hover
             {
                Contents = HoverContent($"{typeLabel} {word}"),
@@ -204,10 +223,6 @@ public partial class CgScriptLanguageTarget
       return new SumType<string, MarkupContent>(new MarkupContent { Kind = kind, Value = value });
    }
 
-   private static string BuildParamList(FunctionParam[]? parameters)
-      => parameters is null ? string.Empty
-         : string.Join(", ", parameters.Select(p => $"{p.ConstantType} {p.Name}{(p.IsOptional ? "?" : "")}"));
-
    private static string BuildVariantParamList(FunctionVariantParam[]? parameters)
       => parameters is null ? string.Empty
          : string.Join(", ", parameters.Select(p => $"{p.Type} {p.Name}"));
@@ -216,93 +231,99 @@ public partial class CgScriptLanguageTarget
       => parameters is null ? string.Empty
          : string.Join(", ", parameters.Select(p => $"{p.Type} {p.Name}"));
 
+   /// <summary>
+   /// Returns the markdown prefix for a deprecated item.
+   /// Includes the optional <paramref name="obsoleteDoc"/> as an explanatory paragraph when provided.
+   /// </summary>
+   private static string DeprecatedPrefix(string? obsoleteDoc)
+      => "**⚠ Deprecated**" + (obsoleteDoc is null ? "" : $"\n\n{obsoleteDoc}") + "\n\n";
+
    private static string GetFunctionReturnType(FunctionDefinition fn)
-      => fn.IsNewStyle && fn.Variants?.Length > 0 ? fn.Variants[0].ReturnType : fn.ReturnType ?? string.Empty;
+      => fn.Variants?.Length > 0 ? fn.Variants[0].ReturnType : string.Empty;
 
    private static string BuildFunctionLabel(string name, FunctionDefinition fn)
    {
-      if (fn.IsNewStyle && fn.Variants?.Length > 0)
+      if (fn.Variants?.Length > 0)
       {
          var first = fn.Variants[0];
          return fn.Variants.Length == 1
             ? $"{name}({BuildVariantParamList(first.Param)})"
             : $"{name}(+{fn.Variants.Length} overloads)";
       }
-      return $"{name}({BuildParamList(fn.Parameters)})";
+      return $"{name}()";
    }
 
    /// <summary>Builds the markdown hover text for a built-in function.</summary>
    private static string BuildFunctionHover(string name, FunctionDefinition fn)
    {
-      if (fn.IsNewStyle && fn.Variants?.Length > 0)
+      if (fn.Variants is not { Length: > 0 })
+         return name;
+      bool allObsolete = fn.Variants.All(v => v.IsObsolete);
+      var sb = new System.Text.StringBuilder();
+      if (allObsolete) sb.Append("**⚠ Deprecated**\n\n");
+      bool firstEntry = true;
+      foreach (var v in fn.Variants)
       {
-         var sb = new System.Text.StringBuilder();
-         foreach (var v in fn.Variants)
+         if (!firstEntry) sb.Append("\n\n---\n\n");
+         firstEntry = false;
+         if (v.IsObsolete && !allObsolete) sb.Append(DeprecatedPrefix(v.ObsoleteDoc));
+         else if (v.IsObsolete && v.ObsoleteDoc is not null) sb.Append($"{v.ObsoleteDoc}\n\n");
+         if (!string.IsNullOrWhiteSpace(v.Doc)) sb.Append($"{v.Doc}\n\n");
+         sb.Append($"`{v.ReturnType} {name}({BuildVariantParamList(v.Param)})`");
+         if (v.Param?.Length > 0)
          {
-            if (sb.Length > 0) sb.Append("\n\n---\n\n");
-            if (!string.IsNullOrWhiteSpace(v.Doc)) sb.Append($"{v.Doc}\n\n");
-            sb.Append($"`{v.ReturnType} {name}({BuildVariantParamList(v.Param)})`");
-            if (v.Param?.Length > 0)
-            {
-               sb.Append("\n\n**Parameters:**");
-               foreach (var p in v.Param)
-                  sb.Append($"\n- `{p.Type} {p.Name}` — {p.Doc}");
-            }
+            sb.Append("\n\n**Parameters:**");
+            foreach (var p in v.Param)
+               sb.Append($"\n- `{p.Type} {p.Name}` — {p.Doc}");
          }
-         return sb.ToString();
       }
-      // Old-style: no doc available, show signature + param types
-      var sig = $"`{fn.ReturnType} {name}({BuildParamList(fn.Parameters)})`";
-      if (fn.Parameters is null || fn.Parameters.Length == 0) return sig;
-      var doc = new System.Text.StringBuilder(sig);
-      doc.Append("\n\n**Parameters:**");
-      foreach (var p in fn.Parameters)
-         doc.Append($"\n- `{p.ConstantType} {p.Name}`{(p.IsOptional ? " *(optional)*" : "")}");
-      return doc.ToString();
+      return sb.ToString();
    }
 
    private SignatureInformation[] BuildSignatureInfoList(string funcName, FunctionDefinition fn)
    {
-      if (fn.IsNewStyle && fn.Variants?.Length > 0)
+      if (fn.Variants is not { Length: > 0 })
+         return [];
+      return fn.Variants.Select(v => new SignatureInformation
       {
-         return fn.Variants.Select(v => new SignatureInformation
-         {
-            Label         = $"{v.ReturnType} {funcName}({BuildVariantParamList(v.Param)})",
-            Documentation = SignatureDoc(v.Doc ?? string.Empty),
-            Parameters    = (v.Param ?? []).Select(p =>
-               new ParameterInformation
-               {
-                  Label         = new SumType<string, Tuple<int, int>>($"{p.Type} {p.Name}"),
-                  Documentation = SignatureDoc(p.Doc ?? string.Empty),
-               }).ToArray(),
-         }).ToArray();
-      }
-      return
-      [
-         new SignatureInformation
-         {
-            Label         = $"{fn.ReturnType} {funcName}({BuildParamList(fn.Parameters)})",
-            Documentation = SignatureDoc(BuildFunctionHover(funcName, fn)),
-            Parameters    = (fn.Parameters ?? []).Select(p =>
-               new ParameterInformation
-               {
-                  Label         = new SumType<string, Tuple<int, int>>($"{p.ConstantType} {p.Name}"),
-                  Documentation = SignatureDoc(p.IsOptional ? "(optional)" : string.Empty),
-               }).ToArray(),
-         },
-      ];
+         Label         = $"{v.ReturnType} {funcName}({BuildVariantParamList(v.Param)})",
+         Documentation = SignatureDoc(v.Doc ?? string.Empty),
+         Parameters    = (v.Param ?? []).Select(p =>
+            new ParameterInformation
+            {
+               Label         = new SumType<string, Tuple<int, int>>($"{p.Type} {p.Name}"),
+               Documentation = SignatureDoc(p.Doc ?? string.Empty),
+            }).ToArray(),
+      }).ToArray();
    }
 
    private static string BuildFunctionDoc(FunctionDefinition fn)
+      => fn.Variants?.Length > 0
+         ? string.Join("\n\n---\n\n", fn.Variants.Select(v => v.Doc ?? string.Empty))
+         : string.Empty;
+
+   /// <summary>
+   /// Builds the markdown hover text for an enum-derived constant.
+   /// Shows the enum generic documentation (if any), the per-value documentation
+   /// (if any), and the numeric value of the constant.
+   /// Falls back to <c>"constant: {name}"</c> when the constant is not part of any enum.
+   /// </summary>
+   private string BuildEnumConstantDoc(string name)
    {
-      if (fn.IsNewStyle && fn.Variants?.Length > 0)
-         return string.Join("\n\n---\n\n", fn.Variants.Select(v => v.Doc ?? string.Empty));
-      if (fn.Parameters is null || fn.Parameters.Length == 0) return $"Returns {fn.ReturnType}";
+      if (!EnumByConstant.TryGetValue(name, out var entry))
+         return $"constant: {name}";
+
       var sb = new System.Text.StringBuilder();
-      sb.AppendLine($"Returns {fn.ReturnType}");
-      sb.AppendLine("Parameters:");
-      foreach (var p in fn.Parameters)
-         sb.AppendLine($"  {p.Name} : {p.ConstantType}{(p.IsOptional ? " (optional)" : "")}");
+      if (entry.Value.IsObsolete) sb.Append(DeprecatedPrefix(entry.Value.ObsoleteDoc));
+      if (!string.IsNullOrWhiteSpace(entry.Enum.Doc))
+         sb.Append(entry.Enum.Doc);
+      if (!string.IsNullOrWhiteSpace(entry.Value.Doc))
+      {
+         if (sb.Length > 0) sb.Append("\n\n");
+         sb.Append(entry.Value.Doc);
+      }
+      if (sb.Length > 0) sb.Append("\n\n");
+      sb.Append($"`{name}` = `{entry.Value.Value}`");
       return sb.ToString();
    }
 
@@ -328,7 +349,7 @@ public partial class CgScriptLanguageTarget
 
       ObjectDefinition? objDef = null;
       bool isStatic = false;
-      if (_definitions.Objects.TryGetValue(receiverName, out objDef))
+      if (TryGetObjectDefinition(receiverName, out objDef))
          isStatic = true;
       else
       {
@@ -377,7 +398,7 @@ public partial class CgScriptLanguageTarget
       => ctors.Select(c => new SignatureInformation
       {
          Label         = $"new {typeName}({BuildMethodParamList(c.Param)})",
-         Documentation = SignatureDoc(c.Doc ?? string.Empty),
+         Documentation = SignatureDoc((c.IsObsolete ? DeprecatedPrefix(c.ObsoleteDoc) : "") + (c.Doc ?? string.Empty)),
          Parameters    = (c.Param ?? []).Select(p =>
             new ParameterInformation
             {

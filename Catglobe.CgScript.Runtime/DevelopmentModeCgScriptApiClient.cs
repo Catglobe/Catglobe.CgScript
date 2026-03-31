@@ -24,7 +24,7 @@ internal partial class DevelopmentModeCgScriptApiClient(HttpClient httpClient, I
       return $"api/CgScript/dynamicRun{additionalParameters ?? ""}";
    }
 
-   protected override async Task<JsonContent?> GetJsonContent<TP>(string scriptName, TP? parameter, JsonTypeInfo<TP> callJsonTypeInfo) where TP : default => 
+   protected override async Task<HttpContent?> GetJsonContent<TP>(string scriptName, TP? parameter, JsonTypeInfo<TP> callJsonTypeInfo) where TP : default => 
       JsonContent.Create(new DynamicCgScript<TP>(scriptName, await GetScript(scriptName), parameter, callJsonTypeInfo), mediaType: null, jsonTypeInfo: DynamicCgScriptSerializer.Default.IDynamicScript);
 
    [RequiresUnreferencedCode("JSON")]

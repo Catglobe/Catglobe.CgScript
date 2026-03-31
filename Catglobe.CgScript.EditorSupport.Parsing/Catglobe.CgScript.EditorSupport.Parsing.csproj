@@ -40,10 +40,7 @@
    </ItemGroup>
 
    <ItemGroup>
-      <EmbeddedResource Include="Resources\CgScriptConstants.json" />
-      <EmbeddedResource Include="Resources\CgScriptFunctionDefinitions.json" />
-      <EmbeddedResource Include="Resources\CgScriptGlobalVariables.json" />
-      <EmbeddedResource Include="Resources\CgScriptObjectDefinitions.json" />
+      <EmbeddedResource Include="Resources\*.json" />
    </ItemGroup>
 
    <ItemGroup>

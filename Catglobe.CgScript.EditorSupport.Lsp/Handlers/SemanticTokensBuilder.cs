@@ -21,7 +21,7 @@ public static class SemanticTokensBuilder
    private const int TypeVariable   = 5;
    private const int TypeFunction   = 6;
    private const int TypeClass      = 7;
-   private const int TypeEnumMember = 8;
+   private const int TypeEnum       = 8;
    private const int TypeParameter  = 9;
    private const int TypeMethod     = 10;
    private const int TypeProperty   = 11;
@@ -42,7 +42,7 @@ public static class SemanticTokensBuilder
       SemanticTokenTypes.Variable,   // 5
       SemanticTokenTypes.Function,   // 6
       SemanticTokenTypes.Class,      // 7
-      SemanticTokenTypes.EnumMember, // 8
+      SemanticTokenTypes.Enum,       // 8
       SemanticTokenTypes.Parameter,  // 9
       SemanticTokenTypes.Method,     // 10
       SemanticTokenTypes.Property,   // 11
@@ -274,7 +274,7 @@ public static class SemanticTokensBuilder
 
       // Rule 8: name is a known constant
       if (constantsSet is not null && constantsSet.Contains(name))
-         return (TypeEnumMember, ModDefaultLibrary);
+         return (TypeEnum, ModDefaultLibrary);
 
       // Rule 8b: name is a known global variable pre-declared by the runtime
       if (globalVariables is not null && globalVariables.ContainsKey(name))

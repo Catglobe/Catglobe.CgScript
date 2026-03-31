@@ -145,6 +145,118 @@ public class CgScriptFormatterTests
       Assert.StartsWith("return 42", result);
    }
 
+   // ── function-literal arguments ───────────────────────────────────────────
+
+   [Fact]
+   public void Format_FunctionLiteralArgument_ClosingBraceAndParenOnSameLine()
+   {
+      var input    = "arr.Foreach(function(array it) { number x = 1; });";
+      var result   = CgScriptFormatter.Format(input);
+      Assert.Contains("});", result);
+      Assert.DoesNotContain("}\n)", result);
+   }
+
+   [Fact]
+   public void Format_MethodChainWithFunctionLiterals_ClosingBraceOnSameLine()
+   {
+      var input    = "arr.Select(function(array it) { return it; }).Where(function(array it) { return it; });";
+      var result   = CgScriptFormatter.Format(input);
+      Assert.Contains("}).Where(", result);
+   }
+
+   // ── dictionary formatting ─────────────────────────────────────────────────
+
+   [Fact]
+   public void Format_ShortDictionary_StaysOnOneLine()
+   {
+      // Short enough to fit in 80 chars — stays inline.
+      var input    = "return {\"a\": 1, \"b\": false,};";
+      var expected = "return {\"a\" : 1, \"b\" : false,};\n";
+      Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_ShortDictionary_IsIdempotent()
+   {
+      var input = "return {\"a\" : 1, \"b\" : false,};\n";
+      Assert.Equal(input, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_ShortNestedDictionary_StaysOnOneLine()
+   {
+      var input    = "return {\"a\": {\"x\": 1, \"y\": 2,}, \"b\": 3,};";
+      var expected = "return {\"a\" : {\"x\" : 1, \"y\" : 2,}, \"b\" : 3,};\n";
+      Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_ShortDictionaryWithFunctionCallValue_StaysOnOneLine()
+   {
+      // Commas inside function call args should NOT produce newlines even in expanded mode.
+      var input    = "return {\"a\": foo(1, 2),};";
+      var expected = "return {\"a\" : foo(1, 2),};\n";
+      Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_LongDictionary_ExpandsToMultipleLines()
+   {
+      // Inline form would exceed 80 chars → each entry on its own line.
+      var input    = "return {\"longKey1\" : value1, \"longKey2\" : value2, \"longKey3\" : value3, \"longKey4\" : value4,};";
+      var expected = "return {\n  \"longKey1\" : value1,\n  \"longKey2\" : value2,\n  \"longKey3\" : value3,\n  \"longKey4\" : value4,\n};\n";
+      Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_LongDictionaryExpanded_IsIdempotent()
+   {
+      var input = "return {\n  \"longKey1\" : value1,\n  \"longKey2\" : value2,\n  \"longKey3\" : value3,\n  \"longKey4\" : value4,\n};\n";
+      Assert.Equal(input, CgScriptFormatter.Format(input));
+   }
+
+
+
+   // ── array formatting ──────────────────────────────────────────────────────
+
+   [Fact]
+   public void Format_ShortArray_StaysOnOneLine()
+   {
+      // Short enough to fit in 80 chars — inline, no expansion.
+      var input    = "return {1, 2, 3};";
+      var expected = "return {1, 2, 3};\n";
+      Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_LongArrayShortElements_ChunksMultiplePerLine()
+   {
+      // Array whose inline form exceeds 80 chars but elements are short: multiple
+      // elements per line, wrapping when the next element would push past 80.
+      var input    = "return {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,};";
+      var expected = "return {\n  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,\n  22, 23, 24, 25, 26, 27, 28, 29, 30,\n};\n";
+      Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_LongArrayChunked_IsIdempotent()
+   {
+      var input = "return {\n  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,\n  22, 23, 24, 25, 26, 27, 28, 29, 30,\n};\n";
+      Assert.Equal(input, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_LongArrayLongElements_OnePerLine()
+   {
+      // Elements are too long to fit two per line — chunked mode naturally
+      // degenerates to one element per line (each is ~47 chars).
+      var input  = "return {veryLongArrayElementNameForTestingPurposesHere1, veryLongArrayElementNameForTestingPurposesHere2, veryLongArrayElementNameForTestingPurposesHere3,};";
+      var result = CgScriptFormatter.Format(input);
+      Assert.Equal(
+         "return {\n  veryLongArrayElementNameForTestingPurposesHere1,\n  veryLongArrayElementNameForTestingPurposesHere2,\n  veryLongArrayElementNameForTestingPurposesHere3,\n};\n",
+         result);
+   }
+
    // ── empty input ───────────────────────────────────────────────────────────
 
    [Fact]

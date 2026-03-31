@@ -183,7 +183,7 @@ internal abstract class ApiClientBase(HttpClient httpClient, ILogger<ICgScriptAp
 
    protected abstract ValueTask<string> GetPath(string scriptName, string? additionalParameters = null);
 
-   protected abstract Task<JsonContent?> GetJsonContent<TP>(string scriptName, TP? parameter, JsonTypeInfo<TP> callJsonTypeInfo);
+   protected abstract Task<HttpContent?> GetJsonContent<TP>(string scriptName, TP? parameter, JsonTypeInfo<TP> callJsonTypeInfo);
 
    [RequiresUnreferencedCode("JSON")]
    protected abstract Task<JsonContent?> GetJsonContent<TP>(string scriptName, TP? parameter, JsonSerializerOptions? jsonOptions);

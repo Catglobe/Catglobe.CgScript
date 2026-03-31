@@ -17,9 +17,31 @@ export async function activate(context: ExtensionContext): Promise<void> {
       return;
    }
 
+   client = createClient(context, serverExe);
+   await client.start();
+   context.subscriptions.push({ dispose: () => client?.dispose() });
+
+   context.subscriptions.push(
+      workspace.onDidChangeConfiguration(async e => {
+         if (e.affectsConfiguration('cgscript.siteUrl')) {
+            await client?.restart();
+         }
+      })
+   );
+}
+
+export async function deactivate(): Promise<void> {
+   await client?.dispose();
+   client = undefined;
+}
+
+function createClient(context: ExtensionContext, serverExe: string): LanguageClient {
+   const siteUrl   = workspace.getConfiguration('cgscript').get<string>('siteUrl', '').trim();
+   const extraArgs = siteUrl ? ['--site', siteUrl] : [];
+
    const serverOptions: ServerOptions = {
-      run:   { command: 'dotnet', args: [serverExe], transport: TransportKind.stdio },
-      debug: { command: 'dotnet', args: [serverExe], transport: TransportKind.stdio },
+      run:   { command: 'dotnet', args: [serverExe, ...extraArgs], transport: TransportKind.stdio },
+      debug: { command: 'dotnet', args: [serverExe, ...extraArgs], transport: TransportKind.stdio },
    };
 
    const clientOptions: LanguageClientOptions = {
@@ -30,20 +52,12 @@ export async function activate(context: ExtensionContext): Promise<void> {
       outputChannelName: 'CgScript Language Server',
    };
 
-   client = new LanguageClient(
+   return new LanguageClient(
       'cgscript',
       'CgScript Language Server',
       serverOptions,
       clientOptions
    );
-
-   await client.start();
-   context.subscriptions.push({ dispose: () => client?.dispose() });
-}
-
-export async function deactivate(): Promise<void> {
-   await client?.dispose();
-   client = undefined;
 }
 
 /** Resolves the framework-dependent server entry point. Requires dotnet on PATH. */

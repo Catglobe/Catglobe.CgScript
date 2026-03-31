@@ -17,7 +17,8 @@ public class CompletionObjectTests
             functions:       [],
             objects:         objects,
             constants:       [],
-            globalVariables: [])
+            globalVariables: new Dictionary<string, string>(),
+            enums:           [])
       { }
    }
 
@@ -69,7 +70,7 @@ public class CompletionObjectTests
    {
       var objects = new Dictionary<string, ObjectDefinition>
       {
-         ["MyObject"] = new ObjectDefinition("MyObject", "My **object** doc", null, null, null, null),
+         ["MyObject"] = new ObjectDefinition("My **object** doc", [], [], [], []),
       };
 
       var items = GetCompletions(objects, prefix: "MyObject"); // no initializeParams → no markdown capability
@@ -86,7 +87,7 @@ public class CompletionObjectTests
    {
       var objects = new Dictionary<string, ObjectDefinition>
       {
-         ["MyObject"] = new ObjectDefinition("MyObject", "My **object** doc", null, null, null, null),
+         ["MyObject"] = new ObjectDefinition("My **object** doc", [], [], [], []),
       };
 
       var items = GetCompletions(objects, prefix: "MyObject");
@@ -105,7 +106,7 @@ public class CompletionObjectTests
    {
       var objects = new Dictionary<string, ObjectDefinition>
       {
-         ["MyObject"] = new ObjectDefinition("MyObject", "My **object** doc", null, null, null, null),
+         ["MyObject"] = new ObjectDefinition("My **object** doc", [], [], [], []),
       };
 
       var items = GetCompletions(objects, prefix: "MyObject", initializeParams: MarkdownCapabilityParams());
@@ -123,7 +124,7 @@ public class CompletionObjectTests
    {
       var objects = new Dictionary<string, ObjectDefinition>
       {
-         ["MyObject"] = new ObjectDefinition("MyObject", null, null, null, null, null),
+         ["MyObject"] = new ObjectDefinition("", [], [], [], []),
       };
 
       var items = GetCompletions(objects, prefix: "MyObject");

@@ -33,13 +33,10 @@ jobs:
           cache: npm
           cache-dependency-path: |
             package-lock.json
-            Catglobe.CgScript.EditorSupport.CodeMirror/package-lock.json
+            Catglobe.CgScript.EditorSupport.CodeMirror.AspNet/package-lock.json
           node-version: 'lts/*'
       - name: Install dependencies
         run: npm clean-install
-      - name: Install CodeMirror package dependencies
-        run: npm clean-install
-        working-directory: Catglobe.CgScript.EditorSupport.CodeMirror
       - name: Test
         run: dotnet test
       - name: NuGet login (OIDC → temp API key)

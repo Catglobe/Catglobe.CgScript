@@ -16,30 +16,23 @@ public class DocumentationFormatTests
 {
    // ── Definition helpers ────────────────────────────────────────────────────
 
-   // A simple old-style function with one parameter whose doc uses inline code.
-   private static readonly FunctionDefinition OldStyleFn = new FunctionDefinition(
-      Name: "myFunc",
-      ReturnType: "string",
-      NumberOfRequiredArguments: 1,
-      Parameters:
-      [
-         new FunctionParam("x", false, "number", "", "", false, false, false),
-      ],
-      IsNewStyle: false,
-      Variants: null);
-
-   // A new-style function with two variants to exercise the "---" separator.
-   private static readonly FunctionDefinition NewStyleFn = new FunctionDefinition(
-      Name: "myNewFunc",
-      ReturnType: "string",
-      NumberOfRequiredArguments: 0,
-      Parameters: null,
-      IsNewStyle: true,
+   // A single-variant function whose doc uses bold and whose param doc is plain.
+   private static readonly FunctionDefinition SingleVariantFn = new FunctionDefinition(
       Variants:
       [
-         new FunctionVariant("myNewFunc", "First **variant** doc.",
+         new FunctionVariant(
+            Doc:       "Some **doc**.",
+            Param:     [new FunctionVariantParam("x", "The input.", "number")],
+            ReturnType: "string"),
+      ]);
+
+   // A two-variant function to exercise the "---" separator.
+   private static readonly FunctionDefinition MultiVariantFn = new FunctionDefinition(
+      Variants:
+      [
+         new FunctionVariant("First **variant** doc.",
             [new FunctionVariantParam("a", "Param **a**.", "number")], "string"),
-         new FunctionVariant("myNewFunc", "Second variant doc.",
+         new FunctionVariant("Second variant doc.",
             [new FunctionVariantParam("b", "Param b.", "string")], "void"),
       ]);
 
@@ -64,12 +57,11 @@ public class DocumentationFormatTests
       ReturnType: "MyObj");
 
    private static readonly ObjectDefinition ObjDef = new ObjectDefinition(
-      Name: "MyObj",
-      Doc: "The **MyObj** type.",
+      Doc:         "The **MyObj** type.",
       Constructors: [ObjCtor],
-      Methods: [ObjMethod],
-      StaticMethods: null,
-      Properties: [ObjProp]);
+      Methods:     [ObjMethod],
+      StaticMethods: [],
+      Properties:  [ObjProp]);
 
    // ── Target factory helpers ─────────────────────────────────────────────────
 
@@ -83,7 +75,8 @@ public class DocumentationFormatTests
             functions:       functions ?? [],
             objects:         objects   ?? [],
             constants:       [],
-            globalVariables: globals   ?? [])
+            globalVariables: globals ?? new Dictionary<string, string>(),
+            enums:           [])
       { }
    }
 
@@ -192,7 +185,7 @@ public class DocumentationFormatTests
    public void FunctionCompletion_PlainTextClient_KindIsPlainText()
    {
       const string uri = "file:///test.cgs";
-      var loader = new TestLoader(functions: new() { ["myFunc"] = OldStyleFn });
+      var loader = new TestLoader(functions: new() { ["myFunc"] = SingleVariantFn });
       var target = MakeTarget(loader, "myFunc", uri);
 
       var item = GetCompletions(target, uri, 6).First(i => i.FilterText == "myFunc");
@@ -206,7 +199,7 @@ public class DocumentationFormatTests
    public void FunctionCompletion_PlainTextClient_StripsBoldAndCode()
    {
       const string uri = "file:///test.cgs";
-      var loader = new TestLoader(functions: new() { ["myFunc"] = OldStyleFn });
+      var loader = new TestLoader(functions: new() { ["myFunc"] = SingleVariantFn });
       var target = MakeTarget(loader, "myFunc", uri);
 
       var item  = GetCompletions(target, uri, 6).First(i => i.FilterText == "myFunc");
@@ -225,7 +218,7 @@ public class DocumentationFormatTests
    public void FunctionCompletion_MarkdownClient_KindIsMarkdown()
    {
       const string uri = "file:///test.cgs";
-      var loader = new TestLoader(functions: new() { ["myFunc"] = OldStyleFn });
+      var loader = new TestLoader(functions: new() { ["myFunc"] = SingleVariantFn });
       var target = MakeTarget(loader, "myFunc", uri, MarkdownCompletionParams());
 
       var item = GetCompletions(target, uri, 6).First(i => i.FilterText == "myFunc");
@@ -239,7 +232,7 @@ public class DocumentationFormatTests
    public void FunctionCompletion_MarkdownClient_PreservesMarkdown()
    {
       const string uri = "file:///test.cgs";
-      var loader = new TestLoader(functions: new() { ["myFunc"] = OldStyleFn });
+      var loader = new TestLoader(functions: new() { ["myFunc"] = SingleVariantFn });
       var target = MakeTarget(loader, "myFunc", uri, MarkdownCompletionParams());
 
       var item  = GetCompletions(target, uri, 6).First(i => i.FilterText == "myFunc");
@@ -254,7 +247,7 @@ public class DocumentationFormatTests
    {
       // Client declares [PlainText, Markdown] — markdown is in the list so we send markdown.
       const string uri = "file:///test.cgs";
-      var loader = new TestLoader(functions: new() { ["myFunc"] = OldStyleFn });
+      var loader = new TestLoader(functions: new() { ["myFunc"] = SingleVariantFn });
       var target = MakeTarget(loader, "myFunc", uri, BothCompletionParams());
 
       var item = GetCompletions(target, uri, 6).First(i => i.FilterText == "myFunc");
@@ -269,7 +262,7 @@ public class DocumentationFormatTests
    public void FunctionCompletion_NewStyle_PlainTextClient_NoRawSeparator()
    {
       const string uri = "file:///test.cgs";
-      var loader = new TestLoader(functions: new() { ["myNewFunc"] = NewStyleFn });
+      var loader = new TestLoader(functions: new() { ["myNewFunc"] = MultiVariantFn });
       var target = MakeTarget(loader, "myNewFunc", uri);
 
       var item  = GetCompletions(target, uri, 9).First(i => i.FilterText == "myNewFunc");
@@ -288,7 +281,7 @@ public class DocumentationFormatTests
    public void FunctionCompletion_NewStyle_MarkdownClient_HasSeparator()
    {
       const string uri = "file:///test.cgs";
-      var loader = new TestLoader(functions: new() { ["myNewFunc"] = NewStyleFn });
+      var loader = new TestLoader(functions: new() { ["myNewFunc"] = MultiVariantFn });
       var target = MakeTarget(loader, "myNewFunc", uri, MarkdownCompletionParams());
 
       var item  = GetCompletions(target, uri, 9).First(i => i.FilterText == "myNewFunc");
@@ -304,10 +297,10 @@ public class DocumentationFormatTests
    public void MethodCompletion_PlainTextClient_KindIsPlainTextAndStripped()
    {
       const string uri    = "file:///test.cgs";
-      const string source = "myObj.";
+      const string source = "instance.";
       var loader = new TestLoader(
          objects: new() { ["MyObj"] = ObjDef },
-         globals: new() { ["myObj"] = "MyObj" });
+         globals: new() { ["instance"] = "MyObj" });
       var target = MakeTarget(loader, source, uri);
 
       var item  = GetCompletions(target, uri, source.Length).FirstOrDefault(i => i.FilterText == "DoIt");
@@ -325,10 +318,10 @@ public class DocumentationFormatTests
    public void MethodCompletion_MarkdownClient_KindIsMarkdownAndPreserved()
    {
       const string uri    = "file:///test.cgs";
-      const string source = "myObj.";
+      const string source = "instance.";
       var loader = new TestLoader(
          objects: new() { ["MyObj"] = ObjDef },
-         globals: new() { ["myObj"] = "MyObj" });
+         globals: new() { ["instance"] = "MyObj" });
       var target = MakeTarget(loader, source, uri, MarkdownCompletionParams());
 
       var item  = GetCompletions(target, uri, source.Length).FirstOrDefault(i => i.FilterText == "DoIt");
@@ -346,10 +339,10 @@ public class DocumentationFormatTests
    public void PropertyCompletion_PlainTextClient_KindIsPlainTextAndStripped()
    {
       const string uri    = "file:///test.cgs";
-      const string source = "myObj.";
+      const string source = "instance.";
       var loader = new TestLoader(
          objects: new() { ["MyObj"] = ObjDef },
-         globals: new() { ["myObj"] = "MyObj" });
+         globals: new() { ["instance"] = "MyObj" });
       var target = MakeTarget(loader, source, uri);
 
       var item = GetCompletions(target, uri, source.Length).FirstOrDefault(i => i.Label == "Count");
@@ -366,10 +359,10 @@ public class DocumentationFormatTests
    public void PropertyCompletion_MarkdownClient_KindIsMarkdownAndPreserved()
    {
       const string uri    = "file:///test.cgs";
-      const string source = "myObj.";
+      const string source = "instance.";
       var loader = new TestLoader(
          objects: new() { ["MyObj"] = ObjDef },
-         globals: new() { ["myObj"] = "MyObj" });
+         globals: new() { ["instance"] = "MyObj" });
       var target = MakeTarget(loader, source, uri, MarkdownCompletionParams());
 
       var item = GetCompletions(target, uri, source.Length).FirstOrDefault(i => i.Label == "Count");
@@ -398,7 +391,7 @@ public class DocumentationFormatTests
    {
       const string uri    = "file:///test.cgs";
       const string source = "myFunc(";
-      var loader = new TestLoader(functions: new() { ["myFunc"] = OldStyleFn });
+      var loader = new TestLoader(functions: new() { ["myFunc"] = SingleVariantFn });
       var target = MakeTarget(loader, source, uri);
 
       var sig  = GetSignatureHelp(target, uri, source.Length);
@@ -416,7 +409,7 @@ public class DocumentationFormatTests
    {
       const string uri    = "file:///test.cgs";
       const string source = "myFunc(";
-      var loader = new TestLoader(functions: new() { ["myFunc"] = OldStyleFn });
+      var loader = new TestLoader(functions: new() { ["myFunc"] = SingleVariantFn });
       var target = MakeTarget(loader, source, uri);
 
       var sig   = GetSignatureHelp(target, uri, source.Length);
@@ -435,7 +428,7 @@ public class DocumentationFormatTests
    {
       const string uri    = "file:///test.cgs";
       const string source = "myFunc(";
-      var loader = new TestLoader(functions: new() { ["myFunc"] = OldStyleFn });
+      var loader = new TestLoader(functions: new() { ["myFunc"] = SingleVariantFn });
       var target = MakeTarget(loader, source, uri, MarkdownSignatureParams());
 
       var sig  = GetSignatureHelp(target, uri, source.Length);
@@ -444,7 +437,7 @@ public class DocumentationFormatTests
 
       Assert.NotNull(doc);
       Assert.Equal(MarkupKind.Markdown, doc.Kind);
-      Assert.Contains("`", doc.Value);  // signature contains inline code
+      Assert.Contains("**doc**", doc.Value);  // bold markdown is preserved
    }
 
    [Fact]
@@ -452,7 +445,7 @@ public class DocumentationFormatTests
    {
       const string uri    = "file:///test.cgs";
       const string source = "myNewFunc(";
-      var loader = new TestLoader(functions: new() { ["myNewFunc"] = NewStyleFn });
+      var loader = new TestLoader(functions: new() { ["myNewFunc"] = MultiVariantFn });
       var target = MakeTarget(loader, source, uri);
 
       var sig   = GetSignatureHelp(target, uri, source.Length);
@@ -479,7 +472,7 @@ public class DocumentationFormatTests
    {
       const string uri    = "file:///test.cgs";
       const string source = "myNewFunc(";
-      var loader = new TestLoader(functions: new() { ["myNewFunc"] = NewStyleFn });
+      var loader = new TestLoader(functions: new() { ["myNewFunc"] = MultiVariantFn });
       var target = MakeTarget(loader, source, uri, MarkdownSignatureParams());
 
       var sig   = GetSignatureHelp(target, uri, source.Length);
@@ -499,10 +492,10 @@ public class DocumentationFormatTests
    public void MethodSignatureHelp_PlainTextClient_SignatureDocIsPlainText()
    {
       const string uri    = "file:///test.cgs";
-      const string source = "myObj.DoIt(";
+      const string source = "instance.DoIt(";
       var loader = new TestLoader(
          objects: new() { ["MyObj"] = ObjDef },
-         globals: new() { ["myObj"] = "MyObj" });
+         globals: new() { ["instance"] = "MyObj" });
       var target = MakeTarget(loader, source, uri);
 
       var sig  = GetSignatureHelp(target, uri, source.Length);
@@ -519,10 +512,10 @@ public class DocumentationFormatTests
    public void MethodSignatureHelp_PlainTextClient_ParameterDocIsPlainText()
    {
       const string uri    = "file:///test.cgs";
-      const string source = "myObj.DoIt(";
+      const string source = "instance.DoIt(";
       var loader = new TestLoader(
          objects: new() { ["MyObj"] = ObjDef },
-         globals: new() { ["myObj"] = "MyObj" });
+         globals: new() { ["instance"] = "MyObj" });
       var target = MakeTarget(loader, source, uri);
 
       var sig   = GetSignatureHelp(target, uri, source.Length);
@@ -539,10 +532,10 @@ public class DocumentationFormatTests
    public void MethodSignatureHelp_MarkdownClient_SignatureDocIsMarkdown()
    {
       const string uri    = "file:///test.cgs";
-      const string source = "myObj.DoIt(";
+      const string source = "instance.DoIt(";
       var loader = new TestLoader(
          objects: new() { ["MyObj"] = ObjDef },
-         globals: new() { ["myObj"] = "MyObj" });
+         globals: new() { ["instance"] = "MyObj" });
       var target = MakeTarget(loader, source, uri, MarkdownSignatureParams());
 
       var sig  = GetSignatureHelp(target, uri, source.Length);
@@ -558,10 +551,10 @@ public class DocumentationFormatTests
    public void MethodSignatureHelp_MarkdownClient_ParameterDocIsMarkdown()
    {
       const string uri    = "file:///test.cgs";
-      const string source = "myObj.DoIt(";
+      const string source = "instance.DoIt(";
       var loader = new TestLoader(
          objects: new() { ["MyObj"] = ObjDef },
-         globals: new() { ["myObj"] = "MyObj" });
+         globals: new() { ["instance"] = "MyObj" });
       var target = MakeTarget(loader, source, uri, MarkdownSignatureParams());
 
       var param = GetSignatureHelp(target, uri, source.Length)

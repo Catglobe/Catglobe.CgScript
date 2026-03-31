@@ -1,12 +1,18 @@
 using Catglobe.CgScript.EditorSupport.Lsp;
 using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
+using System.Diagnostics;
 using System.IO.Pipelines;
 
-// Redirect stderr so logging doesn't corrupt the JSON-RPC stream on stdout.
+// stdout is the JSON-RPC stream — attach a stderr listener to the definition TraceSource.
 Console.OutputEncoding = System.Text.Encoding.UTF8;
+DefinitionLoader.TraceSource.Switch.Level = SourceLevels.Information;
+DefinitionLoader.TraceSource.Listeners.Add(new TextWriterTraceListener(Console.Error) { Filter = new EventTypeFilter(SourceLevels.All) });
 
-var definitions = new DefinitionLoader();
+var siteUrl     = args.SkipWhile(a => a != "--site").Skip(1).FirstOrDefault();
+var definitions = siteUrl is not null
+   ? await DefinitionLoader.CreateFromUrlAsync(siteUrl)
+   : new DefinitionLoader();
 var store       = new DocumentStore(definitions);
 var target      = new CgScriptLanguageTarget(store, definitions);
 

@@ -1,3 +1,5 @@
+using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
+using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 using Catglobe.CgScript.EditorSupport.Parsing;
 using System.Linq;
 
@@ -14,7 +16,8 @@ public class SemanticAnalyzerDiagnosticsTests
       IEnumerable<string>? functions       = null,
       IEnumerable<string>? objects         = null,
       IEnumerable<string>? constants       = null,
-      IEnumerable<string>? globalVariables = null)
+      IEnumerable<string>? globalVariables = null,
+      IReadOnlyDictionary<string, FunctionInfo>? functionDefinitions = null)
    {
       var result = CgScriptParseService.Parse(source);
       var globalVarTypes = globalVariables is null
@@ -26,7 +29,22 @@ public class SemanticAnalyzerDiagnosticsTests
          functions       ?? [],
          objects         ?? [],
          constants       ?? [],
-         globalVariableTypes: globalVarTypes);
+         globalVariableTypes: globalVarTypes,
+         functionDefinitions: functionDefinitions);
+   }
+
+   private static IReadOnlyList<Diagnostic> AnalyzeWithObjects(
+      string source,
+      IReadOnlyDictionary<string, ObjectMemberInfo> objectDefinitions,
+      IEnumerable<string>? functions = null)
+   {
+      var result = CgScriptParseService.Parse(source);
+      return SemanticAnalyzer.Analyze(
+         result.Tree,
+         functions ?? [],
+         objectDefinitions.Keys,
+         [],
+         objectDefinitions: objectDefinitions);
    }
 
    // ── Known constants are not reported as undefined ─────────────────────────
@@ -90,5 +108,858 @@ public class SemanticAnalyzerDiagnosticsTests
       var diags = Analyze("number x = unknownVar;");
 
       Assert.Contains(diags, d => d.Message.Contains("unknownVar") && d.Message.Contains("Undefined"));
+   }
+
+   // ── CGS020: declaration initializer type mismatch ─────────────────────────
+
+   [Fact]
+   public void NumberVar_AssignedStringLiteral_ReportsCGS020()
+   {
+      var diags = Analyze("number a = \"asdf\";");
+
+      Assert.Contains(diags, d => d.Code == "CGS020"
+                                  && d.Message.Contains("String")
+                                  && d.Message.Contains("number"));
+   }
+
+   [Fact]
+   public void StringVar_AssignedNumberExpression_ReportsCGS020()
+   {
+      var diags = Analyze("string s = 1 + 1;");
+
+      Assert.Contains(diags, d => d.Code == "CGS020"
+                                  && d.Message.Contains("Number")
+                                  && d.Message.Contains("string"));
+   }
+
+   [Fact]
+   public void NumberVar_AssignedNumberLiteral_NoCGS020()
+   {
+      var diags = Analyze("number a = 42;");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void StringVar_AssignedStringLiteral_NoCGS020()
+   {
+      var diags = Analyze("string s = \"hello\";");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void ObjectVar_AssignedAnything_NoCGS020()
+   {
+      // object and ? types accept any value
+      var diags = Analyze("object o = 123;");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   // ── CGS020: location accuracy ─────────────────────────────────────────────
+
+   [Fact]
+   public void NumberVar_AssignedStringLiteral_CGS020_PointsToExpression()
+   {
+      // "number a = \"asdf\";"  →  expression "asdf" starts at column 11
+      var diags = Analyze("number a = \"asdf\";");
+      var d = diags.FirstOrDefault(x => x.Code == "CGS020");
+      Assert.NotNull(d);
+      Assert.Equal(1, d.Line);     // first (and only) line
+      Assert.Equal(11, d.Column);  // column of the opening quote
+      Assert.True(d.Length > 0, "Length must be positive so that a squiggle is rendered");
+   }
+
+   [Fact]
+   public void StringVar_AssignedNumberExpression_CGS020_PointsToExpression()
+   {
+      // "string s = 1 + 1;"  →  expression "1 + 1" starts at column 11
+      var diags = Analyze("string s = 1 + 1;");
+      var d = diags.FirstOrDefault(x => x.Code == "CGS020");
+      Assert.NotNull(d);
+      Assert.Equal(1, d.Line);     // first line
+      Assert.Equal(11, d.Column);  // column of the first '1'
+      Assert.True(d.Length >= 5, "Length should cover the full '1 + 1' expression");
+   }
+
+   // ── CGS021: ternary branch type mismatch ──────────────────────────────────
+
+   [Fact]
+   public void TernaryWithMismatchedBranchTypes_ReportsCGS021()
+   {
+      var diags = Analyze(
+         "Dictionary d = true ? new Dictionary() : 1;",
+         objects: ["Dictionary"]);
+
+      Assert.Contains(diags, d => d.Code == "CGS021");
+   }
+
+   [Fact]
+   public void TernaryWithMatchingBranchTypes_NoCGS021()
+   {
+      var diags = Analyze("number x = true ? 1 : 2;");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS021");
+   }
+
+   // ── CGS021: location accuracy ─────────────────────────────────────────────
+
+   [Fact]
+   public void TernaryWithMismatchedBranchTypes_CGS021_PointsToBranches()
+   {
+      // "number x = true ? 1 : \"asdf\";"  →  then-branch "1" starts at col 18
+      var diags = Analyze("number x = true ? 1 : \"asdf\";");
+      var d = diags.FirstOrDefault(x => x.Code == "CGS021");
+      Assert.NotNull(d);
+      Assert.Equal(1, d.Line);     // first line
+      Assert.Equal(18, d.Column);  // column of the then-branch '1'
+      Assert.True(d.Length > 0, "Length must be positive so that a squiggle is rendered");
+   }
+
+   // ── CGS022: function call argument mismatch ───────────────────────────────
+
+   [Fact]
+   public void FunctionCalledWithTooFewArgs_ReportsCGS022()
+   {
+      var funcDefs = new Dictionary<string, FunctionInfo>
+      {
+         ["DateTime_addDays"] = new FunctionInfo([["Array", "Number"]]),
+      };
+
+      var diags = Analyze(
+         "DateTime_addDays(new DateTime());",
+         functions:           ["DateTime_addDays"],
+         objects:             ["DateTime"],
+         functionDefinitions: funcDefs);
+
+      Assert.Contains(diags, d => d.Code == "CGS022"
+                                  && d.Message.Contains("DateTime_addDays")
+                                  && d.Message.Contains("(DateTime)"));
+   }
+
+   [Fact]
+   public void FunctionCalledWithCorrectArgs_NoCGS022()
+   {
+      var getDateTimeFuncInfo = new FunctionInfo([[]]);
+
+      var funcDefs = new Dictionary<string, FunctionInfo>
+      {
+         ["DateTime_addDays"] = new FunctionInfo([["Array", "Number"]]),
+         ["getDateTime"] = getDateTimeFuncInfo,
+      };
+
+      var diags = Analyze(
+         "DateTime_addDays(getDateTime(), 1);",
+         functions:           ["DateTime_addDays", "getDateTime"],
+         functionDefinitions: funcDefs);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void FunctionCalledWithWrongArgType_ReportsCGS022()
+   {
+      var funcDefs = new Dictionary<string, FunctionInfo>
+      {
+         ["myFunc"] = new FunctionInfo([["Number"]]),
+      };
+
+      var diags = Analyze(
+         "myFunc(\"hello\");",
+         functions:           ["myFunc"],
+         functionDefinitions: funcDefs);
+
+      Assert.Contains(diags, d => d.Code == "CGS022"
+                                  && d.Message.Contains("myFunc")
+                                  && d.Message.Contains("String"));
+   }
+
+   [Fact]
+   public void KnownFunctionsFromLoader_ValidCall_NoCGS022()
+   {
+      // DateTime_addDays(new DateTime(), 1) is a valid call
+      var diags = Analyze(
+         "DateTime_addDays(new DateTime(), 1);",
+         functions:           KnownNamesLoader.FunctionNames,
+         objects:             KnownNamesLoader.ObjectNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void KnownFunctionsFromLoader_TooFewArgs_ReportsCGS022()
+   {
+      // DateTime_addDays requires 2 args; calling with 1 should be flagged
+      var diags = Analyze(
+         "DateTime_addDays(new DateTime());",
+         functions:           KnownNamesLoader.FunctionNames,
+         objects:             KnownNamesLoader.ObjectNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS022"
+                                  && d.Message.Contains("DateTime_addDays"));
+   }
+
+   [Fact]
+   public void ConvertToNumber_CalledWithString_NoCGS022()
+   {
+      // convertToNumber("[avatarStore]") is valid; no false-positive CGS022 expected
+      var diags = Analyze(
+         "number n = convertToNumber(\"[avatarStore]\");",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void Format_CalledWithStringAndArg_NoCGS022()
+   {
+      // format("{0}foo", location) is valid; no false-positive CGS022 expected
+      var diags = Analyze(
+         "string location = \"x\"; string s = format(\"{0}foo\", location);",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   // ── CGS022: DocumentStore path (regression for empty-Parameters bug) ──────
+
+   private static IReadOnlyList<Diagnostic> AnalyzeViaDocumentStore(string source)
+   {
+      var uri   = "file:///test.cgs";
+      var store = new DocumentStore(new DefinitionLoader());
+      store.Update(uri, source);
+      return store.GetParseResult(uri)!.Diagnostics;
+   }
+
+   [Fact]
+   public void DocumentStore_ConvertToNumber_CalledWithString_NoCGS022()
+   {
+      // Regression: DocumentStore.BuildFunctionInfos was including functions with
+      // empty Parameters arrays, causing false-positive CGS022 for any call with args.
+      var diags = AnalyzeViaDocumentStore("number n = convertToNumber(\"[avatarStore]\");");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void DocumentStore_Format_CalledWithManyArgs_NoCGS022()
+   {
+      // format("{0}...", a, b, c, d, e, f) — variadic; must not produce CGS022
+      var diags = AnalyzeViaDocumentStore(
+         "string location = \"x\"; string s = format(\"{0}{1}{2}{3}{4}{5}\", location, location, location, location, location, location);");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void DocumentStore_IsEmpty_CalledWithAnyArg_NoCGS022()
+   {
+      // isEmpty(someVar) must not produce CGS022
+      var diags = AnalyzeViaDocumentStore("string x = \"hello\"; bool b = isEmpty(x);");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void DocumentStore_ConvertToString_CalledWithObject_NoCGS022()
+   {
+      // convertToString(sb) where sb is a StringBuilder — must not produce CGS022
+      var diags = AnalyzeViaDocumentStore("StringBuilder sb = new StringBuilder(); string s = convertToString(sb);");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void CGS022_ErrorMessage_UsesProperEnglish()
+   {
+      // Error message must say "No overload of 'X' matches (...)", not "Doesn't has X with format (...)"
+      var funcDefs = new Dictionary<string, FunctionInfo>
+      {
+         ["myFunc"] = new FunctionInfo([["Number"]]),
+      };
+
+      var diags = Analyze(
+         "myFunc(\"hello\");",
+         functions:           ["myFunc"],
+         functionDefinitions: funcDefs);
+
+      var d = Assert.Single(diags, x => x.Code == "CGS022");
+      Assert.StartsWith("No overload of", d.Message);
+      Assert.Contains("myFunc", d.Message);
+   }
+
+   // ── CGS022: new-style functions with Variants are validated ──────────────
+
+   [Fact]
+   public void NewStyleFunction_CorrectArgs_NoCGS022()
+   {
+      // AppProduct_getById(int) — correct single Number arg
+      var diags = Analyze(
+         "AppProduct_getById(1);",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void NewStyleFunction_WrongArgType_ReportsCGS022()
+   {
+      // AppProduct_getById expects a Number (int); passing a string literal is wrong
+      var diags = Analyze(
+         "AppProduct_getById(\"not-an-id\");",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS022" && d.Message.Contains("AppProduct_getById"));
+   }
+
+   [Fact]
+   public void NewStyleFunction_MultipleVariants_FirstVariantValid_NoCGS022()
+   {
+      // Color_getByRGB has two variants: (string) and (int, int, int)
+      // Calling with a single string should match the first variant.
+      var diags = Analyze(
+         "Color_getByRGB(\"#ff0000\");",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void NewStyleFunction_MultipleVariants_SecondVariantValid_NoCGS022()
+   {
+      // Color_getByRGB(int, int, int) — second variant
+      var diags = Analyze(
+         "Color_getByRGB(255, 0, 128);",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void NewStyleFunction_WrongArgCount_ReportsCGS022()
+   {
+      // Color_getByRGB has variants (string) and (int, int, int); 2 args matches neither
+      var diags = Analyze(
+         "Color_getByRGB(1, 2);",
+         functions:           KnownNamesLoader.FunctionNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS022" && d.Message.Contains("Color_getByRGB"));
+   }
+
+   [Fact]
+   public void DocumentStore_NewStyleFunction_CorrectArgs_NoCGS022()
+   {
+      // AppProduct_getById(1) — new-style function via DocumentStore path
+      var diags = AnalyzeViaDocumentStore("AppProduct_getById(1);");
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void DocumentStore_NewStyleFunction_WrongArgType_ReportsCGS022()
+   {
+      // AppProduct_getById expects int; passing string should be flagged
+      var diags = AnalyzeViaDocumentStore("AppProduct_getById(\"bad\");");
+      Assert.Contains(diags, d => d.Code == "CGS022" && d.Message.Contains("AppProduct_getById"));
+   }
+
+   // ── CGS022: empty keyword as parameter — must never produce false-positive ──
+
+   [Theory]
+   [InlineData("Workflow_call(123, empty, 123);")]
+   [InlineData("Workflow_call(123, empty);")]
+   [InlineData("Workflow_call(123);")]
+   [InlineData("Workflow_call(123, {}, empty);")]
+   [InlineData("Workflow_call(123, empty, empty);")]
+   public void WorkflowCall_WithEmpty_NoCGS022(string source)
+   {
+      // Workflow_call is an old-style function:
+      //   (Number workflowResourceId [required], Array? parameter, All? schedule)
+      // 'empty' must not produce a false-positive CGS022 for any optional parameter.
+      var diags = Analyze(
+         source,
+         functions:           KnownNamesLoader.FunctionNames,
+         objects:             KnownNamesLoader.ObjectNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void NewStyleFunction_EmptyParam_NoCGS022()
+   {
+      // Tenant_getByTenantId is a new-style function (Variants) taking a single "string" argument.
+      // Passing 'empty' must not produce a false-positive CGS022.
+      var diags = Analyze(
+         "Tenant_getByTenantId(empty);",
+         functions:           KnownNamesLoader.FunctionNames,
+         objects:             KnownNamesLoader.ObjectNames,
+         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   // ── CGS023: constructor argument mismatch ─────────────────────────────────
+
+   private static ObjectMemberInfo MakeStringInfo()
+      => new ObjectMemberInfo(
+         properties:           new Dictionary<string, bool>(),
+         methodNames:          [],
+         constructorOverloads: [["string"]]);
+
+   [Fact]
+   public void Constructor_TooManyArgs_ReportsCGS023()
+   {
+      // new String(1, 2) — only one constructor taking a single string arg
+      var diags = AnalyzeWithObjects(
+         "string s = new String(1, 2);",
+         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringInfo() });
+
+      Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("String"));
+   }
+
+   [Fact]
+   public void Constructor_WrongArgType_ReportsCGS023()
+   {
+      // new String(1) — constructor expects string, got number
+      var diags = AnalyzeWithObjects(
+         "string s = new String(1);",
+         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringInfo() });
+
+      Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("String"));
+   }
+
+   [Fact]
+   public void Constructor_NoArgs_NoCGS023()
+   {
+      // new String() — zero args is valid (all params treated as optional)
+      var diags = AnalyzeWithObjects(
+         "string s = new String();",
+         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringInfo() });
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS023");
+   }
+
+   [Fact]
+   public void Constructor_CorrectArgType_NoCGS023()
+   {
+      // new String("test") — valid
+      var diags = AnalyzeWithObjects(
+         "string s = new String(\"test\");",
+         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringInfo() });
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS023");
+   }
+
+   [Fact]
+   public void KnownObjectsFromLoader_ValidConstructor_NoCGS023()
+   {
+      // new String("hello") — valid according to embedded JSON definitions
+      var result = CgScriptParseService.Parse("string s = new String(\"hello\");");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS023");
+   }
+
+   [Fact]
+   public void KnownObjectsFromLoader_InvalidConstructorArgs_ReportsCGS023()
+   {
+      // new String(1, 2) — String has only one constructor that takes a string arg
+      var result = CgScriptParseService.Parse("string s = new String(1, 2);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("String"));
+   }
+
+   // ── CGS024: method call argument mismatch ─────────────────────────────────
+
+   private static ObjectMemberInfo MakeStringWithCompareInfo()
+      => new ObjectMemberInfo(
+         properties:    new Dictionary<string, bool>(),
+         methodNames:   ["CompareTo"],
+         methodOverloads: new Dictionary<string, IReadOnlyList<IReadOnlyList<string>>>
+         {
+            ["CompareTo"] = [["string"]],
+         });
+
+   [Fact]
+   public void MethodCall_WrongArgType_ReportsCGS024()
+   {
+      // s.CompareTo(1) — method expects string, got number
+      var diags = AnalyzeWithObjects(
+         "String s = new String(); s.CompareTo(1);",
+         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringWithCompareInfo() });
+
+      Assert.Contains(diags, d => d.Code == "CGS024"
+                                  && d.Message.Contains("String.CompareTo"));
+   }
+
+   [Fact]
+   public void MethodCall_CorrectArgType_NoCGS024()
+   {
+      // s.CompareTo("other") — valid
+      var diags = AnalyzeWithObjects(
+         "String s = new String(); s.CompareTo(\"other\");",
+         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringWithCompareInfo() });
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
+   }
+
+   [Fact]
+   public void MethodCall_TooManyArgs_ReportsCGS024()
+   {
+      // s.CompareTo("a", "b") — method only takes one arg
+      var diags = AnalyzeWithObjects(
+         "String s = new String(); s.CompareTo(\"a\", \"b\");",
+         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringWithCompareInfo() });
+
+      Assert.Contains(diags, d => d.Code == "CGS024"
+                                  && d.Message.Contains("String.CompareTo"));
+   }
+
+   [Fact]
+   public void KnownObjectsFromLoader_ValidMethodCall_NoCGS024()
+   {
+      // s.CompareTo("other") using embedded definitions
+      var result = CgScriptParseService.Parse("String s = new String(\"x\"); s.CompareTo(\"other\");");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
+   }
+
+   [Fact]
+   public void KnownObjectsFromLoader_WrongMethodArgType_ReportsCGS024()
+   {
+      // s.CompareTo(1) — String.CompareTo expects a string
+      var result = CgScriptParseService.Parse("String s = new String(\"x\"); s.CompareTo(1);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS024" && d.Message.Contains("String.CompareTo"));
+   }
+
+   // ── CGS024: empty keyword as method parameter — must never produce false-positive ──
+
+   [Fact]
+   public void MethodCall_EmptyParam_NoCGS024()
+   {
+      // Tenant t; t.AddPasswordCompatTenantUsers(empty)
+      // AddPasswordCompatTenantUsers expects a Dictionary argument.
+      // 'empty' infers as null (unknown type) and must not produce a false-positive CGS024.
+      var result = CgScriptParseService.Parse("Tenant t; t.AddPasswordCompatTenantUsers(empty);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
+   }
+
+   // ── CGS025: indexer argument type mismatch ────────────────────────────────
+
+   private static ObjectMemberInfo MakeDictionaryInfo()
+      => new ObjectMemberInfo(
+         properties: new Dictionary<string, bool>(),
+         methodNames: ["[]"],
+         methodOverloads: new Dictionary<string, IReadOnlyList<IReadOnlyList<string>>>
+         {
+            ["[]"] =
+            [
+               ["string"],           // getter: string key
+               ["int"],              // getter: int key
+               ["string", "object"], // setter: string key + value
+               ["int",    "object"], // setter: int key + value
+            ],
+         });
+
+   [Fact]
+   public void Indexer_ValidStringKey_NoCGS025()
+   {
+      // d["key"] — string key is valid
+      var diags = AnalyzeWithObjects(
+         "Dictionary d; d[\"key\"];",
+         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void Indexer_ValidIntKey_NoCGS025()
+   {
+      // d[1] — int key is valid
+      var diags = AnalyzeWithObjects(
+         "Dictionary d; d[1];",
+         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void Indexer_InvalidBoolKey_ReportsCGS025()
+   {
+      // d[true] — bool key is not valid
+      var diags = AnalyzeWithObjects(
+         "Dictionary d; d[true];",
+         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+
+      Assert.Contains(diags, d => d.Code == "CGS025" && d.Message.Contains("Dictionary"));
+   }
+
+   [Fact]
+   public void IndexerSetter_ValidStringKey_NoCGS025()
+   {
+      // d["key"] = "v" — string key is valid for setter
+      var diags = AnalyzeWithObjects(
+         "Dictionary d; d[\"key\"] = \"v\";",
+         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void IndexerSetter_InvalidBoolKey_ReportsCGS025()
+   {
+      // d[true] = "v" — bool key is not valid for setter
+      var diags = AnalyzeWithObjects(
+         "Dictionary d; d[true] = \"v\";",
+         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+
+      Assert.Contains(diags, d => d.Code == "CGS025" && d.Message.Contains("Dictionary"));
+   }
+
+   [Fact]
+   public void Indexer_UnknownKeyType_NoCGS025()
+   {
+      // d[x] — unknown variable type → no false positive
+      var diags = AnalyzeWithObjects(
+         "Dictionary d; object x; d[x];",
+         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() },
+         functions: []);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void IndexerSetter_FunctionParamShadowsGlobal_NoCGS025()
+   {
+      // Regression: function parameter 'u' of type Dictionary must shadow the global
+      // variable 'u' of type User — the indexer setter u["Name"] = "Remove" should not
+      // produce a false CGS025 error referencing the global User type.
+      const string source =
+         "User u;\n" +
+         "u;\n" +
+         "someFunc(function(Dictionary u) {\n" +
+         "   u[\"Name\"] = \"Remove\";\n" +
+         "});";
+      var objDefs = new Dictionary<string, ObjectMemberInfo>
+      {
+         ["Dictionary"] = MakeDictionaryInfo(),
+         ["User"]       = new ObjectMemberInfo(
+            properties: new Dictionary<string, bool>(),
+            methodNames: []),
+      };
+      var diags = AnalyzeWithObjects(source, objDefs, functions: ["someFunc"]);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void IndexerSetter_ForEachVarShadowsGlobal_NoCGS025()
+   {
+      // Regression: for-each loop variable 'u' shadows the global 'User u'.
+      // Inside the loop body, 'u' is the loop variable (untyped), so accessing
+      // u["key"] should NOT be validated against User's indexer.
+      const string source =
+         "User u;\n" +
+         "u;\n" +
+         "for (u for 1; 10) {\n" +
+         "   u[\"Name\"] = \"Remove\";\n" +
+         "}";
+      var objDefs = new Dictionary<string, ObjectMemberInfo>
+      {
+         ["Dictionary"] = MakeDictionaryInfo(),
+         ["User"]       = new ObjectMemberInfo(
+            properties: new Dictionary<string, bool>(),
+            methodNames: []),
+      };
+      var diags = AnalyzeWithObjects(source, objDefs, functions: []);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void IndexerSetter_CatchVarShadowsGlobal_NoCGS025()
+   {
+      // Regression: catch variable 'u' shadows the global 'User u'.
+      // Inside the catch body, 'u' is the catch variable (untyped), so accessing
+      // u["key"] should NOT be validated against User's indexer.
+      const string source =
+         "User u;\n" +
+         "u;\n" +
+         "try { } catch (u) {\n" +
+         "   u[\"Name\"] = \"Remove\";\n" +
+         "}";
+      var objDefs = new Dictionary<string, ObjectMemberInfo>
+      {
+         ["Dictionary"] = MakeDictionaryInfo(),
+         ["User"]       = new ObjectMemberInfo(
+            properties: new Dictionary<string, bool>(),
+            methodNames: []),
+      };
+      var diags = AnalyzeWithObjects(source, objDefs, functions: []);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void Indexer_RealDictionary_ValidStringKey_NoCGS025()
+   {
+      // Use the embedded Dictionary definition
+      var result = CgScriptParseService.Parse("Dictionary d; d[\"key\"];");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void Indexer_RealDictionary_InvalidBoolKey_ReportsCGS025()
+   {
+      // Dictionary getter only accepts string or int, not bool
+      var result = CgScriptParseService.Parse("Dictionary d; d[true];");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void Indexer_RealArray_ValidIntIndex_NoCGS025()
+   {
+      // 'Array' (capital A, class name) is indexed with int — valid
+      var result = CgScriptParseService.Parse("Array a; a[0];");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS025");
+   }
+
+   [Fact]
+   public void Indexer_RealArray_InvalidStringIndex_ReportsCGS025()
+   {
+      // Array getter only accepts int, not string
+      var result = CgScriptParseService.Parse("Array a; a[\"x\"];");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS025");
+   }
+
+   // ── CGS024: variadic methods (Params object) — must never produce false-positive ──
+
+   [Fact]
+   public void FunctionCall_WithOneArg_NoCGS024()
+   {
+      // Function.Call accepts a variadic "Params object" — any number of args is valid.
+      var result = CgScriptParseService.Parse("Function f = new Function(\"myFunc\"); f.Call(1);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
+   }
+
+   [Fact]
+   public void FunctionCall_WithMultipleArgs_NoCGS024()
+   {
+      // Function.Call(a, b, c) — variadic, any number of arguments is valid.
+      var result = CgScriptParseService.Parse("Function f = new Function(\"myFunc\"); f.Call(1, 2, 3);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
+   }
+
+   [Fact]
+   public void WorkflowScriptCall_WithMultipleArgs_NoCGS024()
+   {
+      // WorkflowScript.Call also accepts "Params object" — variadic.
+      var result = CgScriptParseService.Parse("WorkflowScript ws = new WorkflowScript(\"Test\"); ws.Call(1, 2);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
+   }
+
+   [Fact]
+   public void StringBuilderAppendFormat_WithMultipleArgs_NoCGS024()
+   {
+      // StringBuilder.AppendFormat("{0}", value) — variadic "Params object" after format string.
+      var result = CgScriptParseService.Parse("StringBuilder sb = new StringBuilder(); sb.AppendFormat(\"{0} {1}\", 1, 2);");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }
 }

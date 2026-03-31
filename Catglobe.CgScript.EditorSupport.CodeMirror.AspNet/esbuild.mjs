@@ -4,7 +4,7 @@ await build({
    entryPoints: ["src/index.ts"],
    bundle: true,
    format: "esm",
-   outfile: "../Catglobe.CgScript.EditorSupport.CodeMirror.AspNet/wwwroot/cgscript-cm6.js",
+   outfile: "wwwroot/cgscript-cm6.js",
    minify: false,
    sourcemap: false,
    target: ["es2020"],

@@ -1,4 +1,4 @@
-using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
+using Catglobe.CgScript.EditorSupport.Parsing;
 
 namespace Catglobe.CgScript.EditorSupport.Lsp.Tests;
 
@@ -193,6 +193,40 @@ public class PreprocessorScannerTests
       Assert.Contains("number x = 1;", cleaned);
       Assert.DoesNotContain("#IF", cleaned);
       Assert.DoesNotContain("#ENDIF", cleaned);
+   }
+
+   // ── Integration: stripping produces no CGS019 parse errors ──────────────
+
+   [Fact]
+   public void Stripped_Script_ProducesNoCGS019Errors()
+   {
+      // Regression test: valid code containing #IF/#ENDIF blocks must parse without
+      // CGS019 (token recognition / syntax) errors after preprocessing.
+      const string src = """
+         function(string name) {
+             string prefix;
+
+             #IF Development
+             prefix = "[DEV] ";
+             #ENDIF
+
+             #IF Staging
+             prefix = "[STAGING] ";
+             #ENDIF
+
+             #IF Production
+             prefix = "";
+             #ENDIF
+
+             return prefix + "Hello, " + name + "!";
+         }
+         """;
+
+      var (cleanedText, _) = PreprocessorScanner.Strip(src);
+      var result = CgScriptParseService.Parse(cleanedText);
+      var cgs019 = result.Diagnostics.Where(d => d.Code == "CGS019").ToList();
+
+      Assert.Empty(cgs019);
    }
 
    // ── Helpers ───────────────────────────────────────────────────────────────
