@@ -590,6 +590,37 @@ public class SemanticAnalyzerDiagnosticsTests
       Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("String"));
    }
 
+   [Fact]
+   public void WorkflowScript_FilenameOverload_NoCGS023()
+   {
+      // new WorkflowScript("filename") is a preprocessor special form that the source generator
+      // replaces with new WorkflowScript(resourceId) on deployment.  No CGS023 should be raised.
+      var result = CgScriptParseService.Parse("WorkflowScript script = new WorkflowScript(\"myScript.cgs\");");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS023");
+   }
+
+   [Fact]
+   public void WorkflowScript_TooManyStringArgs_ReportsCGS023()
+   {
+      // new WorkflowScript("a", "b", "c") — no constructor accepts three strings
+      var result = CgScriptParseService.Parse("WorkflowScript script = new WorkflowScript(\"a\", \"b\", \"c\");");
+      var diags = SemanticAnalyzer.Analyze(
+         result.Tree,
+         KnownNamesLoader.FunctionNames,
+         KnownNamesLoader.ObjectNames,
+         KnownNamesLoader.ConstantNames,
+         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+
+      Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("WorkflowScript"));
+   }
+
    // ── CGS024: method call argument mismatch ─────────────────────────────────
 
    private static ObjectMemberInfo MakeStringWithCompareInfo()

@@ -219,6 +219,12 @@ public static class KnownNamesLoader
             frozenMethodOverloads = frozen;
          }
 
+         // Inject the preprocessor special case for WorkflowScript: new WorkflowScript("filename")
+         // This form doesn't exist in the real API — the source generator replaces it with
+         // new WorkflowScript(resourceId) on deployment.  No CGS023 should be raised for it.
+         if (typeProp.Name == "WorkflowScript" && constructorOverloads != null)
+            constructorOverloads.Add(new string[] { "string" });
+
          result[typeProp.Name] = new ObjectMemberInfo(
             properties,
             methods,

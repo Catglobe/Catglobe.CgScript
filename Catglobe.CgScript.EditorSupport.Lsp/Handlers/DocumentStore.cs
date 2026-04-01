@@ -137,17 +137,50 @@ public sealed class DocumentStore
 
          var methods        = new List<string>();
          var obsoleteMethods = new Dictionary<string, string?>(StringComparer.Ordinal);
+         Dictionary<string, IReadOnlyList<IReadOnlyList<string>>>? methodOverloads = null;
          if (def.Methods != null)
+         {
+            var mOverloads = new Dictionary<string, List<IReadOnlyList<string>>>(StringComparer.Ordinal);
             foreach (var m in def.Methods)
                if (!string.IsNullOrEmpty(m.Name))
                {
                   methods.Add(m.Name);
                   if (m.IsObsolete)
                      obsoleteMethods[m.Name] = m.ObsoleteDoc;
+                  if (!mOverloads.TryGetValue(m.Name, out var mol))
+                  {
+                     mol = new List<IReadOnlyList<string>>();
+                     mOverloads[m.Name] = mol;
+                  }
+                  mol.Add(m.Param?.Select(p => p.Type ?? "").ToList() ?? new List<string>());
                }
+            if (mOverloads.Count > 0)
+            {
+               var frozen = new Dictionary<string, IReadOnlyList<IReadOnlyList<string>>>(StringComparer.Ordinal);
+               foreach (var mo in mOverloads)
+                  frozen[mo.Key] = mo.Value;
+               methodOverloads = frozen;
+            }
+         }
+
+         List<IReadOnlyList<string>>? constructorOverloads = null;
+         if (def.Constructors != null && def.Constructors.Length > 0)
+         {
+            constructorOverloads = new List<IReadOnlyList<string>>();
+            foreach (var ctor in def.Constructors)
+               constructorOverloads.Add(ctor.Param?.Select(p => p.Type ?? "").ToList() ?? new List<string>());
+         }
+
+         // Inject the preprocessor special case for WorkflowScript: new WorkflowScript("filename")
+         // This form doesn't exist in the real API — the source generator replaces it with
+         // new WorkflowScript(resourceId) on deployment.  No CGS023 should be raised for it.
+         if (kvp.Key == "WorkflowScript" && constructorOverloads != null)
+            constructorOverloads.Add(new[] { "string" });
 
          result[kvp.Key] = new ObjectMemberInfo(
             properties, methods, propertyRetTypes,
+            constructorOverloads: constructorOverloads,
+            methodOverloads: methodOverloads,
             obsoletePropertyNames: obsoleteProps.Count > 0 ? obsoleteProps : null,
             obsoleteMethodNames:   obsoleteMethods.Count > 0 ? obsoleteMethods : null);
       }

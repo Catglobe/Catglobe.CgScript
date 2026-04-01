@@ -1283,8 +1283,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
    /// <summary>
    /// Returns <c>true</c> when at least one overload accepts the given argument types.
-   /// All parameters are treated as optional: a call with fewer args than an overload's
-   /// parameter count is valid as long as each supplied arg type matches.
+   /// Zero-arg calls are always considered valid (the user may still be typing).
+   /// Non-zero-arg calls require the argument count to exactly match the overload's parameter count.
    /// An overload whose last parameter type is <c>"Params object"</c> is variadic and
    /// accepts any number of arguments beyond the preceding fixed parameters.
    /// </summary>
@@ -1314,7 +1314,8 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             continue;
          }
 
-         if (argTypes.Length > overload.Count) continue; // too many args for this overload
+         // Zero-arg calls are always valid (still typing); non-zero calls require exact count.
+         if (argTypes.Length > 0 && argTypes.Length != overload.Count) continue;
          if (AllArgsCompatible(overload, argTypes)) return true;
       }
       return false;
