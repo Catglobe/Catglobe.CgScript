@@ -539,14 +539,14 @@ public class SemanticAnalyzerDiagnosticsTests
    }
 
    [Fact]
-   public void Constructor_NoArgs_NoCGS023()
+   public void Constructor_NoArgs_ReportsCGS023()
    {
-      // new String() — zero args is valid (all params treated as optional)
+      // new String() — constructor requires a string arg; zero args is a mismatch
       var diags = AnalyzeWithObjects(
          "string s = new String();",
          new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringInfo() });
 
-      Assert.DoesNotContain(diags, d => d.Code == "CGS023");
+      Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("String"));
    }
 
    [Fact]
