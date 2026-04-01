@@ -47,11 +47,18 @@
     <Exec Command="npm ci" WorkingDirectory="$(MSBuildThisFileDirectory)" EnvironmentVariables="PATH=$(PATH.Replace(';','%3B'))%3B$(VsNodeDir.Replace(';','%3B'))" />
   </Target>
 
+  <!--
+    Use src/ (TypeScript source files) as incremental-build inputs.  esbuild consumes src/index.ts
+    directly and does not need the TypeScript compiler's dist/ outputs, so there is no reason to
+    wait for CompileTypeScriptWithTSConfig.  More importantly, dist/ does not exist on a clean
+    checkout, which would make @(_NpmSources) empty and cause MSBuild to silently skip the
+    incremental check — leaving wwwroot/cgscript-cm6.js uncreated.
+  -->
   <ItemGroup>
-    <_NpmSources Include="$(MSBuildThisFileDirectory)dist/*" />
+    <_NpmSources Include="$(MSBuildThisFileDirectory)src\**\*;$(MSBuildThisFileDirectory)esbuild.mjs;$(MSBuildThisFileDirectory)package.json" />
   </ItemGroup>
 
-  <Target Name="BuildNpmBundle" Inputs="@(_NpmSources)" Outputs="$(MSBuildThisFileDirectory)wwwroot/cgscript-cm6.js" DependsOnTargets="CompileTypeScriptWithTSConfig;NpmInstall">
+  <Target Name="BuildNpmBundle" Inputs="@(_NpmSources)" Outputs="$(MSBuildThisFileDirectory)wwwroot/cgscript-cm6.js" DependsOnTargets="NpmInstall">
     <Exec Command="node esbuild.mjs" WorkingDirectory="$(MSBuildThisFileDirectory)" EnvironmentVariables="PATH=$(PATH.Replace(';','%3B'))%3B$(VsNodeDir.Replace(';','%3B'))" />
   </Target>
 
@@ -72,9 +79,20 @@
     Register the generated JS bundle as a Content item so ResolveProjectStaticWebAssets can
     discover it and emit a proper StaticWebAsset item (and static-web-assets manifest entry).
 
-    Must run BEFORE ResolveProjectStaticWebAssets (which has BeforeTargets="AssignTargetPaths"
-    and reads @(Content) to populate @(StaticWebAsset)).  Using BeforeTargets="ResolveStaticWebAssetsInputs"
-    is too late — by then the SDK has already processed @(Content).
+    WHY BeforeTargets="ResolveProjectStaticWebAssets":
+      ResolveProjectStaticWebAssets (BeforeTargets="AssignTargetPaths") is the target that reads
+      @(Content) via DefineStaticWebAssets with RelativePathPattern="wwwroot/**" and populates
+      @(StaticWebAsset).  We must register our Content item BEFORE it runs.
+
+      BuildNpmBundle no longer depends on CompileTypeScriptWithTSConfig because esbuild processes
+      src/index.ts directly — it does not need the TypeScript compiler's dist/ outputs.  Removing
+      that dependency breaks the ordering cycle that previously caused MSBuild to silently drop the
+      BeforeTargets constraint.
+
+    WHY the Include must be a RELATIVE path ("wwwroot\cgscript-cm6.js"):
+      ResolveProjectStaticWebAssets filters Content items using RelativePathPattern="wwwroot/**".
+      An absolute path ("D:\...\wwwroot\...") never matches that relative prefix, so the asset is
+      never registered and the pack manifest ends up empty → 404 on the deployed site.
 
     Kept as a separate non-incremental target so the registration happens even when
     BuildNpmBundle is skipped by its Inputs/Outputs up-to-date check.
@@ -83,7 +101,7 @@
           DependsOnTargets="BuildNpmBundle"
           BeforeTargets="ResolveProjectStaticWebAssets">
     <ItemGroup>
-      <Content Include="$(MSBuildThisFileDirectory)wwwroot\cgscript-cm6.js" />
+      <Content Include="wwwroot\cgscript-cm6.js" />
     </ItemGroup>
   </Target>
 
