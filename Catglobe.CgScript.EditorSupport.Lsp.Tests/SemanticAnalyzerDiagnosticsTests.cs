@@ -574,18 +574,30 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // new WorkflowScript("filename") is a preprocessor special form that the source generator
       // replaces with new WorkflowScript(resourceId) on deployment.  No CGS023 should be raised.
+      // WithPreprocessorExtensions() must be called — this overload is NOT in the base definitions.
       var result = CgScriptParseService.Parse("WorkflowScript script = new WorkflowScript(\"myScript.cgs\");");
-      var diags = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+      var diags = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions().WithPreprocessorExtensions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS023");
    }
 
    [Fact]
+   public void WorkflowScript_FilenameOverload_NotInjectedInBaseDefinitions()
+   {
+      // Without WithPreprocessorExtensions(), new WorkflowScript("filename") should report CGS023
+      // because the base definitions only know about the real API constructors.
+      var result = CgScriptParseService.Parse("WorkflowScript script = new WorkflowScript(\"myScript.cgs\");");
+      var diags = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.Contains(diags, d => d.Code == "CGS023");
+   }
+
+   [Fact]
    public void WorkflowScript_TooManyStringArgs_ReportsCGS023()
    {
-      // new WorkflowScript("a", "b", "c") — no constructor accepts three strings
+      // new WorkflowScript("a", "b", "c") — no constructor accepts three strings even with preprocessor extensions
       var result = CgScriptParseService.Parse("WorkflowScript script = new WorkflowScript(\"a\", \"b\", \"c\");");
-      var diags = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+      var diags = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions().WithPreprocessorExtensions());
 
       Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("WorkflowScript"));
    }
@@ -909,8 +921,9 @@ public class SemanticAnalyzerDiagnosticsTests
    public void WorkflowScriptInvoke_WithArrayArg_NoCGS024()
    {
       // WorkflowScript.Invoke(array) — exactly one array argument is valid.
+      // WithPreprocessorExtensions() is needed because new WorkflowScript("filename") is the preprocessor form.
       var result = CgScriptParseService.Parse("WorkflowScript ws = new WorkflowScript(\"test.cgs\"); array args = new array(); ws.Invoke(args);");
-      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions().WithPreprocessorExtensions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }

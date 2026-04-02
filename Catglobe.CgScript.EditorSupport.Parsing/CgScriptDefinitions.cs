@@ -348,12 +348,6 @@ public class CgScriptDefinitions
                kv => (IReadOnlyList<IReadOnlyList<string>>)kv.Value,
                StringComparer.Ordinal);
 
-         // Inject the preprocessor special case for WorkflowScript: new WorkflowScript("filename")
-         // This form doesn't exist in the real API — the source generator replaces it with
-         // new WorkflowScript(resourceId) on deployment.  No CGS023 should be raised for it.
-         if (kvp.Key == "WorkflowScript" && constructorOverloads != null)
-            constructorOverloads.Add(new[] { "string" });
-
          result[kvp.Key] = new ObjectMemberInfo(
             properties, methods, propertyRetTypes,
             constructorOverloads: constructorOverloads,
@@ -432,6 +426,27 @@ public class CgScriptDefinitions
          Constants,
          merged,
          Enums     is Dictionary<string, EnumDefinition>     ed ? ed : Enums.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase));
+   }
+
+   /// <summary>
+   /// Returns a new <see cref="CgScriptDefinitions"/> with extra constructor overloads that are
+   /// only valid when editing CgScript files processed by the source generator or deployed through
+   /// VS / VS Code (e.g., <c>new WorkflowScript("filename.cgs")</c> which the source generator
+   /// rewrites to <c>new WorkflowScript(resourceId)</c>).
+   /// Do NOT call this from the web runtime context where definitions come from a live server.
+   /// </summary>
+   public CgScriptDefinitions WithPreprocessorExtensions()
+   {
+      if (!ObjectMemberInfos.TryGetValue("WorkflowScript", out var wsMemberInfo)) return this;
+      var modified = ObjectMemberInfos.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+      modified["WorkflowScript"] = wsMemberInfo.WithExtraConstructorOverload(new[] { "string" });
+      return new CgScriptDefinitions(
+         Functions is Dictionary<string, FunctionDefinition> fd ? fd : Functions.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
+         Objects   is Dictionary<string, ObjectDefinition>   od ? od : Objects.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
+         Constants,
+         GlobalVariables,
+         Enums     is Dictionary<string, EnumDefinition>     ed ? ed : Enums.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase))
+      { ObjectMemberInfos = modified };
    }
 
    /// <summary>

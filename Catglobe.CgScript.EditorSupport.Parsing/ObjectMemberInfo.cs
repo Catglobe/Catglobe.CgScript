@@ -71,4 +71,16 @@ public sealed class ObjectMemberInfo
 
    /// <summary>Returns <c>true</c> when the type exposes a method with the given name.</summary>
    public bool HasMethod(string name) => _methodNames.Contains(name);
+
+   /// <summary>
+   /// Returns a new <see cref="ObjectMemberInfo"/> identical to this one but with
+   /// <paramref name="paramTypes"/> added as an additional constructor overload.
+   /// </summary>
+   internal ObjectMemberInfo WithExtraConstructorOverload(IReadOnlyList<string> paramTypes)
+   {
+      var ctors = ConstructorOverloads is null
+         ? new List<IReadOnlyList<string>> { paramTypes }
+         : new List<IReadOnlyList<string>>(ConstructorOverloads) { paramTypes };
+      return new ObjectMemberInfo(Properties, _methodNames, PropertyReturnTypes, ctors, MethodOverloads, ObsoletePropertyNames, ObsoleteMethodNames);
+   }
 }
