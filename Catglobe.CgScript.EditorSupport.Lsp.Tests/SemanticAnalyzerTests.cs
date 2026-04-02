@@ -14,13 +14,7 @@ public class SemanticAnalyzerTests
    private static IReadOnlyList<Diagnostic> Analyze(string source)
    {
       var result = CgScriptParseService.Parse(source);
-      return SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         KnownNamesLoader.ObjectDefinitions,
-         KnownNamesLoader.GlobalVariableTypes);
+      return SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
    }
 
    private static Diagnostic? FindByCode(IReadOnlyList<Diagnostic> diags, string code)

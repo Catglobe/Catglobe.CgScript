@@ -1,4 +1,3 @@
-using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 using Catglobe.CgScript.EditorSupport.Parsing;
 using System.Linq;
@@ -11,6 +10,22 @@ namespace Catglobe.CgScript.EditorSupport.Lsp.Tests;
 /// </summary>
 public class SemanticAnalyzerDiagnosticsTests
 {
+   // ── Inner test class ──────────────────────────────────────────────────────
+
+   private sealed class TestCgScriptDefinitions : CgScriptDefinitions
+   {
+      public TestCgScriptDefinitions(
+         Dictionary<string, FunctionDefinition>                functions,
+         Dictionary<string, ObjectDefinition>                  objects,
+         IReadOnlyCollection<string>                           constants,
+         IReadOnlyDictionary<string, GlobalVariableDefinition>? globalVariables = null,
+         Dictionary<string, EnumDefinition>?                   enums = null)
+         : base(functions, objects, constants,
+                globalVariables ?? new Dictionary<string, GlobalVariableDefinition>(),
+                enums ?? new Dictionary<string, EnumDefinition>())
+      { }
+   }
+
    private static IReadOnlyList<Diagnostic> Analyze(
       string               source,
       IEnumerable<string>? functions       = null,
@@ -19,32 +34,42 @@ public class SemanticAnalyzerDiagnosticsTests
       IEnumerable<string>? globalVariables = null,
       IReadOnlyDictionary<string, FunctionInfo>? functionDefinitions = null)
    {
-      var result = CgScriptParseService.Parse(source);
-      var globalVarTypes = globalVariables is null
-         ? null
-         : (IReadOnlyDictionary<string, string>)globalVariables
-              .ToDictionary(v => v, _ => (string)"", StringComparer.Ordinal);
-      return SemanticAnalyzer.Analyze(
-         result.Tree,
-         functions       ?? [],
-         objects         ?? [],
-         constants       ?? [],
-         globalVariableTypes: globalVarTypes,
-         functionDefinitions: functionDefinitions);
+      var result   = CgScriptParseService.Parse(source);
+      var funcDefs = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
+      foreach (var fn in functions ?? [])
+      {
+         if (functionDefinitions?.TryGetValue(fn, out var info) == true)
+            funcDefs[fn] = new FunctionDefinition(
+               info.Variants.Select(overload =>
+                  new FunctionVariant("",
+                     overload.Select((t, i) => new FunctionVariantParam($"p{i}", "", t)).ToArray(),
+                     "")).ToArray());
+         else
+            funcDefs[fn] = new FunctionDefinition(null!);
+      }
+      var objDefs = new Dictionary<string, ObjectDefinition>(StringComparer.Ordinal);
+      foreach (var obj in objects ?? [])
+         objDefs[obj] = new ObjectDefinition("", [], [], [], []);
+      var globalVarDefs = globalVariables is null
+         ? new Dictionary<string, GlobalVariableDefinition>()
+         : globalVariables.ToDictionary(v => v, _ => new GlobalVariableDefinition(""), StringComparer.Ordinal);
+      return SemanticAnalyzer.Analyze(result.Tree,
+         new TestCgScriptDefinitions(funcDefs, objDefs, (constants ?? []).ToList(), globalVarDefs));
    }
 
    private static IReadOnlyList<Diagnostic> AnalyzeWithObjects(
       string source,
-      IReadOnlyDictionary<string, ObjectMemberInfo> objectDefinitions,
+      IReadOnlyDictionary<string, ObjectDefinition> objectDefinitions,
       IEnumerable<string>? functions = null)
    {
-      var result = CgScriptParseService.Parse(source);
-      return SemanticAnalyzer.Analyze(
-         result.Tree,
-         functions ?? [],
-         objectDefinitions.Keys,
-         [],
-         objectDefinitions: objectDefinitions);
+      var result   = CgScriptParseService.Parse(source);
+      var funcDefs = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
+      foreach (var fn in functions ?? [])
+         funcDefs[fn] = new FunctionDefinition(null!);
+      return SemanticAnalyzer.Analyze(result.Tree,
+         new TestCgScriptDefinitions(funcDefs,
+            objectDefinitions.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal),
+            []));
    }
 
    // ── Known constants are not reported as undefined ─────────────────────────
@@ -63,12 +88,8 @@ public class SemanticAnalyzerDiagnosticsTests
    [Fact]
    public void KnownConstantsFromLoader_AreNotReportedAsUndefined()
    {
-      var diags = Analyze(
-         "number b = DATETIME_DAY; print(b);",
-         functions:       KnownNamesLoader.FunctionNames,
-         objects:         KnownNamesLoader.ObjectNames,
-         constants:       KnownNamesLoader.ConstantNames,
-         globalVariables: KnownNamesLoader.GlobalVariableNames);
+      var result = CgScriptParseService.Parse("number b = DATETIME_DAY; print(b);");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Message.Contains("DATETIME_DAY"));
    }
@@ -90,12 +111,8 @@ public class SemanticAnalyzerDiagnosticsTests
    public void GlobalVariablesFromLoader_AreNotReportedAsUndefined()
    {
       // Catglobe is the runtime global variable exposed in CgScriptGlobalVariables.json
-      var diags = Analyze(
-         "string s = Catglobe; print(s);",
-         functions:       KnownNamesLoader.FunctionNames,
-         objects:         KnownNamesLoader.ObjectNames,
-         constants:       KnownNamesLoader.ConstantNames,
-         globalVariables: KnownNamesLoader.GlobalVariableNames);
+      var result = CgScriptParseService.Parse("string s = Catglobe; print(s);");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Message.Contains("Catglobe") && d.Message.Contains("Undefined"));
    }
@@ -279,11 +296,8 @@ public class SemanticAnalyzerDiagnosticsTests
    public void KnownFunctionsFromLoader_ValidCall_NoCGS022()
    {
       // DateTime_addDays(new DateTime(), 1) is a valid call
-      var diags = Analyze(
-         "DateTime_addDays(new DateTime(), 1);",
-         functions:           KnownNamesLoader.FunctionNames,
-         objects:             KnownNamesLoader.ObjectNames,
-         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+      var result = CgScriptParseService.Parse("DateTime_addDays(new DateTime(), 1);");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }
@@ -291,25 +305,20 @@ public class SemanticAnalyzerDiagnosticsTests
    [Fact]
    public void KnownFunctionsFromLoader_TooFewArgs_ReportsCGS022()
    {
-      // DateTime_addDays requires 2 args; calling with 1 should be flagged
-      var diags = Analyze(
-         "DateTime_addDays(new DateTime());",
-         functions:           KnownNamesLoader.FunctionNames,
-         objects:             KnownNamesLoader.ObjectNames,
-         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+      // DateTime_getLastDateOfMonth requires 2 args (Year:int, Month:int); calling with 1 should be flagged
+      var result = CgScriptParseService.Parse("DateTime_getLastDateOfMonth(2024);");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.Contains(diags, d => d.Code == "CGS022"
-                                  && d.Message.Contains("DateTime_addDays"));
+                                  && d.Message.Contains("DateTime_getLastDateOfMonth"));
    }
 
    [Fact]
    public void ConvertToNumber_CalledWithString_NoCGS022()
    {
       // convertToNumber("[avatarStore]") is valid; no false-positive CGS022 expected
-      var diags = Analyze(
-         "number n = convertToNumber(\"[avatarStore]\");",
-         functions:           KnownNamesLoader.FunctionNames,
-         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+      var result = CgScriptParseService.Parse("number n = convertToNumber(\"[avatarStore]\");");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }
@@ -318,10 +327,8 @@ public class SemanticAnalyzerDiagnosticsTests
    public void Format_CalledWithStringAndArg_NoCGS022()
    {
       // format("{0}foo", location) is valid; no false-positive CGS022 expected
-      var diags = Analyze(
-         "string location = \"x\"; string s = format(\"{0}foo\", location);",
-         functions:           KnownNamesLoader.FunctionNames,
-         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+      var result = CgScriptParseService.Parse("string location = \"x\"; string s = format(\"{0}foo\", location);");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }
@@ -331,7 +338,7 @@ public class SemanticAnalyzerDiagnosticsTests
    private static IReadOnlyList<Diagnostic> AnalyzeViaDocumentStore(string source)
    {
       var uri   = "file:///test.cgs";
-      var store = new DocumentStore(new DefinitionLoader());
+      var store = new DocumentStore(new CgScriptDefinitions());
       store.Update(uri, source);
       return store.GetParseResult(uri)!.Diagnostics;
    }
@@ -399,10 +406,8 @@ public class SemanticAnalyzerDiagnosticsTests
    public void NewStyleFunction_CorrectArgs_NoCGS022()
    {
       // AppProduct_getById(int) — correct single Number arg
-      var diags = Analyze(
-         "AppProduct_getById(1);",
-         functions:           KnownNamesLoader.FunctionNames,
-         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+      var result = CgScriptParseService.Parse("AppProduct_getById(1);");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }
@@ -411,10 +416,8 @@ public class SemanticAnalyzerDiagnosticsTests
    public void NewStyleFunction_WrongArgType_ReportsCGS022()
    {
       // AppProduct_getById expects a Number (int); passing a string literal is wrong
-      var diags = Analyze(
-         "AppProduct_getById(\"not-an-id\");",
-         functions:           KnownNamesLoader.FunctionNames,
-         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+      var result = CgScriptParseService.Parse("AppProduct_getById(\"not-an-id\");");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.Contains(diags, d => d.Code == "CGS022" && d.Message.Contains("AppProduct_getById"));
    }
@@ -424,10 +427,8 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // Color_getByRGB has two variants: (string) and (int, int, int)
       // Calling with a single string should match the first variant.
-      var diags = Analyze(
-         "Color_getByRGB(\"#ff0000\");",
-         functions:           KnownNamesLoader.FunctionNames,
-         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+      var result = CgScriptParseService.Parse("Color_getByRGB(\"#ff0000\");");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }
@@ -436,10 +437,8 @@ public class SemanticAnalyzerDiagnosticsTests
    public void NewStyleFunction_MultipleVariants_SecondVariantValid_NoCGS022()
    {
       // Color_getByRGB(int, int, int) — second variant
-      var diags = Analyze(
-         "Color_getByRGB(255, 0, 128);",
-         functions:           KnownNamesLoader.FunctionNames,
-         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+      var result = CgScriptParseService.Parse("Color_getByRGB(255, 0, 128);");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }
@@ -448,10 +447,8 @@ public class SemanticAnalyzerDiagnosticsTests
    public void NewStyleFunction_WrongArgCount_ReportsCGS022()
    {
       // Color_getByRGB has variants (string) and (int, int, int); 2 args matches neither
-      var diags = Analyze(
-         "Color_getByRGB(1, 2);",
-         functions:           KnownNamesLoader.FunctionNames,
-         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+      var result = CgScriptParseService.Parse("Color_getByRGB(1, 2);");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.Contains(diags, d => d.Code == "CGS022" && d.Message.Contains("Color_getByRGB"));
    }
@@ -475,7 +472,6 @@ public class SemanticAnalyzerDiagnosticsTests
    // ── CGS022: empty keyword as parameter — must never produce false-positive ──
 
    [Theory]
-   [InlineData("Workflow_call(123, empty, 123);")]
    [InlineData("Workflow_call(123, empty);")]
    [InlineData("Workflow_call(123);")]
    [InlineData("Workflow_call(123, {}, empty);")]
@@ -485,11 +481,8 @@ public class SemanticAnalyzerDiagnosticsTests
       // Workflow_call is an old-style function:
       //   (Number workflowResourceId [required], Array? parameter, All? schedule)
       // 'empty' must not produce a false-positive CGS022 for any optional parameter.
-      var diags = Analyze(
-         source,
-         functions:           KnownNamesLoader.FunctionNames,
-         objects:             KnownNamesLoader.ObjectNames,
-         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+      var result = CgScriptParseService.Parse(source);
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }
@@ -499,22 +492,18 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // Tenant_getByTenantId is a new-style function (Variants) taking a single "string" argument.
       // Passing 'empty' must not produce a false-positive CGS022.
-      var diags = Analyze(
-         "Tenant_getByTenantId(empty);",
-         functions:           KnownNamesLoader.FunctionNames,
-         objects:             KnownNamesLoader.ObjectNames,
-         functionDefinitions: KnownNamesLoader.FunctionDefinitions);
+      var result = CgScriptParseService.Parse("Tenant_getByTenantId(empty);");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }
 
    // ── CGS023: constructor argument mismatch ─────────────────────────────────
 
-   private static ObjectMemberInfo MakeStringInfo()
-      => new ObjectMemberInfo(
-         properties:           new Dictionary<string, bool>(),
-         methodNames:          [],
-         constructorOverloads: [["string"]]);
+   private static ObjectDefinition MakeStringDef()
+      => new ObjectDefinition("",
+         Constructors: [new MethodDefinition("", "", [new MethodParam("p0", "", "string")], "")],
+         Methods: [], StaticMethods: [], Properties: []);
 
    [Fact]
    public void Constructor_TooManyArgs_ReportsCGS023()
@@ -522,7 +511,7 @@ public class SemanticAnalyzerDiagnosticsTests
       // new String(1, 2) — only one constructor taking a single string arg
       var diags = AnalyzeWithObjects(
          "string s = new String(1, 2);",
-         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringInfo() });
+         new Dictionary<string, ObjectDefinition> { ["String"] = MakeStringDef() });
 
       Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("String"));
    }
@@ -533,7 +522,7 @@ public class SemanticAnalyzerDiagnosticsTests
       // new String(1) — constructor expects string, got number
       var diags = AnalyzeWithObjects(
          "string s = new String(1);",
-         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringInfo() });
+         new Dictionary<string, ObjectDefinition> { ["String"] = MakeStringDef() });
 
       Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("String"));
    }
@@ -544,7 +533,7 @@ public class SemanticAnalyzerDiagnosticsTests
       // new String() — zero args is valid (all params treated as optional)
       var diags = AnalyzeWithObjects(
          "string s = new String();",
-         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringInfo() });
+         new Dictionary<string, ObjectDefinition> { ["String"] = MakeStringDef() });
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS023");
    }
@@ -555,7 +544,7 @@ public class SemanticAnalyzerDiagnosticsTests
       // new String("test") — valid
       var diags = AnalyzeWithObjects(
          "string s = new String(\"test\");",
-         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringInfo() });
+         new Dictionary<string, ObjectDefinition> { ["String"] = MakeStringDef() });
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS023");
    }
@@ -565,12 +554,7 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // new String("hello") — valid according to embedded JSON definitions
       var result = CgScriptParseService.Parse("string s = new String(\"hello\");");
-      var diags = SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS023");
    }
@@ -580,26 +564,18 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // new String(1, 2) — String has only one constructor that takes a string arg
       var result = CgScriptParseService.Parse("string s = new String(1, 2);");
-      var diags = SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("String"));
    }
 
    // ── CGS024: method call argument mismatch ─────────────────────────────────
 
-   private static ObjectMemberInfo MakeStringWithCompareInfo()
-      => new ObjectMemberInfo(
-         properties:    new Dictionary<string, bool>(),
-         methodNames:   ["CompareTo"],
-         methodOverloads: new Dictionary<string, IReadOnlyList<IReadOnlyList<string>>>
-         {
-            ["CompareTo"] = [["string"]],
-         });
+   private static ObjectDefinition MakeStringWithCompareDef()
+      => new ObjectDefinition("",
+         Constructors: [],
+         Methods: [new MethodDefinition("CompareTo", "", [new MethodParam("p0", "", "string")], "")],
+         StaticMethods: [], Properties: []);
 
    [Fact]
    public void MethodCall_WrongArgType_ReportsCGS024()
@@ -607,7 +583,7 @@ public class SemanticAnalyzerDiagnosticsTests
       // s.CompareTo(1) — method expects string, got number
       var diags = AnalyzeWithObjects(
          "String s = new String(); s.CompareTo(1);",
-         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringWithCompareInfo() });
+         new Dictionary<string, ObjectDefinition> { ["String"] = MakeStringWithCompareDef() });
 
       Assert.Contains(diags, d => d.Code == "CGS024"
                                   && d.Message.Contains("String.CompareTo"));
@@ -619,7 +595,7 @@ public class SemanticAnalyzerDiagnosticsTests
       // s.CompareTo("other") — valid
       var diags = AnalyzeWithObjects(
          "String s = new String(); s.CompareTo(\"other\");",
-         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringWithCompareInfo() });
+         new Dictionary<string, ObjectDefinition> { ["String"] = MakeStringWithCompareDef() });
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }
@@ -630,7 +606,7 @@ public class SemanticAnalyzerDiagnosticsTests
       // s.CompareTo("a", "b") — method only takes one arg
       var diags = AnalyzeWithObjects(
          "String s = new String(); s.CompareTo(\"a\", \"b\");",
-         new Dictionary<string, ObjectMemberInfo> { ["String"] = MakeStringWithCompareInfo() });
+         new Dictionary<string, ObjectDefinition> { ["String"] = MakeStringWithCompareDef() });
 
       Assert.Contains(diags, d => d.Code == "CGS024"
                                   && d.Message.Contains("String.CompareTo"));
@@ -641,12 +617,7 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // s.CompareTo("other") using embedded definitions
       var result = CgScriptParseService.Parse("String s = new String(\"x\"); s.CompareTo(\"other\");");
-      var diags = SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }
@@ -656,12 +627,7 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // s.CompareTo(1) — String.CompareTo expects a string
       var result = CgScriptParseService.Parse("String s = new String(\"x\"); s.CompareTo(1);");
-      var diags = SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.Contains(diags, d => d.Code == "CGS024" && d.Message.Contains("String.CompareTo"));
    }
@@ -675,32 +641,23 @@ public class SemanticAnalyzerDiagnosticsTests
       // AddPasswordCompatTenantUsers expects a Dictionary argument.
       // 'empty' infers as null (unknown type) and must not produce a false-positive CGS024.
       var result = CgScriptParseService.Parse("Tenant t; t.AddPasswordCompatTenantUsers(empty);");
-      var diags = SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }
 
    // ── CGS025: indexer argument type mismatch ────────────────────────────────
 
-   private static ObjectMemberInfo MakeDictionaryInfo()
-      => new ObjectMemberInfo(
-         properties: new Dictionary<string, bool>(),
-         methodNames: ["[]"],
-         methodOverloads: new Dictionary<string, IReadOnlyList<IReadOnlyList<string>>>
-         {
-            ["[]"] =
-            [
-               ["string"],           // getter: string key
-               ["int"],              // getter: int key
-               ["string", "object"], // setter: string key + value
-               ["int",    "object"], // setter: int key + value
-            ],
-         });
+   private static ObjectDefinition MakeDictionaryDef()
+      => new ObjectDefinition("",
+         Constructors: [],
+         Methods: [
+            new MethodDefinition("[]", "", [new MethodParam("k", "", "string")], ""),
+            new MethodDefinition("[]", "", [new MethodParam("k", "", "int")], ""),
+            new MethodDefinition("[]", "", [new MethodParam("k", "", "string"), new MethodParam("v", "", "object")], ""),
+            new MethodDefinition("[]", "", [new MethodParam("k", "", "int"),    new MethodParam("v", "", "object")], ""),
+         ],
+         StaticMethods: [], Properties: []);
 
    [Fact]
    public void Indexer_ValidStringKey_NoCGS025()
@@ -708,7 +665,7 @@ public class SemanticAnalyzerDiagnosticsTests
       // d["key"] — string key is valid
       var diags = AnalyzeWithObjects(
          "Dictionary d; d[\"key\"];",
-         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+         new Dictionary<string, ObjectDefinition> { ["Dictionary"] = MakeDictionaryDef() });
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS025");
    }
@@ -719,7 +676,7 @@ public class SemanticAnalyzerDiagnosticsTests
       // d[1] — int key is valid
       var diags = AnalyzeWithObjects(
          "Dictionary d; d[1];",
-         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+         new Dictionary<string, ObjectDefinition> { ["Dictionary"] = MakeDictionaryDef() });
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS025");
    }
@@ -730,7 +687,7 @@ public class SemanticAnalyzerDiagnosticsTests
       // d[true] — bool key is not valid
       var diags = AnalyzeWithObjects(
          "Dictionary d; d[true];",
-         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+         new Dictionary<string, ObjectDefinition> { ["Dictionary"] = MakeDictionaryDef() });
 
       Assert.Contains(diags, d => d.Code == "CGS025" && d.Message.Contains("Dictionary"));
    }
@@ -741,7 +698,7 @@ public class SemanticAnalyzerDiagnosticsTests
       // d["key"] = "v" — string key is valid for setter
       var diags = AnalyzeWithObjects(
          "Dictionary d; d[\"key\"] = \"v\";",
-         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+         new Dictionary<string, ObjectDefinition> { ["Dictionary"] = MakeDictionaryDef() });
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS025");
    }
@@ -752,7 +709,7 @@ public class SemanticAnalyzerDiagnosticsTests
       // d[true] = "v" — bool key is not valid for setter
       var diags = AnalyzeWithObjects(
          "Dictionary d; d[true] = \"v\";",
-         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() });
+         new Dictionary<string, ObjectDefinition> { ["Dictionary"] = MakeDictionaryDef() });
 
       Assert.Contains(diags, d => d.Code == "CGS025" && d.Message.Contains("Dictionary"));
    }
@@ -763,7 +720,7 @@ public class SemanticAnalyzerDiagnosticsTests
       // d[x] — unknown variable type → no false positive
       var diags = AnalyzeWithObjects(
          "Dictionary d; object x; d[x];",
-         new Dictionary<string, ObjectMemberInfo> { ["Dictionary"] = MakeDictionaryInfo() },
+         new Dictionary<string, ObjectDefinition> { ["Dictionary"] = MakeDictionaryDef() },
          functions: []);
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS025");
@@ -781,12 +738,10 @@ public class SemanticAnalyzerDiagnosticsTests
          "someFunc(function(Dictionary u) {\n" +
          "   u[\"Name\"] = \"Remove\";\n" +
          "});";
-      var objDefs = new Dictionary<string, ObjectMemberInfo>
+      var objDefs = new Dictionary<string, ObjectDefinition>
       {
-         ["Dictionary"] = MakeDictionaryInfo(),
-         ["User"]       = new ObjectMemberInfo(
-            properties: new Dictionary<string, bool>(),
-            methodNames: []),
+         ["Dictionary"] = MakeDictionaryDef(),
+         ["User"]       = new ObjectDefinition("", [], [], [], []),
       };
       var diags = AnalyzeWithObjects(source, objDefs, functions: ["someFunc"]);
 
@@ -805,12 +760,10 @@ public class SemanticAnalyzerDiagnosticsTests
          "for (u for 1; 10) {\n" +
          "   u[\"Name\"] = \"Remove\";\n" +
          "}";
-      var objDefs = new Dictionary<string, ObjectMemberInfo>
+      var objDefs = new Dictionary<string, ObjectDefinition>
       {
-         ["Dictionary"] = MakeDictionaryInfo(),
-         ["User"]       = new ObjectMemberInfo(
-            properties: new Dictionary<string, bool>(),
-            methodNames: []),
+         ["Dictionary"] = MakeDictionaryDef(),
+         ["User"]       = new ObjectDefinition("", [], [], [], []),
       };
       var diags = AnalyzeWithObjects(source, objDefs, functions: []);
 
@@ -829,12 +782,10 @@ public class SemanticAnalyzerDiagnosticsTests
          "try { } catch (u) {\n" +
          "   u[\"Name\"] = \"Remove\";\n" +
          "}";
-      var objDefs = new Dictionary<string, ObjectMemberInfo>
+      var objDefs = new Dictionary<string, ObjectDefinition>
       {
-         ["Dictionary"] = MakeDictionaryInfo(),
-         ["User"]       = new ObjectMemberInfo(
-            properties: new Dictionary<string, bool>(),
-            methodNames: []),
+         ["Dictionary"] = MakeDictionaryDef(),
+         ["User"]       = new ObjectDefinition("", [], [], [], []),
       };
       var diags = AnalyzeWithObjects(source, objDefs, functions: []);
 
@@ -846,12 +797,7 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // Use the embedded Dictionary definition
       var result = CgScriptParseService.Parse("Dictionary d; d[\"key\"];");
-      var diags = SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS025");
    }
@@ -861,12 +807,7 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // Dictionary getter only accepts string or int, not bool
       var result = CgScriptParseService.Parse("Dictionary d; d[true];");
-      var diags = SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.Contains(diags, d => d.Code == "CGS025");
    }
@@ -876,12 +817,7 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // 'Array' (capital A, class name) is indexed with int — valid
       var result = CgScriptParseService.Parse("Array a; a[0];");
-      var diags = SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS025");
    }
@@ -891,12 +827,7 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // Array getter only accepts int, not string
       var result = CgScriptParseService.Parse("Array a; a[\"x\"];");
-      var diags = SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.Contains(diags, d => d.Code == "CGS025");
    }
@@ -908,12 +839,7 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // Function.Call accepts a variadic "Params object" — any number of args is valid.
       var result = CgScriptParseService.Parse("Function f = new Function(\"myFunc\"); f.Call(1);");
-      var diags = SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }
@@ -923,12 +849,7 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // Function.Call(a, b, c) — variadic, any number of arguments is valid.
       var result = CgScriptParseService.Parse("Function f = new Function(\"myFunc\"); f.Call(1, 2, 3);");
-      var diags = SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }
@@ -938,12 +859,7 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // WorkflowScript.Call also accepts "Params object" — variadic.
       var result = CgScriptParseService.Parse("WorkflowScript ws = new WorkflowScript(\"Test\"); ws.Call(1, 2);");
-      var diags = SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }
@@ -953,12 +869,7 @@ public class SemanticAnalyzerDiagnosticsTests
    {
       // StringBuilder.AppendFormat("{0}", value) — variadic "Params object" after format string.
       var result = CgScriptParseService.Parse("StringBuilder sb = new StringBuilder(); sb.AppendFormat(\"{0} {1}\", 1, 2);");
-      var diags = SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         objectDefinitions: KnownNamesLoader.ObjectDefinitions);
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }

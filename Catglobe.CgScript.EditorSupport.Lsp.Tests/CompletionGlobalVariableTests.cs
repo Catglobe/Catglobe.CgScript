@@ -1,4 +1,3 @@
-using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 using Catglobe.CgScript.EditorSupport.Parsing;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
@@ -6,14 +5,14 @@ using Microsoft.VisualStudio.LanguageServer.Protocol;
 namespace Catglobe.CgScript.EditorSupport.Lsp.Tests;
 
 /// <summary>
-/// Verifies that runtime-provided global variables (from <see cref="DefinitionLoader.GlobalVariables"/>)
+/// Verifies that runtime-provided global variables (from <see cref="CgScriptDefinitions.GlobalVariables"/>)
 /// appear in top-level completion results.
 /// </summary>
 public class CompletionGlobalVariableTests
 {
-   private sealed class TestDefinitionLoader : DefinitionLoader
+   private sealed class TestCgScriptDefinitions : CgScriptDefinitions
    {
-      public TestDefinitionLoader(Dictionary<string, string> globalVariables)
+      public TestCgScriptDefinitions(Dictionary<string, GlobalVariableDefinition> globalVariables)
          : base(
             functions:       [],
             objects:         [],
@@ -24,11 +23,11 @@ public class CompletionGlobalVariableTests
    }
 
    private static (CgScriptLanguageTarget Target, string Uri) CreateTarget(
-      Dictionary<string, string> globalVariables,
-      string                     source = "")
+      Dictionary<string, GlobalVariableDefinition> globalVariables,
+      string                                       source = "")
    {
       var uri         = "file:///test.cgs";
-      var definitions = new TestDefinitionLoader(globalVariables);
+      var definitions = new TestCgScriptDefinitions(globalVariables);
       var store       = new DocumentStore(definitions);
       store.Update(uri, source);
       var target = new CgScriptLanguageTarget(store, definitions);
@@ -60,7 +59,7 @@ public class CompletionGlobalVariableTests
    public void GlobalVariable_AppearsInCompletions()
    {
       var (target, uri) = CreateTarget(
-         new Dictionary<string, string> { { "Catglobe", "GlobalNamespace" } },
+         new Dictionary<string, GlobalVariableDefinition> { { "Catglobe", new("GlobalNamespace") } },
          source: "Catglobe");
 
       var items = GetCompletions(target, uri, prefix: "Catglobe");
@@ -72,7 +71,7 @@ public class CompletionGlobalVariableTests
    public void GlobalVariable_HasTypeAsDetail()
    {
       var (target, uri) = CreateTarget(
-         new Dictionary<string, string> { { "MyGlobal", "MyType" } },
+         new Dictionary<string, GlobalVariableDefinition> { { "MyGlobal", new("MyType") } },
          source: "MyGlobal");
 
       var items = GetCompletions(target, uri, prefix: "MyGlobal");
@@ -86,7 +85,7 @@ public class CompletionGlobalVariableTests
    public void GlobalVariable_AppearsInEmptyPrefixCompletions()
    {
       var (target, uri) = CreateTarget(
-         new Dictionary<string, string> { { "Catglobe", "GlobalNamespace" } },
+         new Dictionary<string, GlobalVariableDefinition> { { "Catglobe", new("GlobalNamespace") } },
          source: "");
 
       var items = GetCompletions(target, uri, prefix: "");
@@ -98,24 +97,12 @@ public class CompletionGlobalVariableTests
    public void GlobalVariable_IsFilteredByPrefix()
    {
       var (target, uri) = CreateTarget(
-         new Dictionary<string, string> { { "Catglobe", "GlobalNamespace" }, { "Other", "OtherType" } },
+         new Dictionary<string, GlobalVariableDefinition> { { "Catglobe", new("GlobalNamespace") }, { "Other", new("OtherType") } },
          source: "Cat");
 
       var items = GetCompletions(target, uri, prefix: "Cat");
 
       Assert.Contains(items, i => i.Label == "Catglobe");
       Assert.DoesNotContain(items, i => i.Label == "Other");
-   }
-
-   // ── GlobalVariableNames from KnownNamesLoader matches DefinitionLoader ────
-
-   [Fact]
-   public void KnownNamesLoader_GlobalVariableNames_MatchDefinitionLoader()
-   {
-      var definitions = new DefinitionLoader();
-      var loaderKeys  = new HashSet<string>(definitions.GlobalVariables.Keys, StringComparer.Ordinal);
-      var knownNames  = new HashSet<string>(KnownNamesLoader.GlobalVariableNames, StringComparer.Ordinal);
-
-      Assert.Equal(loaderKeys, knownNames);
    }
 }

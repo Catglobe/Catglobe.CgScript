@@ -1,6 +1,5 @@
-﻿using Antlr4.Runtime;
+using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
-using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Parsing;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 using StreamJsonRpc;
@@ -20,18 +19,10 @@ namespace Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 public partial class CgScriptLanguageTarget
 {
    protected readonly DocumentStore    _store;
-   protected readonly DefinitionLoader _definitions;
+   protected readonly CgScriptDefinitions _definitions;
 
    // Set after construction to break the circular dependency (JsonRpc needs target, target needs JsonRpc).
    public JsonRpc? Rpc { get; set; }
-
-   // ── Enum constant lookup (lazily built once) ──────────────────────────────────
-   private Dictionary<string, (EnumDefinition Enum, EnumValueDefinition Value)>? _enumByConstant;
-
-   private Dictionary<string, (EnumDefinition Enum, EnumValueDefinition Value)> EnumByConstant
-      => _enumByConstant ??= _definitions.Enums.Values
-            .SelectMany(e => e.Values.Select(v => (Key: v.Name, Enum: e, Value: v)))
-            .ToDictionary(x => x.Key, x => (x.Enum, x.Value), StringComparer.OrdinalIgnoreCase);
 
    // ── Semantic tokens delta cache ───────────────────────────────────────────────
    private readonly ConcurrentDictionary<string, (int[] Data, string ResultId)> _semanticCache = new();
@@ -41,7 +32,7 @@ public partial class CgScriptLanguageTarget
    private bool _clientSupportsMarkdownHover;
    private bool _clientSupportsSnippets;
 
-   public CgScriptLanguageTarget(DocumentStore store, DefinitionLoader definitions)
+   public CgScriptLanguageTarget(DocumentStore store, CgScriptDefinitions definitions)
    {
       _store       = store;
       _definitions = definitions;

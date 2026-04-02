@@ -1,4 +1,3 @@
-using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 using Catglobe.CgScript.EditorSupport.Parsing;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
@@ -14,23 +13,23 @@ public class ObsoleteTests
 {
    // ── Test helpers ─────────────────────────────────────────────────────────────
 
-   private static DefinitionLoader BuildDefinitions(
+   private static CgScriptDefinitions BuildDefinitions(
       Dictionary<string, ObjectDefinition>?  objects   = null,
       Dictionary<string, FunctionDefinition>? functions = null,
       Dictionary<string, EnumDefinition>?    enums     = null)
    {
-      return new TestDefinitionLoader(
+      return new TestCgScriptDefinitions(
          functions ?? new Dictionary<string, FunctionDefinition>(),
          objects   ?? new Dictionary<string, ObjectDefinition>(),
          constants:  enums?.Values
             .SelectMany(e => e.Values.Select(v => v.Name))
             .ToList() ?? new List<string>(),
-         globalVariables: new Dictionary<string, string>(),
+         globalVariables: new Dictionary<string, GlobalVariableDefinition>(),
          enums:  enums ?? new Dictionary<string, EnumDefinition>());
    }
 
    private static (CgScriptLanguageTarget Target, string Uri) CreateTarget(
-      string source, DefinitionLoader definitions)
+      string source, CgScriptDefinitions definitions)
    {
       var uri   = "file:///test.cgs";
       var store = new DocumentStore(definitions);
@@ -67,34 +66,103 @@ public class ObsoleteTests
 
    private static IReadOnlyList<Catglobe.CgScript.EditorSupport.Parsing.Diagnostic> AnalyzeDirect(
       string source,
-      IEnumerable<string>? functions       = null,
-      IEnumerable<string>? objects         = null,
-      IEnumerable<string>? constants       = null,
+      IEnumerable<string>? functions        = null,
+      IEnumerable<string>? objects          = null,
+      IEnumerable<string>? constants        = null,
       IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions = null,
-      IReadOnlyDictionary<string, string?>? obsoleteFunctions = null,
-      IReadOnlyDictionary<string, string?>? obsoleteConstants  = null)
+      IReadOnlyDictionary<string, string?>? obsoleteFunctions  = null,
+      IReadOnlyDictionary<string, string?>? obsoleteConstants   = null)
    {
       var result = CgScriptParseService.Parse(source);
-      return SemanticAnalyzer.Analyze(
-         result.Tree,
-         functions ?? [],
-         objects   ?? [],
-         constants ?? [],
-         objectDefinitions: objectDefinitions,
-         obsoleteFunctions: obsoleteFunctions,
-         obsoleteConstants:  obsoleteConstants);
+
+      // Build FunctionDefinitions (obsolete functions get a single obsolete variant)
+      var funcDefs = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
+      foreach (var fn in functions ?? [])
+      {
+         if (obsoleteFunctions?.ContainsKey(fn) == true)
+         {
+            obsoleteFunctions.TryGetValue(fn, out var obsDoc);
+            funcDefs[fn] = new FunctionDefinition(
+               [new FunctionVariant("", [], "", IsObsolete: true, ObsoleteDoc: obsDoc)]);
+         }
+         else
+         {
+            funcDefs[fn] = new FunctionDefinition(null!);
+         }
+      }
+
+      // Build ObjectDefinitions from ObjectMemberInfo
+      var objDefs = new Dictionary<string, ObjectDefinition>(StringComparer.Ordinal);
+      foreach (var obj in objects ?? [])
+      {
+         if (objectDefinitions?.TryGetValue(obj, out var info) == true)
+         {
+            var props = info.Properties
+               .Select(kvp =>
+               {
+                  info.ObsoletePropertyNames.TryGetValue(kvp.Key, out var obsMsg);
+                  bool isObs = info.ObsoletePropertyNames.ContainsKey(kvp.Key);
+                  return new PropertyDefinition(kvp.Key, "", true, kvp.Value, "",
+                     IsObsolete: isObs, ObsoleteDoc: obsMsg);
+               }).ToArray();
+
+            var methodList = new List<MethodDefinition>();
+            // Methods in MethodOverloads
+            if (info.MethodOverloads != null)
+               foreach (var (methodName, overloads) in info.MethodOverloads)
+               {
+                  bool isObs = info.ObsoleteMethodNames.ContainsKey(methodName);
+                  info.ObsoleteMethodNames.TryGetValue(methodName, out var obsMsg);
+                  foreach (var overload in overloads)
+                     methodList.Add(new MethodDefinition(methodName, "",
+                        overload.Select((t, i) => new MethodParam($"p{i}", "", t)).ToArray(),
+                        "", IsObsolete: isObs, ObsoleteDoc: obsMsg));
+               }
+            // Methods only in ObsoleteMethodNames (no overload info)
+            foreach (var (methodName, obsMsg) in info.ObsoleteMethodNames)
+               if (info.MethodOverloads?.ContainsKey(methodName) != true)
+                  methodList.Add(new MethodDefinition(methodName, "", [], "",
+                     IsObsolete: true, ObsoleteDoc: obsMsg));
+
+            objDefs[obj] = new ObjectDefinition("", [], methodList.ToArray(), [], props);
+         }
+         else
+         {
+            objDefs[obj] = new ObjectDefinition("", [], [], [], []);
+         }
+      }
+
+      // Build enums from obsolete constants; plain constants go in the flat list
+      var enums      = new Dictionary<string, EnumDefinition>(StringComparer.Ordinal);
+      var plainConsts = new List<string>();
+      foreach (var c in constants ?? [])
+      {
+         if (obsoleteConstants?.TryGetValue(c, out var obsMsg) == true)
+            enums["_" + c] = new EnumDefinition("", "",
+               [new EnumValueDefinition(c, "", 0, IsObsolete: true, ObsoleteDoc: obsMsg)]);
+         else
+            plainConsts.Add(c);
+      }
+      var allConstants = plainConsts
+         .Concat(enums.Values.SelectMany(e => e.Values.Select(v => v.Name)))
+         .ToList();
+
+      var defs = new TestCgScriptDefinitions(
+         funcDefs, objDefs, allConstants,
+         new Dictionary<string, GlobalVariableDefinition>(), enums);
+      return SemanticAnalyzer.Analyze(result.Tree, defs);
    }
 
-   // ── Helper test DefinitionLoader ─────────────────────────────────────────────
+   // ── Helper test CgScriptDefinitions ─────────────────────────────────────────────
 
-   private sealed class TestDefinitionLoader : DefinitionLoader
+   private sealed class TestCgScriptDefinitions : CgScriptDefinitions
    {
-      public TestDefinitionLoader(
-         Dictionary<string, FunctionDefinition> functions,
-         Dictionary<string, ObjectDefinition>   objects,
-         IReadOnlyCollection<string>            constants,
-         IReadOnlyDictionary<string, string>    globalVariables,
-         Dictionary<string, EnumDefinition>     enums)
+      public TestCgScriptDefinitions(
+         Dictionary<string, FunctionDefinition>          functions,
+         Dictionary<string, ObjectDefinition>            objects,
+         IReadOnlyCollection<string>                     constants,
+         IReadOnlyDictionary<string, GlobalVariableDefinition> globalVariables,
+         Dictionary<string, EnumDefinition>              enums)
          : base(functions, objects, constants, globalVariables, enums)
       {
       }

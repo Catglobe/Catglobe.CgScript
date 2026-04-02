@@ -1,5 +1,4 @@
-using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
-
+﻿
 namespace Catglobe.CgScript.EditorSupport.Lsp.Tests;
 
 /// <summary>
@@ -9,7 +8,7 @@ namespace Catglobe.CgScript.EditorSupport.Lsp.Tests;
 /// </summary>
 public class DefinitionContractTests
 {
-   private static readonly DefinitionLoader _defs = new();
+   private static readonly CgScriptDefinitions _defs = new();
 
    [Fact]
    public void Functions_AllVariants_HaveRequiredFields()

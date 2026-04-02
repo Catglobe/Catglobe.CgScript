@@ -1,5 +1,4 @@
 using Antlr4.Runtime;
-using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Parsing;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 
@@ -64,14 +63,9 @@ public static class SemanticTokensBuilder
    /// <summary>
    /// Builds a full set of semantic tokens for <paramref name="text"/>.
    /// </summary>
-   public static SemanticTokens Build(
-      string text,
-      IReadOnlyDictionary<string, FunctionDefinition>? knownFunctions  = null,
-      IReadOnlyDictionary<string, ObjectDefinition>?   knownObjects    = null,
-      IReadOnlyCollection<string>?                     knownConstants  = null,
-      IReadOnlyDictionary<string, string>?             globalVariables = null)
+   public static SemanticTokens Build(string text, CgScriptDefinitions? definitions = null)
    {
-      var raw = BuildRawTokens(text, knownFunctions, knownObjects, knownConstants, globalVariables);
+      var raw = BuildRawTokens(text, definitions);
       return new SemanticTokens { Data = EncodeTokens(raw) };
    }
 
@@ -85,31 +79,17 @@ public static class SemanticTokensBuilder
       string text,
       int    startLine0,
       int    endLine0,
-      IReadOnlyDictionary<string, FunctionDefinition>? knownFunctions  = null,
-      IReadOnlyDictionary<string, ObjectDefinition>?   knownObjects    = null,
-      IReadOnlyCollection<string>?                     knownConstants  = null,
-      IReadOnlyDictionary<string, string>?             globalVariables = null)
+      CgScriptDefinitions? definitions = null)
    {
-      var filtered = BuildRawTokens(text, knownFunctions, knownObjects, knownConstants, globalVariables)
+      var filtered = BuildRawTokens(text, definitions)
                         .Where(t => t.Line >= startLine0 && t.Line <= endLine0);
       return new SemanticTokens { Data = EncodeTokens(filtered) };
    }
 
    // ── Core implementation ───────────────────────────────────────────────────────
 
-   private static List<RawToken> BuildRawTokens(
-      string                                           text,
-      IReadOnlyDictionary<string, FunctionDefinition>? knownFunctions,
-      IReadOnlyDictionary<string, ObjectDefinition>?   knownObjects,
-      IReadOnlyCollection<string>?                     knownConstants,
-      IReadOnlyDictionary<string, string>?             globalVariables)
+   private static List<RawToken> BuildRawTokens(string text, CgScriptDefinitions? definitions)
    {
-      // Materialise constants into a set for O(1) Contains.
-      IReadOnlySet<string>? constantsSet =
-         knownConstants is IReadOnlySet<string> s ? s
-         : knownConstants is not null              ? new HashSet<string>(knownConstants)
-                                                   : null;
-
       // Strip preprocessor directives before lexing so ANTLR doesn't see bare '#'.
       var (cleanedText, preprocDirectives) = PreprocessorScanner.Strip(text);
 
@@ -185,8 +165,7 @@ public static class SemanticTokensBuilder
                continue; // safety: IDENTIFIER should always be on default channel
 
             var (typeIdx, modifier) = ClassifyIdentifier(
-               token, di, defaultTokens, paramIndices,
-               knownFunctions, knownObjects, constantsSet, globalVariables);
+               token, di, defaultTokens, paramIndices, definitions);
 
             result.Add(new RawToken(line, col, length, typeIdx, modifier));
          }
@@ -209,18 +188,15 @@ public static class SemanticTokensBuilder
    }
 
    /// <summary>
-   /// Classifies an IDENTIFIER tokenusing the 9-rule priority chain described in
+   /// Classifies an IDENTIFIER token using the 9-rule priority chain described in
    /// the LSP capability specification.
    /// </summary>
    private static (int TypeIdx, int Modifier) ClassifyIdentifier(
-      IToken                                           token,
-      int                                              di,
-      List<IToken>                                     defaultTokens,
-      HashSet<int>                                     paramIndices,
-      IReadOnlyDictionary<string, FunctionDefinition>? knownFunctions,
-      IReadOnlyDictionary<string, ObjectDefinition>?   knownObjects,
-      IReadOnlySet<string>?                            constantsSet,
-      IReadOnlyDictionary<string, string>?             globalVariables)
+      IToken               token,
+      int                  di,
+      List<IToken>         defaultTokens,
+      HashSet<int>         paramIndices,
+      CgScriptDefinitions? definitions)
    {
       int dCount  = defaultTokens.Count;
       string name = token.Text;
@@ -239,21 +215,21 @@ public static class SemanticTokensBuilder
       // Rule 3: new ClassName(…)  — preceded by NEW
       if (prevType == CgScriptLexer.NEW)
       {
-         int mod = knownObjects is not null && knownObjects.ContainsKey(name) ? ModDefaultLibrary : 0;
+         int mod = definitions is not null && definitions.Objects.ContainsKey(name) ? ModDefaultLibrary : 0;
          return (TypeClass, mod);
       }
 
       // Rule 4: func(…)  — followed by LPAREN
       if (nextType == CgScriptLexer.LPAREN)
       {
-         int mod = knownFunctions is not null && knownFunctions.ContainsKey(name) ? ModDefaultLibrary : 0;
+         int mod = definitions is not null && definitions.Functions.ContainsKey(name) ? ModDefaultLibrary : 0;
          return (TypeFunction, mod);
       }
 
       // Rule 4b: TypeName varName  — IDENTIFIER followed by IDENTIFIER is a type reference
       if (nextType == CgScriptLexer.IDENTIFIER)
       {
-         int mod = knownObjects is not null && knownObjects.ContainsKey(name) ? ModDefaultLibrary : 0;
+         int mod = definitions is not null && definitions.Objects.ContainsKey(name) ? ModDefaultLibrary : 0;
          return (TypeClass, mod);
       }
 
@@ -265,19 +241,19 @@ public static class SemanticTokensBuilder
       }
 
       // Rule 6: name is a known built-in function
-      if (knownFunctions is not null && knownFunctions.ContainsKey(name))
+      if (definitions is not null && definitions.Functions.ContainsKey(name))
          return (TypeFunction, ModDefaultLibrary);
 
       // Rule 7: name is a known built-in object type
-      if (knownObjects is not null && knownObjects.ContainsKey(name))
+      if (definitions is not null && definitions.Objects.ContainsKey(name))
          return (TypeClass, ModDefaultLibrary);
 
       // Rule 8: name is a known constant
-      if (constantsSet is not null && constantsSet.Contains(name))
+      if (definitions is not null && definitions.ConstantsSet.Contains(name))
          return (TypeEnum, ModDefaultLibrary);
 
       // Rule 8b: name is a known global variable pre-declared by the runtime
-      if (globalVariables is not null && globalVariables.ContainsKey(name))
+      if (definitions is not null && definitions.GlobalVariables.ContainsKey(name))
          return (TypeVariable, ModDefaultLibrary);
 
       // Rule 9: unresolved identifier — treat as variable reference

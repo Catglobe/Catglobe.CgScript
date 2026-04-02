@@ -1,4 +1,3 @@
-using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 
@@ -15,7 +14,7 @@ public class IndexerSignatureHelpTests
    private static (CgScriptLanguageTarget Target, string Uri) CreateTarget(string source)
    {
       var uri         = "file:///test.cgs";
-      var definitions = new DefinitionLoader();
+      var definitions = new CgScriptDefinitions();
       var store       = new DocumentStore(definitions);
       store.Update(uri, source);
       var target = new CgScriptLanguageTarget(store, definitions);

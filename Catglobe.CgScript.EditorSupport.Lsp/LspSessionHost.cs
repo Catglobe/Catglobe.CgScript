@@ -1,5 +1,5 @@
-using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
+using Catglobe.CgScript.EditorSupport.Parsing;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 using StreamJsonRpc;
 using System.IO.Pipelines;
@@ -26,7 +26,7 @@ public static class LspSessionHost
       rpc.TraceSource.Listeners.Clear();
       rpc.TraceSource.Listeners.Add(new System.Diagnostics.DefaultTraceListener());
 
-      DefinitionLoader.TraceSource.Listeners.Add(new System.Diagnostics.DefaultTraceListener());
+      CgScriptDefinitions.TraceSource.Listeners.Add(new System.Diagnostics.DefaultTraceListener());
 
       target.Rpc = rpc;
       RegisterHandlers(rpc, target);
@@ -48,7 +48,7 @@ public static class LspSessionHost
       rpc.TraceSource.Listeners.Clear();
       rpc.TraceSource.Listeners.Add(new System.Diagnostics.DefaultTraceListener());
 
-      DefinitionLoader.TraceSource.Listeners.Add(new System.Diagnostics.DefaultTraceListener());
+      CgScriptDefinitions.TraceSource.Listeners.Add(new System.Diagnostics.DefaultTraceListener());
       rpc.Disconnected += (_, e) =>
       {
          if (e.Exception != null)

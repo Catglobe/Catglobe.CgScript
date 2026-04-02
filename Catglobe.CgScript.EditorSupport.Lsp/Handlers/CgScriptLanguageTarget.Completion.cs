@@ -1,6 +1,5 @@
-﻿using Antlr4.Runtime;
+using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
-using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Parsing;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 using StreamJsonRpc;
@@ -213,8 +212,8 @@ public partial class CgScriptLanguageTarget
             return trimmed[..spaceIdx];
       }
       // Global variables pre-declared by the runtime
-      if (_definitions.GlobalVariables.TryGetValue(varName, out var globalType))
-         return globalType;
+      if (_definitions.GlobalVariables.TryGetValue(varName, out var globalDef))
+         return globalDef.TypeName;
       return null;
    }
 
@@ -262,91 +261,78 @@ public partial class CgScriptLanguageTarget
          });
       }
 
-      foreach (var (name, fn) in _definitions.Functions)
+      foreach (var (name, fn) in _definitions.FunctionsStartingWith(all ? "" : prefix))
       {
-         if (all || name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+         bool fnObsolete = fn.Variants?.Length > 0 && fn.Variants.All(v => v.IsObsolete);
+         items.Add(new CompletionItem
          {
-            bool fnObsolete = fn.Variants?.Length > 0 && fn.Variants.All(v => v.IsObsolete);
-            items.Add(new CompletionItem
+            Label         = BuildFunctionLabel(name, fn),
+            FilterText    = name,
+            InsertText    = name,
+            Kind          = CompletionItemKind.Function,
+            Detail        = fnObsolete ? $"{GetFunctionReturnType(fn)} (deprecated)" : GetFunctionReturnType(fn),
+            Documentation = new SumType<string, MarkupContent>(new MarkupContent
             {
-               Label         = BuildFunctionLabel(name, fn),
-               FilterText    = name,
-               InsertText    = name,
-               Kind          = CompletionItemKind.Function,
-               Detail        = fnObsolete ? $"{GetFunctionReturnType(fn)} (deprecated)" : GetFunctionReturnType(fn),
-               Documentation = new SumType<string, MarkupContent>(new MarkupContent
-               {
-                  Kind  = MarkupKind.Markdown,
-                  Value = BuildFunctionHover(name, fn),
-               }),
-            });
-         }
+               Kind  = MarkupKind.Markdown,
+               Value = BuildFunctionHover(name, fn),
+            }),
+         });
       }
 
-      foreach (var (name, obj) in _definitions.Objects)
-      {
-         if (all || name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            items.Add(new CompletionItem
-            {
-               Label         = name,
-               Kind          = CompletionItemKind.Class,
-               Documentation = obj.Doc,
-            });
-      }
-
-      foreach (var name in _definitions.Constants)
-      {
-         if (all || name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+      foreach (var (name, obj) in _definitions.ObjectsStartingWith(all ? "" : prefix))
+         items.Add(new CompletionItem
          {
-            bool inEnum      = EnumByConstant.TryGetValue(name, out var entry);
-            bool constObsolete = inEnum && entry.Value.IsObsolete;
-            var item = new CompletionItem
+            Label         = name,
+            Kind          = CompletionItemKind.Class,
+            Documentation = obj.Doc,
+         });
+
+      foreach (var name in _definitions.ConstantsStartingWith(all ? "" : prefix))
+      {
+         bool inEnum        = _definitions.EnumByConstant.TryGetValue(name, out var entry);
+         bool constObsolete = inEnum && entry.Value.IsObsolete;
+         var item = new CompletionItem
+         {
+            Label  = name,
+            Kind   = CompletionItemKind.Constant,
+            Detail = constObsolete ? "(deprecated)" : null,
+         };
+         if (inEnum)
+            item.Documentation = new MarkupContent
             {
-               Label  = name,
-               Kind   = CompletionItemKind.Constant,
-               Detail = constObsolete ? "(deprecated)" : null,
+               Kind  = MarkupKind.Markdown,
+               Value = BuildEnumConstantDoc(name),
             };
-            if (inEnum)
-               item.Documentation = new MarkupContent
-               {
-                  Kind  = MarkupKind.Markdown,
-                  Value = BuildEnumConstantDoc(name),
-               };
-            items.Add(item);
-         }
+         items.Add(item);
       }
 
-      foreach (var (name, typeName) in _definitions.GlobalVariables)
-      {
-         if (all || name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            items.Add(new CompletionItem
+      foreach (var (name, def) in _definitions.GlobalVariablesStartingWith(all ? "" : prefix))
+         items.Add(new CompletionItem
+         {
+            Label         = name,
+            Kind          = CompletionItemKind.Variable,
+            Detail        = def.IsObsolete ? $"{def.TypeName} (deprecated)" : def.TypeName,
+            Documentation = string.IsNullOrEmpty(def.Doc) ? default : new SumType<string, MarkupContent>(new MarkupContent
             {
-               Label  = name,
-               Kind   = CompletionItemKind.Variable,
-               Detail = typeName,
-            });
-      }
+               Kind  = MarkupKind.Markdown,
+               Value = def.Doc,
+            }),
+         });
 
-      foreach (var kw in Keywords)
-      {
-         if (all || kw.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            items.Add(new CompletionItem { Label = kw, Kind = CompletionItemKind.Keyword });
-      }
+      foreach (var kw in KeywordsStartingWith(all ? "" : prefix))
+         items.Add(new CompletionItem { Label = kw, Kind = CompletionItemKind.Keyword });
 
       if (_clientSupportsSnippets)
       {
-         foreach (var (label, filter, snippet) in StatementSnippets)
-         {
-            if (all || filter.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-               items.Add(new CompletionItem
-               {
-                  Label            = label,
-                  FilterText       = filter,
-                  InsertText       = snippet,
-                  InsertTextFormat = InsertTextFormat.Snippet,
-                  Kind             = CompletionItemKind.Snippet,
-               });
-         }
+         foreach (var (label, filter, snippet) in SnippetsStartingWith(all ? "" : prefix))
+            items.Add(new CompletionItem
+            {
+               Label            = label,
+               FilterText       = filter,
+               InsertText       = snippet,
+               InsertTextFormat = InsertTextFormat.Snippet,
+               Kind             = CompletionItemKind.Snippet,
+            });
       }
 
       return new CompletionList { IsIncomplete = false, Items = items.ToArray() };
@@ -367,7 +353,7 @@ public partial class CgScriptLanguageTarget
          if (spaceIdx <= 0) continue;
          var typeName = trimmed[..spaceIdx];
          // Reject lines that start with a control-flow keyword (if/for/while/return/…)
-         if (Array.IndexOf(Keywords, typeName) >= 0) continue;
+         if (Array.BinarySearch(Keywords, typeName, StringComparer.OrdinalIgnoreCase) >= 0) continue;
          // typeName must be a valid identifier (letters, digits, underscore; starts with letter or underscore)
          if (!IsValidIdentifier(typeName)) continue;
          var rest     = trimmed[(spaceIdx + 1)..].TrimStart();
@@ -402,27 +388,57 @@ public partial class CgScriptLanguageTarget
       return true;
    }
 
-   // All language keywords from the lexer grammar.
+   // All language keywords from the lexer grammar — sorted for binary-search prefix lookup.
    private static readonly string[] Keywords =
    [
-      "if", "else", "while", "for", "break", "continue", "return",
-      "true", "false", "empty", "new", "switch", "case", "default",
-      "try", "catch", "throw", "where",
-      "object", "function",
+      "break", "case", "catch", "continue", "default", "else", "empty",
+      "false", "for", "function", "if", "new", "object", "return",
+      "switch", "throw", "true", "try", "where", "while",
    ];
 
-   // Pre-defined snippets for common language constructs.
+   private static IEnumerable<string> KeywordsStartingWith(string prefix)
+   {
+      var start = prefix.Length == 0 ? 0 : Array.BinarySearch(Keywords, prefix, StringComparer.OrdinalIgnoreCase);
+      if (start < 0) start = ~start;
+      for (var i = start; i < Keywords.Length && (prefix.Length == 0 || Keywords[i].StartsWith(prefix, StringComparison.OrdinalIgnoreCase)); i++)
+         yield return Keywords[i];
+   }
+
+   // Pre-defined snippets — sorted by Filter for binary-search prefix lookup.
    internal static readonly (string Label, string Filter, string Snippet)[] StatementSnippets =
    [
-      ("if statement",        "if",     "if (${1:condition}) {\n\t$0\n}"),
-      ("if-else statement",   "if",     "if (${1:condition}) {\n\t$2\n} else {\n\t$0\n}"),
-      ("while statement",     "while",  "while (${1:condition}) {\n\t$0\n}"),
-      ("for-in statement",    "for",    "for (${1:item} for ${2:collection}; ${3:count}) {\n\t$0\n}"),
-      ("for-var statement",   "for",    "for (${1:number} ${2:i} = ${3:0}; ${4:condition}; ${2:i} = ${2:i} + 1) {\n\t$0\n}"),
-      ("switch statement",    "switch", "switch (${1:expression}) {\n\tcase ${2:value}:\n\t\t$0\n\t\tbreak;\n\tdefault:\n\t\tbreak;\n}"),
-      ("try-catch statement", "try",      "try {\n\t$1\n} catch (${2:e}) {\n\t$0\n}"),
+      ("for-in statement",    "for",      "for (${1:item} for ${2:collection}; ${3:count}) {\n\t$0\n}"),
+      ("for-var statement",   "for",      "for (${1:number} ${2:i} = ${3:0}; ${4:condition}; ${2:i} = ${2:i} + 1) {\n\t$0\n}"),
       ("function expression", "function", "Function ${1:name} = function(${2:params}) {\n\t$0\n};"),
+      ("if statement",        "if",       "if (${1:condition}) {\n\t$0\n}"),
+      ("if-else statement",   "if",       "if (${1:condition}) {\n\t$2\n} else {\n\t$0\n}"),
+      ("switch statement",    "switch",   "switch (${1:expression}) {\n\tcase ${2:value}:\n\t\t$0\n\t\tbreak;\n\tdefault:\n\t\tbreak;\n}"),
+      ("try-catch statement", "try",      "try {\n\t$1\n} catch (${2:e}) {\n\t$0\n}"),
+      ("while statement",     "while",    "while (${1:condition}) {\n\t$0\n}"),
    ];
+
+   private static IEnumerable<(string Label, string Filter, string Snippet)> SnippetsStartingWith(string prefix)
+   {
+      // Snippets share Filter values (e.g. two "if" entries), so find the first match by binary search on Filter.
+      int start = 0;
+      if (prefix.Length > 0)
+      {
+         var lo = 0; var hi = StatementSnippets.Length - 1;
+         while (lo <= hi)
+         {
+            var mid = (lo + hi) >> 1;
+            if (string.Compare(StatementSnippets[mid].Filter, prefix, StringComparison.OrdinalIgnoreCase) < 0) lo = mid + 1;
+            else hi = mid - 1;
+         }
+         start = lo;
+      }
+      for (var i = start; i < StatementSnippets.Length; i++)
+      {
+         var s = StatementSnippets[i];
+         if (prefix.Length > 0 && !s.Filter.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) break;
+         yield return s;
+      }
+   }
 
    // ── Doc comment template generation ─────────────────────────────────────────
 
