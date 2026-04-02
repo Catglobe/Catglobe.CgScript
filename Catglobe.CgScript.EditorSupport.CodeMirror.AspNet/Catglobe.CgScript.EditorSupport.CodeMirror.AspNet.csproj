@@ -42,7 +42,10 @@
      <VsNodeDir Condition="'$(MSBuildExtensionsPath)' != '' and Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\NodeJs\')">$(MSBuildExtensionsPath)\Microsoft\VisualStudio\NodeJs\</VsNodeDir>
   </PropertyGroup>
 
-  <Target Name="NpmInstall" BeforeTargets="BeforeBuild">
+  <Target Name="NpmInstall"
+          Inputs="$(MSBuildThisFileDirectory)package-lock.json"
+          Outputs="$(MSBuildThisFileDirectory)node_modules/.package-lock.json"
+          BeforeTargets="CompileTypeScriptWithTSConfig">
      <Message Importance="High" Text="Executing ci" />
     <Exec Command="npm ci" WorkingDirectory="$(MSBuildThisFileDirectory)" EnvironmentVariables="PATH=$(PATH.Replace(';','%3B'))%3B$(VsNodeDir.Replace(';','%3B'))" />
   </Target>

@@ -1,6 +1,5 @@
 using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
-using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Parsing;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 using StreamJsonRpc;
@@ -27,12 +26,7 @@ public partial class CgScriptLanguageTarget
    {
       var uri  = p.TextDocument.Uri.ToString();
       var text = _store.GetText(uri) ?? string.Empty;
-      var data = SemanticTokensBuilder.Build(
-         text,
-         _definitions.Functions,
-         _definitions.Objects,
-         _definitions.Constants,
-         _definitions.GlobalVariables).Data;
+      var data = SemanticTokensBuilder.Build(text, _definitions).Data;
 
       var resultId = Interlocked.Increment(ref _semanticResultIdCounter).ToString();
       _semanticCache[uri] = (data, resultId);
@@ -52,12 +46,7 @@ public partial class CgScriptLanguageTarget
       var uri  = p.TextDocument.Uri.ToString();
       var text = _store.GetText(uri) ?? string.Empty;
 
-      var newData  = SemanticTokensBuilder.Build(
-         text,
-         _definitions.Functions,
-         _definitions.Objects,
-         _definitions.Constants,
-         _definitions.GlobalVariables).Data;
+      var newData  = SemanticTokensBuilder.Build(text, _definitions).Data;
       var resultId = Interlocked.Increment(ref _semanticResultIdCounter).ToString();
 
       if (_semanticCache.TryGetValue(uri, out var cached)
@@ -132,10 +121,7 @@ public partial class CgScriptLanguageTarget
          text,
          startLine0: p.Range.Start.Line,
          endLine0:   p.Range.End.Line,
-         _definitions.Functions,
-         _definitions.Objects,
-         _definitions.Constants,
-         _definitions.GlobalVariables);
+         _definitions);
    }
 
    // ── parse-tree → LSP range ────────────────────────────────────────────────────

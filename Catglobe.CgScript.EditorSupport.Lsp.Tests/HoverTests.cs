@@ -1,4 +1,3 @@
-using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 
@@ -15,7 +14,7 @@ public class HoverTests
    private static (CgScriptLanguageTarget Target, string Uri) CreateTarget(string source)
    {
       var uri         = "file:///test.cgs";
-      var definitions = new DefinitionLoader();
+      var definitions = new CgScriptDefinitions();
       var store       = new DocumentStore(definitions);
       store.Update(uri, source);
       var target = new CgScriptLanguageTarget(store, definitions);
@@ -166,14 +165,14 @@ public class HoverTests
    [Fact]
    public void PlainConstant_Hover_ShowsFallbackText()
    {
-      // SYSTEM_RESOURCE_ID is a plain constant (not enum-derived); hover should show
-      // the "constant: SYSTEM_RESOURCE_ID" fallback.
-      const string source = "SYSTEM_RESOURCE_ID;";
+      // TASK_RESOURCE_ID is a plain constant (not enum-derived); hover should show
+      // the "constant: TASK_RESOURCE_ID" fallback.
+      const string source = "TASK_RESOURCE_ID;";
       var (target, uri) = CreateTarget(source);
 
       var text = GetHoverText(target, uri, line: 0, character: 0);
 
       Assert.NotNull(text);
-      Assert.Contains("constant: SYSTEM_RESOURCE_ID", text);
+      Assert.Contains("constant: TASK_RESOURCE_ID", text);
    }
 }

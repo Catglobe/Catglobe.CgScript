@@ -1,4 +1,3 @@
-using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 
@@ -16,7 +15,7 @@ public class CompletionChainedAccessTests
    private static (CgScriptLanguageTarget Target, string Uri) CreateTarget(string source)
    {
       var uri         = "file:///test.cgs";
-      var definitions = new DefinitionLoader(); // real definitions
+      var definitions = new CgScriptDefinitions(); // real definitions
       var store       = new DocumentStore(definitions);
       store.Update(uri, source);
       var target = new CgScriptLanguageTarget(store, definitions);
@@ -156,7 +155,7 @@ public class CompletionChainedAccessTests
          "QuestionnaireBatchJob batch = new QuestionnaireBatchJob(0 /*0 == current*/);\n" +
          "if (!batch.CurrentCompleted)\n" +
          "   batch.CurrentCompleted = true;";
-      var definitions = new DefinitionLoader();
+      var definitions = new CgScriptDefinitions();
       var store       = new DocumentStore(definitions);
       const string uri = "file:///test.cgs";
       store.Update(uri, source);

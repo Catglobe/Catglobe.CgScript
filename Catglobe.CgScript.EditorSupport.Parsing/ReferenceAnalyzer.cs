@@ -138,7 +138,6 @@ public static class ReferenceAnalyzer
         public DeclCollector()
         {
             _scopeStack.Push(0);
-            ScopeDecls[0] = new HashSet<string>(StringComparer.Ordinal);
         }
 
         private int CurrentScope => _scopeStack.Peek();
@@ -181,9 +180,6 @@ public static class ReferenceAnalyzer
                 var scopeKey  = funcToken.Line * 100_000 + funcToken.Column;
 
                 _scopeStack.Push(scopeKey);
-
-                if (!ScopeDecls.ContainsKey(scopeKey))
-                    ScopeDecls[scopeKey] = new HashSet<string>(StringComparer.Ordinal);
 
                 // Record each declared parameter in the function scope.
                 var fpCtx = ctx.functionParameters();
@@ -257,9 +253,6 @@ public static class ReferenceAnalyzer
             var scopeKey      = catchKeyToken.Line * 100_000 + catchKeyToken.Column;
 
             _scopeStack.Push(scopeKey);
-
-            if (!ScopeDecls.ContainsKey(scopeKey))
-                ScopeDecls[scopeKey] = new HashSet<string>(StringComparer.Ordinal);
 
             // Record the catch variable in the catch scope.
             Record(ctx.IDENTIFIER().Symbol);

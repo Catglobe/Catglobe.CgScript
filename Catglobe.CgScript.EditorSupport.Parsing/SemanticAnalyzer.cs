@@ -18,21 +18,8 @@ namespace Catglobe.CgScript.EditorSupport.Parsing;
 /// </summary>
 public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 {
-   // ── Known-name sets (supplied at construction time) ──────────────────────────
-   private readonly HashSet<string> _knownFunctions;
-   private readonly HashSet<string> _knownObjects;
-   private readonly HashSet<string> _knownConstants;
-   private readonly HashSet<string> _knownGlobalVariables;
-
-   // ── Object member definitions for property/method validation ────────────────
-   private readonly IReadOnlyDictionary<string, ObjectMemberInfo>? _objectDefinitions;
-
-   // ── Function definitions for argument type/arity validation ─────────────────
-   private readonly IReadOnlyDictionary<string, FunctionInfo>? _functionDefinitions;
-
-   // ── Obsolete name maps for CGS026 (name → optional deprecation message) ────────
-   private readonly Dictionary<string, string?> _obsoleteFunctions;
-   private readonly Dictionary<string, string?> _obsoleteConstants;
+   // ── Definitions (supplied at construction time) ──────────────────────────────
+   private readonly CgScriptDefinitions _definitions;
 
    // ── Pass-1 result (populated before Pass 2 begins) ──────────────────────────
    private HashSet<string>         _globalVars  = new(StringComparer.Ordinal);
@@ -54,36 +41,9 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
    // ── Constructor ──────────────────────────────────────────────────────────────
 
-   /// <summary>
-   /// Initialises a new <see cref="SemanticAnalyzer"/>.
-   /// All name collections may be empty but must not be <c>null</c>.
-   /// </summary>
-   public SemanticAnalyzer(
-      IEnumerable<string> knownFunctions,
-      IEnumerable<string> knownObjects,
-      IEnumerable<string> knownConstants,
-      IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions    = null,
-      IEnumerable<string>?                           knownGlobalVariables = null,
-      IReadOnlyDictionary<string, FunctionInfo>?     functionDefinitions  = null,
-      IReadOnlyDictionary<string, string?>?          obsoleteFunctions    = null,
-      IReadOnlyDictionary<string, string?>?          obsoleteConstants    = null)
+   private SemanticAnalyzer(CgScriptDefinitions definitions)
    {
-      _knownFunctions    = new HashSet<string>(knownFunctions, StringComparer.Ordinal);
-      _knownObjects      = new HashSet<string>(knownObjects,   StringComparer.Ordinal);
-      _knownConstants    = new HashSet<string>(knownConstants, StringComparer.Ordinal);
-      _knownGlobalVariables = knownGlobalVariables is null
-         ? new HashSet<string>(StringComparer.Ordinal)
-         : new HashSet<string>(knownGlobalVariables, StringComparer.Ordinal);
-      _objectDefinitions   = objectDefinitions;
-      _functionDefinitions = functionDefinitions;
-      _obsoleteFunctions   = new Dictionary<string, string?>(StringComparer.Ordinal);
-      if (obsoleteFunctions != null)
-         foreach (var kvp in obsoleteFunctions)
-            _obsoleteFunctions[kvp.Key] = kvp.Value;
-      _obsoleteConstants   = new Dictionary<string, string?>(StringComparer.Ordinal);
-      if (obsoleteConstants != null)
-         foreach (var kvp in obsoleteConstants)
-            _obsoleteConstants[kvp.Key] = kvp.Value;
+      _definitions = definitions;
    }
 
    // ── Static entry point ───────────────────────────────────────────────────────
@@ -92,58 +52,24 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// Runs semantic analysis on a CgScript parse tree and returns all diagnostics.
    /// </summary>
    /// <param name="tree">The root of the ANTLR4 parse tree.</param>
-   /// <param name="knownFunctions">Names of built-in/runtime functions.</param>
-   /// <param name="knownObjects">Names of built-in/runtime object types.</param>
-   /// <param name="knownConstants">Names of built-in/runtime constants.</param>
-   /// <param name="objectDefinitions">
-   /// Optional member definitions for object types, used to validate property/method
-   /// access and detect assignments to read-only properties.
-   /// </param>
-   /// <param name="globalVariableTypes">
-   /// Optional map of pre-declared runtime global variables to their type names
-   /// (e.g. <c>"Catglobe" → "GlobalNamespace"</c>), used to validate member access
-   /// on those variables.
-   /// </param>
-   /// <param name="functionDefinitions">
-   /// Optional map of old-style function names to their signature info, used to
-   /// validate call argument types and arity.
-   /// </param>
-   /// <param name="obsoleteFunctions">
-   /// Optional map of function names that are marked obsolete to their deprecation message
-   /// (null value = no message).  Any call to a key function emits CGS026.
-   /// </param>
-   /// <param name="obsoleteConstants">
-   /// Optional map of constant (enum value) names that are marked obsolete to their deprecation
-   /// message (null value = no message).  Any reference to a key constant emits CGS026.
-   /// </param>
-   public static IReadOnlyList<Diagnostic> Analyze(
-      IParseTree          tree,
-      IEnumerable<string> knownFunctions,
-      IEnumerable<string> knownObjects,
-      IEnumerable<string> knownConstants,
-      IReadOnlyDictionary<string, ObjectMemberInfo>? objectDefinitions   = null,
-      IReadOnlyDictionary<string, string>?           globalVariableTypes = null,
-      IReadOnlyDictionary<string, FunctionInfo>?     functionDefinitions = null,
-      IReadOnlyDictionary<string, string?>?          obsoleteFunctions   = null,
-      IReadOnlyDictionary<string, string?>?          obsoleteConstants   = null)
+   /// <param name="definitions">All definition data needed for analysis.</param>
+   public static IReadOnlyList<Diagnostic> Analyze(IParseTree tree, CgScriptDefinitions definitions)
    {
       // ── Pass 1: collect global declarations ──────────────────────────────────
       var collector = new ScopeCollector();
       collector.Visit(tree);
 
       // ── Pass 2: check usages ─────────────────────────────────────────────────
-      var analyzer = new SemanticAnalyzer(knownFunctions, knownObjects, knownConstants, objectDefinitions, globalVariableTypes?.Keys, functionDefinitions, obsoleteFunctions, obsoleteConstants);
+      var analyzer = new SemanticAnalyzer(definitions);
       analyzer._globalVars     = collector.Vars;
       analyzer._globalVarLines = collector.VarLines;
       analyzer._diagnostics.AddRange(collector.Diagnostics);
 
-      // Seed variable types from declarations and pre-declared global variables
       foreach (var kvp in collector.VarTypes)
          analyzer._varTypes[kvp.Key] = kvp.Value;
-      if (globalVariableTypes != null)
-         foreach (var kvp in globalVariableTypes)
-            if (!analyzer._varTypes.ContainsKey(kvp.Key))
-               analyzer._varTypes[kvp.Key] = kvp.Value;
+      foreach (var kvp in definitions.GlobalVariables)
+         if (!analyzer._varTypes.ContainsKey(kvp.Key))
+            analyzer._varTypes[kvp.Key] = kvp.Value.TypeName;
 
       analyzer.Visit(tree);
 
@@ -164,8 +90,6 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
       return analyzer._diagnostics;
    }
-
-   // ── Pass 1: global scope collector ──────────────────────────────────────────
 
    /// <summary>
    /// Collects all globally-scoped variable names and reports duplicate declarations.
@@ -267,7 +191,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       var idNode = ctx.IDENTIFIER();
       if (idNode is null) return VisitChildren(ctx);
       var token = idNode.Symbol;
-      if (!_knownObjects.Contains(token.Text))
+      if (!_definitions.Objects.ContainsKey(token.Text))
       {
          _diagnostics.Add(new Diagnostic(
             DiagnosticSeverity.Error,
@@ -372,7 +296,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          var idNode2 = ctx.IDENTIFIER();
          if (idNode2 is null) return VisitChildren(ctx);
          var token = idNode2.Symbol;
-         if (!_knownObjects.Contains(token.Text))
+         if (!_definitions.Objects.ContainsKey(token.Text))
          {
             _diagnostics.Add(new Diagnostic(
                DiagnosticSeverity.Error,
@@ -382,8 +306,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                token.Text.Length,
                "CGS003"));
          }
-         else if (_objectDefinitions != null
-                  && _objectDefinitions.TryGetValue(token.Text, out var objMembers)
+         else if (_definitions.ObjectMemberInfos.TryGetValue(token.Text, out var objMembers)
                   && objMembers.ConstructorOverloads != null)
          {
             // CGS023: validate constructor argument types and arity
@@ -536,7 +459,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             }
 
             // CGS026: obsolete constant reference
-            if (_knownConstants.Contains(name) && _obsoleteConstants.TryGetValue(name, out var constDoc))
+            if (_definitions.ConstantsSet.Contains(name) && _definitions.ObsoleteConstants.TryGetValue(name, out var constDoc))
             {
                _diagnostics.Add(new Diagnostic(
                   DiagnosticSeverity.Warning,
@@ -638,7 +561,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                else
                {
                   // CGS026: obsolete function call
-                  if (_obsoleteFunctions.TryGetValue(token.Text, out var fnDoc))
+                  if (_definitions.ObsoleteFunctions.TryGetValue(token.Text, out var fnDoc))
                   {
                      _diagnostics.Add(new Diagnostic(
                         DiagnosticSeverity.Warning,
@@ -649,8 +572,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                         "CGS026"));
                   }
 
-                  if (_functionDefinitions != null
-                      && _functionDefinitions.TryGetValue(token.Text, out var funcInfo))
+                  if (_definitions.FunctionInfos.TryGetValue(token.Text, out var funcInfo))
                   {
                      // CGS022: validate argument types and arity
                      var argTypes = InferArgumentTypes(ctx.parameters());
@@ -673,12 +595,12 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       }
 
       // Pattern: postfixExpr LBRACKET expression RBRACKET  (indexer access)
-      if (ctx.LBRACKET() != null && _objectDefinitions != null)
+      if (ctx.LBRACKET() != null)
       {
          var rawType      = TryResolveBaseType(ctx.postfixExpr());
          var baseType     = rawType != null ? (MapToCanonical(rawType) ?? rawType) : null;
          if (baseType != null
-             && _objectDefinitions.TryGetValue(baseType, out var indexedMembers)
+             && _definitions.ObjectMemberInfos.TryGetValue(baseType, out var indexedMembers)
              && indexedMembers.MethodOverloads != null
              && indexedMembers.MethodOverloads.TryGetValue("[]", out var indexerOverloads))
          {
@@ -735,13 +657,13 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       }
 
       // Pattern: postfixExpr DOT IDENTIFIER (LPAREN ...)?  (member access)
-      if (ctx.DOT() != null && _objectDefinitions != null)
+      if (ctx.DOT() != null)
       {
          var memberIdNode = ctx.IDENTIFIER();
          if (memberIdNode != null)
          {
             var baseType = TryResolveBaseType(ctx.postfixExpr());
-            if (baseType != null && _objectDefinitions.TryGetValue(baseType, out var members))
+            if (baseType != null && _definitions.ObjectMemberInfos.TryGetValue(baseType, out var members))
             {
                var memberName  = memberIdNode.Symbol.Text;
                bool isCallExpr = ctx.LPAREN() != null;
@@ -896,10 +818,10 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       => _globalVars.Contains(name)
       || (_functionParams != null && _functionParams.Contains(name))
       || _extraLocals.Contains(name)
-      || _knownFunctions.Contains(name)
-      || _knownObjects.Contains(name)
-      || _knownConstants.Contains(name)
-      || _knownGlobalVariables.Contains(name);
+      || _definitions.Functions.ContainsKey(name)
+      || _definitions.Objects.ContainsKey(name)
+      || _definitions.ConstantsSet.Contains(name)
+      || _definitions.GlobalVariables.ContainsKey(name);
 
    /// <summary>
    /// Resolves the declared type of the base expression in a member-access chain.
@@ -932,14 +854,14 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       }
 
       // Multi-level: baseCtx is itself a property access (e.g. Catglobe.Json)
-      if (baseCtx.DOT() != null && baseCtx.LPAREN() == null && _objectDefinitions != null)
+      if (baseCtx.DOT() != null && baseCtx.LPAREN() == null)
       {
          var propName = baseCtx.IDENTIFIER()?.Symbol.Text;
          if (propName != null)
          {
             var innerType = TryResolveBaseType(baseCtx.postfixExpr());
             if (innerType != null
-                && _objectDefinitions.TryGetValue(innerType, out var innerMembers)
+                && _definitions.ObjectMemberInfos.TryGetValue(innerType, out var innerMembers)
                 && innerMembers.PropertyReturnTypes.TryGetValue(propName, out var returnType)
                 && !string.IsNullOrEmpty(returnType))
             {
@@ -1121,7 +1043,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
              && inner!.LPAREN() == null && inner.DOT() == null && inner.LBRACKET() == null)
          {
             var funcName = primary.IDENTIFIER().Symbol.Text;
-            if (_functionDefinitions != null && _functionDefinitions.TryGetValue(funcName, out var info))
+            if (_definitions.FunctionInfos.TryGetValue(funcName, out var info))
             {
                // Return type inference from built-in functions is not available in FunctionInfo
                // (it lives in FunctionDefinition.Variants[n].ReturnType, not passed to SemanticAnalyzer).
@@ -1132,14 +1054,14 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       }
 
       // Member property access: postfixExpr DOT IDENTIFIER (no LPAREN)
-      if (ctx.DOT() != null && ctx.LPAREN() == null && _objectDefinitions != null)
+      if (ctx.DOT() != null && ctx.LPAREN() == null)
       {
          var propName = ctx.IDENTIFIER()?.Symbol.Text;
          if (propName != null)
          {
             var baseType = TryResolveBaseType(ctx.postfixExpr());
             if (baseType != null
-                && _objectDefinitions.TryGetValue(baseType, out var members)
+                && _definitions.ObjectMemberInfos.TryGetValue(baseType, out var members)
                 && members.PropertyReturnTypes.TryGetValue(propName, out var retType)
                 && !string.IsNullOrEmpty(retType))
                return MapToCanonical(retType);

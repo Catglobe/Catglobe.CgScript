@@ -10,6 +10,20 @@ namespace Catglobe.CgScript.EditorSupport.Lsp.Tests;
 /// </summary>
 public class DiagnosticPositionTests
 {
+   // ── Inner test class ──────────────────────────────────────────────────────
+
+   private sealed class TestCgScriptDefinitions : CgScriptDefinitions
+   {
+      public TestCgScriptDefinitions(
+         Dictionary<string, FunctionDefinition> functions,
+         Dictionary<string, ObjectDefinition>   objects,
+         IReadOnlyCollection<string>             constants)
+         : base(functions, objects, constants,
+                globalVariables: new Dictionary<string, GlobalVariableDefinition>(),
+                enums: new Dictionary<string, EnumDefinition>())
+      { }
+   }
+
    // ── Helpers ───────────────────────────────────────────────────────────────
 
    /// <summary>Parse and analyse with no external names (minimal setup).</summary>
@@ -20,27 +34,31 @@ public class DiagnosticPositionTests
       IEnumerable<string>? constants           = null,
       IReadOnlyDictionary<string, FunctionInfo>? functionDefinitions = null)
    {
-      var result = CgScriptParseService.Parse(source);
-      return SemanticAnalyzer.Analyze(
-         result.Tree,
-         functions ?? [],
-         objects   ?? [],
-         constants ?? [],
-         functionDefinitions: functionDefinitions);
+      var result   = CgScriptParseService.Parse(source);
+      var funcDefs = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
+      foreach (var fn in functions ?? [])
+      {
+         if (functionDefinitions?.TryGetValue(fn, out var info) == true)
+            funcDefs[fn] = new FunctionDefinition(
+               info.Variants.Select(overload =>
+                  new FunctionVariant("",
+                     overload.Select((t, i) => new FunctionVariantParam($"p{i}", "", t)).ToArray(),
+                     "")).ToArray());
+         else
+            funcDefs[fn] = new FunctionDefinition(null!);
+      }
+      var objDefs = new Dictionary<string, ObjectDefinition>(StringComparer.Ordinal);
+      foreach (var obj in objects ?? [])
+         objDefs[obj] = new ObjectDefinition("", [], [], [], []);
+      var defs = new TestCgScriptDefinitions(funcDefs, objDefs, (constants ?? []).ToList());
+      return SemanticAnalyzer.Analyze(result.Tree, defs);
    }
 
-   /// <summary>Parse and analyse with the full KnownNamesLoader data.</summary>
+   /// <summary>Parse and analyse with the full embedded definitions.</summary>
    private static IReadOnlyList<Diagnostic> AnalyzeKnown(string source)
    {
       var result = CgScriptParseService.Parse(source);
-      return SemanticAnalyzer.Analyze(
-         result.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         KnownNamesLoader.ObjectDefinitions,
-         KnownNamesLoader.GlobalVariableTypes,
-         KnownNamesLoader.FunctionDefinitions);
+      return SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
    }
 
    private static Diagnostic Find(IReadOnlyList<Diagnostic> diags, string code)

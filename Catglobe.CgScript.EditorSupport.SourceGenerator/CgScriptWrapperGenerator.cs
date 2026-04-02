@@ -290,6 +290,8 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
       return sb.ToString();
    }
 
+   private static readonly CgScriptDefinitions _definitions = new();
+
    private static void ReportSemanticDiagnostics(
       SourceProductionContext spc,
       AdditionalText          file,
@@ -304,13 +306,7 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
       var parseResult = CgScriptParseService.Parse(cleanedSource);
       var allDiags    = new List<Parsing.Diagnostic>(parseResult.Diagnostics);
 
-      var semanticDiags = SemanticAnalyzer.Analyze(
-         parseResult.Tree,
-         KnownNamesLoader.FunctionNames,
-         KnownNamesLoader.ObjectNames,
-         KnownNamesLoader.ConstantNames,
-         KnownNamesLoader.ObjectDefinitions,
-         KnownNamesLoader.GlobalVariableTypes);
+      var semanticDiags = SemanticAnalyzer.Analyze(parseResult.Tree, _definitions);
 
       allDiags.AddRange(semanticDiags);
 

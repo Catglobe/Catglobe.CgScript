@@ -1,6 +1,5 @@
 using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
-using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Parsing;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 using StreamJsonRpc;
@@ -139,8 +138,27 @@ public partial class CgScriptLanguageTarget
          };
       }
 
+      // ── Global variable ──────────────────────────────────────────────────────────
+      if (_definitions.GlobalVariables.TryGetValue(word, out var globalVarDef))
+      {
+         var sb = new System.Text.StringBuilder();
+         sb.Append('`').Append(globalVarDef.TypeName).Append("` ").Append(word);
+         if (!string.IsNullOrEmpty(globalVarDef.Doc))
+            sb.Append("\n\n").Append(globalVarDef.Doc);
+         if (globalVarDef.IsObsolete)
+         {
+            sb.Append("\n\n⚠ **Deprecated**");
+            if (!string.IsNullOrEmpty(globalVarDef.ObsoleteDoc))
+               sb.Append(": ").Append(globalVarDef.ObsoleteDoc);
+         }
+         if (_definitions.Objects.TryGetValue(globalVarDef.TypeName, out var typeDef)
+             && !string.IsNullOrEmpty(typeDef.Doc))
+            sb.Append("\n\n---\n\n").Append(typeDef.Doc);
+         return new Hover { Contents = HoverContent(sb.ToString()) };
+      }
+
       // ── Built-in constant ──────────────────────────────────────────────────────
-      if (_definitions.Constants.Contains(word))
+      if (_definitions.ConstantsSet.Contains(word))
       {
          return new Hover
          {
@@ -286,7 +304,7 @@ public partial class CgScriptLanguageTarget
    /// </summary>
    private string BuildEnumConstantDoc(string name)
    {
-      if (!EnumByConstant.TryGetValue(name, out var entry))
+      if (!_definitions.EnumByConstant.TryGetValue(name, out var entry))
          return $"constant: {name}";
 
       var sb = new System.Text.StringBuilder();

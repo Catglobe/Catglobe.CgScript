@@ -2,8 +2,8 @@ using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
 using Catglobe.CgScript.EditorSupport.Lsp;
-using Catglobe.CgScript.EditorSupport.Lsp.Definitions;
 using Catglobe.CgScript.EditorSupport.Lsp.Handlers;
+using Catglobe.CgScript.EditorSupport.Parsing;
 using Catglobe.CgScript.EditorSupport.VisualStudio.Settings;
 using Microsoft.VisualStudio.Extensibility;
 using Microsoft.VisualStudio.Extensibility.Editor;
@@ -48,8 +48,8 @@ public sealed class CgScriptLanguageServerProvider(CategoryObserver settingsObse
       var snapshot    = await settingsObserver.GetSnapshotAsync(cancellationToken);
       var siteUrl     = snapshot?.SiteUrlSetting.ValueOrDefault(string.Empty) ?? string.Empty;
       var definitions = string.IsNullOrWhiteSpace(siteUrl)
-         ? new DefinitionLoader()
-         : await DefinitionLoader.CreateFromUrlAsync(siteUrl, cancellationToken);
+         ? new CgScriptDefinitions()
+         : await CgScriptDefinitionsFactory.CreateFromUrlAsync(siteUrl, cancellationToken);
       var target = new CgScriptLanguageTarget(new DocumentStore(definitions), definitions);
       _ = LspSessionHost.RunAsync(serverSide, target, cancellationToken);
 
