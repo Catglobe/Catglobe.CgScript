@@ -290,7 +290,7 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
       return sb.ToString();
    }
 
-   private static readonly CgScriptDefinitions _definitions = new();
+   private static readonly CgScriptDefinitions _definitions = new CgScriptDefinitions().WithPreprocessorExtensions();
 
    private static void ReportSemanticDiagnostics(
       SourceProductionContext spc,

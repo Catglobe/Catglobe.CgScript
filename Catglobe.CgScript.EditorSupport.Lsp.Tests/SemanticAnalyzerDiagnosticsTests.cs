@@ -528,14 +528,14 @@ public class SemanticAnalyzerDiagnosticsTests
    }
 
    [Fact]
-   public void Constructor_NoArgs_NoCGS023()
+   public void Constructor_NoArgs_ReportsCGS023()
    {
-      // new String() — zero args is valid (all params treated as optional)
+      // new String() — constructor requires a string arg; zero args is a mismatch
       var diags = AnalyzeWithObjects(
          "string s = new String();",
          new Dictionary<string, ObjectDefinition> { ["String"] = MakeStringDef() });
 
-      Assert.DoesNotContain(diags, d => d.Code == "CGS023");
+      Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("String"));
    }
 
    [Fact]
@@ -567,6 +567,39 @@ public class SemanticAnalyzerDiagnosticsTests
       var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
 
       Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("String"));
+   }
+
+   [Fact]
+   public void WorkflowScript_FilenameOverload_NoCGS023()
+   {
+      // new WorkflowScript("filename") is a preprocessor special form that the source generator
+      // replaces with new WorkflowScript(resourceId) on deployment.  No CGS023 should be raised.
+      // WithPreprocessorExtensions() must be called — this overload is NOT in the base definitions.
+      var result = CgScriptParseService.Parse("WorkflowScript script = new WorkflowScript(\"myScript.cgs\");");
+      var diags = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions().WithPreprocessorExtensions());
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS023");
+   }
+
+   [Fact]
+   public void WorkflowScript_FilenameOverload_NotInjectedInBaseDefinitions()
+   {
+      // Without WithPreprocessorExtensions(), new WorkflowScript("filename") should report CGS023
+      // because the base definitions only know about the real API constructors.
+      var result = CgScriptParseService.Parse("WorkflowScript script = new WorkflowScript(\"myScript.cgs\");");
+      var diags = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.Contains(diags, d => d.Code == "CGS023");
+   }
+
+   [Fact]
+   public void WorkflowScript_TooManyStringArgs_ReportsCGS023()
+   {
+      // new WorkflowScript("a", "b", "c") — no constructor accepts three strings even with preprocessor extensions
+      var result = CgScriptParseService.Parse("WorkflowScript script = new WorkflowScript(\"a\", \"b\", \"c\");");
+      var diags = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions().WithPreprocessorExtensions());
+
+      Assert.Contains(diags, d => d.Code == "CGS023" && d.Message.Contains("WorkflowScript"));
    }
 
    // ── CGS024: method call argument mismatch ─────────────────────────────────
@@ -870,6 +903,27 @@ public class SemanticAnalyzerDiagnosticsTests
       // StringBuilder.AppendFormat("{0}", value) — variadic "Params object" after format string.
       var result = CgScriptParseService.Parse("StringBuilder sb = new StringBuilder(); sb.AppendFormat(\"{0} {1}\", 1, 2);");
       var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
+   }
+
+   [Fact]
+   public void FormatFunction_WithMultipleArgs_NoCGS024()
+   {
+      // format("{0} {1}", a, b) — format accepts "Params object" so any number of args is valid.
+      var result = CgScriptParseService.Parse("string s = format(\"{0} {1}\", 1, 2);");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS024");
+   }
+
+   [Fact]
+   public void WorkflowScriptInvoke_WithArrayArg_NoCGS024()
+   {
+      // WorkflowScript.Invoke(array) — exactly one array argument is valid.
+      // WithPreprocessorExtensions() is needed because new WorkflowScript("filename") is the preprocessor form.
+      var result = CgScriptParseService.Parse("WorkflowScript ws = new WorkflowScript(\"test.cgs\"); array args = new array(); ws.Invoke(args);");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions().WithPreprocessorExtensions());
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }

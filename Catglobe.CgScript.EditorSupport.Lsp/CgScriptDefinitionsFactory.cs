@@ -32,7 +32,7 @@ public static class CgScriptDefinitionsFactory
          CgScriptDefinitions.TraceSource.TraceInformation(
             "Loaded definitions from {0}: {1} functions, {2} objects, {3} constants",
             url, result.Functions.Count, result.Objects.Count, result.Constants.Count);
-         return result;
+         return result.WithPreprocessorExtensions();
       }
       catch (JsonException ex) when (ex is not null)
       {
@@ -46,7 +46,7 @@ public static class CgScriptDefinitionsFactory
       {
          CgScriptDefinitions.TraceSource.TraceEvent(TraceEventType.Warning, 0,
             "Failed to fetch definitions from {0} — falling back to bundled definitions: {1}", url, ex.Message);
-         return new CgScriptDefinitions();
+         return new CgScriptDefinitions().WithPreprocessorExtensions();
       }
    }
 }
