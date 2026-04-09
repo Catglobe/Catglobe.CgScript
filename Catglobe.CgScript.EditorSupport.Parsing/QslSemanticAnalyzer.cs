@@ -294,16 +294,19 @@ public sealed class QslSemanticAnalyzer : QslParserBaseVisitor<object?>
       if (nameTok is null || valuCtx is null) return;
       if (!QslPropertyMeta.All.TryGetValue(nameTok.Text, out var info)) return;
 
+      bool isBoolToken   = valuCtx.TRUE() is not null || valuCtx.FALSE() is not null;
+      bool isStringToken = valuCtx.StringLiteral() is not null;
+
       string? mismatch = info.ValueType switch
       {
          QslValueType.Bool =>
-            valuCtx.StringLiteral() is not null ? "true or false" : null,
+            isStringToken ? "true or false" : null,
          QslValueType.Int =>
-            valuCtx.StringLiteral() is not null ? "an integer" : null,
+            (isStringToken || isBoolToken) ? "an integer" : null,
          QslValueType.Ranges =>
-            valuCtx.StringLiteral() is not null ? "a range expression [...]" : null,
+            (isStringToken || isBoolToken) ? "a range expression [...]" : null,
          QslValueType.NumberOrRanges =>
-            valuCtx.StringLiteral() is not null ? "an integer or range expression [...]" : null,
+            (isStringToken || isBoolToken) ? "an integer or range expression [...]" : null,
          _ => null, // String/Script/LabelList: no strict validation
       };
 

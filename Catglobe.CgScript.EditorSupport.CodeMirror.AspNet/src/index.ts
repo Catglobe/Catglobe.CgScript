@@ -197,6 +197,96 @@ export function createCgScriptLanguage() {
    return { language, keywordCompletions };
 }
 
+// ─── QSL StreamLanguage ───────────────────────────────────────────────────────
+
+interface QslState {
+   tokenize: ((stream: any, state: QslState) => string) | null;
+   inBrackets: number;
+}
+
+export function createQslLanguage() {
+   const qslKeywords = new Set([
+      "questionnaire", "question", "group", "end", "page",
+      "single", "multi", "number", "open", "yesno",
+      "matrix", "scale", "scalegrid", "date", "time", "datetime",
+      "rankno", "ranktext", "ranknumber", "netnumber",
+      "branch", "goto", "if", "else", "call", "return",
+      "replace", "with", "include", "and", "or", "not",
+   ]);
+   const boolLiterals = new Set(["true", "false"]);
+
+   const keywordCompletions = [
+      ...[...qslKeywords].map(w => ({ label: w.toUpperCase(), type: "keyword" })),
+   ];
+
+   function tokenBase(stream: any, state: QslState): string {
+      const ch = stream.next() as string;
+      if (ch === '"') {
+         state.tokenize = tokenQslString;
+         return tokenQslString(stream, state);
+      }
+      if (ch === "[") { state.inBrackets++; return "bracket"; }
+      if (ch === "]") { state.inBrackets = Math.max(0, state.inBrackets - 1); return "bracket"; }
+      if (ch === "/" && stream.eat("*")) { state.tokenize = tokenQslBlockComment; return tokenQslBlockComment(stream, state); }
+      if (ch === "/" && stream.eat("/")) { stream.skipToEnd(); return "comment"; }
+      if (/[<>!]/.test(ch)) { stream.eat(/[=<>]/); return "operator"; }
+      if (ch === "=" || ch === ":") return "operator";
+      if (/\d/.test(ch)) { stream.eatWhile(/\d/); return "number"; }
+      if (/\w/.test(ch)) {
+         stream.eatWhile(/\w/);
+         const cur = stream.current().toLowerCase() as string;
+         if (qslKeywords.has(cur)) return "keyword";
+         if (boolLiterals.has(cur)) return "atom";
+         return state.inBrackets > 0 ? "property" : "variable";
+      }
+      return "";
+   }
+
+   function tokenQslString(stream: any, state: QslState): string {
+      let ch: string | null;
+      while ((ch = stream.next()) != null) {
+         if (ch === '"') { state.tokenize = null; break; }
+      }
+      return "string";
+   }
+
+   function tokenQslBlockComment(stream: any, state: QslState): string {
+      let maybeEnd = false, ch: string | null;
+      while ((ch = stream.next())) {
+         if (ch === "/" && maybeEnd) { state.tokenize = null; break; }
+         maybeEnd = (ch === "*");
+      }
+      return "comment";
+   }
+
+   const qslParser = {
+      name: "qsl",
+      tokenTable: {
+         keyword:  tags.keyword,
+         atom:     tags.bool,
+         number:   tags.number,
+         string:   tags.string,
+         comment:  tags.comment,
+         operator: tags.operator,
+         bracket:  tags.bracket,
+         property: tags.propertyName,
+         variable: tags.variableName,
+      },
+      startState(): QslState { return { tokenize: null, inBrackets: 0 }; },
+      copyState(state: QslState): QslState { return { tokenize: state.tokenize, inBrackets: state.inBrackets }; },
+      token(stream: any, state: QslState): string | null {
+         if (stream.eatSpace()) return null;
+         return (state.tokenize ?? tokenBase)(stream, state) || null;
+      },
+      languageData: {
+         commentTokens: { line: "//", block: { open: "/*", close: "*/" } },
+      },
+   };
+
+   const language = StreamLanguage.define(qslParser);
+   return { language, keywordCompletions };
+}
+
 // ─── LSP Transport ────────────────────────────────────────────────────────────
 
 export interface SplitTransport {
@@ -436,6 +526,13 @@ export function resolveTheme(name: string): Extension[] {
    return THEMES[name] ?? THEMES["default"];
 }
 
+// ─── Shared interface for editors that support LSP ───────────────────────────
+
+export interface LspEditor {
+   connectLsp(client: LSPClient, uri: string): void;
+   disconnectLsp(): void;
+}
+
 // ─── CodeMirrorForCgScript ────────────────────────────────────────────────────
 
 export interface CgScriptEditorOptions {
@@ -445,7 +542,7 @@ export interface CgScriptEditorOptions {
    saveDelay?: number;
 }
 
-export class CodeMirrorForCgScript {
+export class CodeMirrorForCgScript implements LspEditor {
    readonly #view: EditorView;
    readonly #themeCompartment = new Compartment();
    readonly #lspCompartment   = new Compartment();
@@ -545,10 +642,118 @@ export class CodeMirrorForCgScript {
    get view(): EditorView { return this.#view; }
 }
 
+// ─── CodeMirrorForQsl ─────────────────────────────────────────────────────────
+
+export interface QslEditorOptions {
+   /** Called (debounced) whenever the document changes. */
+   onDocChange?: (text: string) => void;
+   /** Debounce delay in ms for onDocChange. Default: 2000. */
+   saveDelay?: number;
+}
+
+export class CodeMirrorForQsl implements LspEditor {
+   readonly #view: EditorView;
+   readonly #themeCompartment = new Compartment();
+   readonly #lspCompartment   = new Compartment();
+   #saveDraftTimer: ReturnType<typeof setTimeout> | null = null;
+
+   constructor(parent: Element, initialContent: string, selectedTheme: string, opts?: QslEditorOptions) {
+      const { language, keywordCompletions } = createQslLanguage();
+      const saveDelay = opts?.saveDelay ?? 2000;
+
+      const startState = EditorState.create({
+         doc: initialContent,
+         extensions: [
+            lineNumbers(),
+            highlightActiveLineGutter(),
+            highlightSpecialChars(),
+            history(),
+            foldGutter(),
+            drawSelection(),
+            dropCursor(),
+            EditorState.allowMultipleSelections.of(true),
+            indentOnInput(),
+            bracketMatching(),
+            closeBrackets(),
+            autocompletion(),
+            language.data.of({ autocomplete: completeFromList(keywordCompletions) }),
+            rectangularSelection(),
+            crosshairCursor(),
+            highlightActiveLine(),
+            highlightSelectionMatches(),
+            language,
+            semanticDecoField,
+            this.#themeCompartment.of(resolveTheme(selectedTheme)),
+            this.#lspCompartment.of([]),
+            EditorState.tabSize.of(4),
+            keymap.of([
+               ...closeBracketsKeymap,
+               ...defaultKeymap,
+               ...searchKeymap,
+               ...historyKeymap,
+               ...foldKeymap,
+               ...completionKeymap,
+               indentWithTab,
+               { key: "Ctrl-h", run: () => { openSearchPanel(this.#view); return true; } },
+               { key: "F11",    run: () => { this._setFullscreen(true);  return true; } },
+               { key: "Escape", run: () => { this._setFullscreen(false); return true; } },
+            ]),
+            EditorView.updateListener.of(update => {
+               if (!update.docChanged) return;
+               const text = update.state.doc.toString();
+               if (opts?.onDocChange) {
+                  if (this.#saveDraftTimer) clearTimeout(this.#saveDraftTimer);
+                  this.#saveDraftTimer = setTimeout(() => opts.onDocChange!(text), saveDelay);
+               }
+            }),
+            EditorView.lineWrapping,
+            signatureHintTheme,
+         ],
+      });
+
+      this.#view = new EditorView({ state: startState, parent });
+   }
+
+   connectLsp(lspClient: LSPClient, fileUri: string) {
+      this.#view.dispatch({
+         effects: this.#lspCompartment.reconfigure(lspClient.plugin(fileUri, "qsl")),
+      });
+   }
+
+   disconnectLsp() {
+      this.#view.dispatch({ effects: this.#lspCompartment.reconfigure([]) });
+   }
+
+   setTheme(name: string) {
+      this.#view.dispatch({ effects: this.#themeCompartment.reconfigure(resolveTheme(name)) });
+   }
+
+   getSelection(): string {
+      const sel = this.#view.state.selection.main;
+      return sel.from === sel.to ? "" : this.#view.state.sliceDoc(sel.from, sel.to);
+   }
+
+   loadContent(text: string) {
+      this.#view.dispatch({
+         changes: { from: 0, to: this.#view.state.doc.length, insert: text },
+      });
+   }
+
+   _setFullscreen(on: boolean) {
+      document.body.classList.toggle("CodeMirror-fullscreen", on);
+      this.#view.requestMeasure();
+   }
+
+   toggleFullscreen() {
+      this._setFullscreen(!document.body.classList.contains("CodeMirror-fullscreen"));
+   }
+
+   get view(): EditorView { return this.#view; }
+}
+
 // ─── LSP Connection Manager ───────────────────────────────────────────────────
 
-export async function manageLspConnection(wsUri: string, cm: CodeMirrorForCgScript, fileUri?: string): Promise<never> {
-   fileUri ??= `file:///cgscript${location.pathname}.cgs`;
+export async function manageLspConnection(wsUri: string, cm: LspEditor, fileUri: string): Promise<never> {
    let delay = 2000;
    while (true) {
       try {
@@ -558,7 +763,7 @@ export async function manageLspConnection(wsUri: string, cm: CodeMirrorForCgScri
          cm.connectLsp(lspClient, fileUri);
          await closed;
       } catch (e) {
-         console.warn(`CgScript LSP: connection failed, retrying in ${delay}ms`, e);
+         console.warn(`LSP: connection failed, retrying in ${delay}ms`, e);
       }
       cm.disconnectLsp();
       await new Promise(r => setTimeout(r, delay));

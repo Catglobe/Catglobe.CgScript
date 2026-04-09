@@ -154,7 +154,8 @@ public static class QslPropertyMeta
          P("UNIT",                                QslValueType.String,
             "Unit label displayed alongside a numeric answer field (e.g. kg, years)."),
          P("QUESTION_STYLE_SHEET",               QslValueType.String,
-            "CSS class name applied to the outermost container of the rendered question."),
+            "CSS rules injected into a `<style>` block for this question's page — equivalent to writing a `<style>` element. " +
+            "Use standard CSS selectors and declarations to style the question's rendered output."),
          P("LAYOUT",                              QslValueType.String,
             "Layout template name used when rendering this question."),
          P("QUESTION_DESCRIPTION",               QslValueType.String,
