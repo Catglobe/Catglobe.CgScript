@@ -287,27 +287,29 @@ public sealed class QslSemanticAnalyzer : QslParserBaseVisitor<object?>
 
    /// <summary>
    /// Validates that the property value matches the expected <see cref="QslValueType"/>.
-   /// Only emits a diagnostic for clear type mismatches (e.g. Bool property with a string literal).
+   /// Uses positive validation: each type specifies exactly what IS valid; anything else is flagged.
    /// </summary>
    private void ValidatePropValue(IToken? nameTok, QslParser.PropValueContext? valuCtx)
    {
       if (nameTok is null || valuCtx is null) return;
       if (!QslPropertyMeta.All.TryGetValue(nameTok.Text, out var info)) return;
 
-      bool isBoolToken   = valuCtx.TRUE() is not null || valuCtx.FALSE() is not null;
-      bool isStringToken = valuCtx.StringLiteral() is not null;
+      bool hasBool   = valuCtx.TRUE() is not null || valuCtx.FALSE() is not null;
+      bool hasString = valuCtx.StringLiteral() is not null;
+      bool hasInt    = valuCtx.Int() is not null;
+      bool hasRanges = valuCtx.ranges() is not null;
 
+      // Positive validation: flag anything that is NOT a valid token for the expected type.
       string? mismatch = info.ValueType switch
       {
-         QslValueType.Bool =>
-            isStringToken ? "true or false" : null,
-         QslValueType.Int =>
-            (isStringToken || isBoolToken) ? "an integer" : null,
-         QslValueType.Ranges =>
-            (isStringToken || isBoolToken) ? "a range expression [...]" : null,
-         QslValueType.NumberOrRanges =>
-            (isStringToken || isBoolToken) ? "an integer or range expression [...]" : null,
-         _ => null, // String/Script/LabelList: no strict validation
+         QslValueType.Bool          => (!hasBool)                 ? "true or false"                        : null,
+         QslValueType.Int           => (!hasInt)                  ? "an integer"                           : null,
+         QslValueType.String        => (!hasString)               ? "a string in double quotes"            : null,
+         QslValueType.Script        => (!hasString)               ? "a string in double quotes"            : null,
+         QslValueType.LabelList     => (!hasString)               ? "a string in double quotes"            : null,
+         QslValueType.Ranges        => (!hasRanges)               ? "a range expression [n, m-p, …]"      : null,
+         QslValueType.NumberOrRanges => (!hasInt && !hasRanges)   ? "an integer or range expression [...]" : null,
+         _ => null,
       };
 
       if (mismatch is not null)
