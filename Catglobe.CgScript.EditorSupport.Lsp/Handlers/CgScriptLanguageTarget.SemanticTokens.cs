@@ -74,39 +74,8 @@ public partial class CgScriptLanguageTarget
    /// trimming a common prefix and a common suffix, snapped to 5-integer token
    /// boundaries so the edit never splits a token in half.
    /// </summary>
-   private static (SemanticTokensEdit Edit, bool HasChanges) ComputeSemanticEdit(
-      int[] oldData, int[] newData)
-   {
-      int oldLen = oldData.Length;
-      int newLen = newData.Length;
-
-      int prefixLen = 0;
-      while (prefixLen < oldLen && prefixLen < newLen
-             && oldData[prefixLen] == newData[prefixLen])
-         prefixLen++;
-      // Snap to a token boundary (5 ints per token) so the edit never starts mid-token.
-      prefixLen = (prefixLen / 5) * 5;
-
-      int suffixLen = 0;
-      while (suffixLen < (oldLen - prefixLen) && suffixLen < (newLen - prefixLen)
-             && oldData[oldLen - 1 - suffixLen] == newData[newLen - 1 - suffixLen])
-         suffixLen++;
-      // Snap suffix too.
-      suffixLen = (suffixLen / 5) * 5;
-
-      int deleteCount = oldLen - prefixLen - suffixLen;
-      int insertEnd   = newLen - suffixLen;
-      bool hasChanges = deleteCount > 0 || (insertEnd - prefixLen) > 0;
-
-      return (
-         new SemanticTokensEdit
-         {
-            Start       = prefixLen,
-            DeleteCount = deleteCount,
-            Data        = newData[prefixLen..insertEnd],
-         },
-         hasChanges);
-   }
+   private static (SemanticTokensEdit Edit, bool HasChanges) ComputeSemanticEdit(int[] oldData, int[] newData)
+      => LspHelpers.ComputeSemanticEdit(oldData, newData);
 
    // ── semantic tokens range ─────────────────────────────────────────────────────
 

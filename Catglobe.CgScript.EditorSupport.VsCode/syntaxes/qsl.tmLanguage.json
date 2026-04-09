@@ -1,0 +1,79 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "QSL",
+  "scopeName": "source.qsl",
+  "patterns": [
+    { "include": "#script-properties" },
+    { "include": "#strings" },
+    { "include": "#question-types" },
+    { "include": "#condition-types" },
+    { "include": "#group-types" },
+    { "include": "#structure-keywords" },
+    { "include": "#boolean-literals" },
+    { "include": "#numbers" },
+    { "include": "#labels" }
+  ],
+  "repository": {
+    "script-properties": {
+      "comment": "Embedded script content in CG_SCRIPT and JAVA_SCRIPT property values",
+      "begin": "\\b(CG_SCRIPT|JAVA_SCRIPT)\\b(\\s*)(=)(\\s*)(\")",
+      "beginCaptures": {
+        "1": { "name": "entity.name.tag.property.qsl" },
+        "3": { "name": "keyword.operator.assignment.qsl" },
+        "5": { "name": "punctuation.definition.string.begin.qsl" }
+      },
+      "end": "\"",
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.qsl" }
+      },
+      "contentName": "meta.embedded.block.cgscript.qsl",
+      "patterns": [
+        { "name": "constant.character.escape.qsl", "match": "\\\\." }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.qsl",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        { "name": "constant.character.escape.qsl", "match": "\\\\." }
+      ]
+    },
+    "structure-keywords": {
+      "name": "keyword.control.qsl",
+      "match": "\\b(QUESTIONNAIRE|QUESTION|GROUP|END|SQ|GOTO|IF|REPLACE|WITH|ORCLEARCURRENT|ANDCLEAR|FIRST|LAST|AFTER|BEFORE|AS|QUESTIONS|HIDDEN|IN)\\b"
+    },
+    "question-types": {
+      "name": "keyword.other.question-type.qsl",
+      "match": "\\b(PAGE|SINGLE|MULTI|SCALE|NUMBER|TEXT|OPEN|MULTIMEDIA|SINGLEGRID|MULTIGRID|SCALEGRID|TEXTGRID)\\b"
+    },
+    "condition-types": {
+      "name": "keyword.other.condition.qsl",
+      "match": "\\b(INC_AO_FROM|EXC_AO_FROM|INC_AO|EXC_AO|INC_SQ|EXC_SQ)\\b"
+    },
+    "group-types": {
+      "name": "keyword.other.group-type.qsl",
+      "match": "\\b(RANDOM|ROTATE|SEQUENCE|SHOW)\\b"
+    },
+    "boolean-literals": {
+      "name": "constant.language.qsl",
+      "match": "\\b(true|false)\\b"
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.qsl",
+          "match": "\\b\\d*\\.\\d+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.qsl",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "labels": {
+      "name": "variable.other.qsl",
+      "match": "\\b[a-zA-Z_][a-zA-Z_0-9]*\\b"
+    }
+  }
+}

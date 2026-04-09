@@ -8,7 +8,8 @@ import {
    TransportKind,
 } from 'vscode-languageclient/node';
 
-let client: LanguageClient | undefined;
+let cgscriptClient: LanguageClient | undefined;
+let qslClient: LanguageClient | undefined;
 
 export async function activate(context: ExtensionContext): Promise<void> {
    const serverExe = resolveServerExe(context);
@@ -17,25 +18,34 @@ export async function activate(context: ExtensionContext): Promise<void> {
       return;
    }
 
-   client = createClient(context, serverExe);
-   await client.start();
-   context.subscriptions.push({ dispose: () => client?.dispose() });
+   cgscriptClient = createCgScriptClient(context, serverExe);
+   qslClient      = createQslClient(context, serverExe);
+
+   await cgscriptClient.start();
+   await qslClient.start();
+
+   context.subscriptions.push(
+      { dispose: () => cgscriptClient?.dispose() },
+      { dispose: () => qslClient?.dispose() },
+   );
 
    context.subscriptions.push(
       workspace.onDidChangeConfiguration(async e => {
          if (e.affectsConfiguration('cgscript.siteUrl')) {
-            await client?.restart();
+            await cgscriptClient?.restart();
          }
       })
    );
 }
 
 export async function deactivate(): Promise<void> {
-   await client?.dispose();
-   client = undefined;
+   await cgscriptClient?.dispose();
+   await qslClient?.dispose();
+   cgscriptClient = undefined;
+   qslClient      = undefined;
 }
 
-function createClient(context: ExtensionContext, serverExe: string): LanguageClient {
+function createCgScriptClient(context: ExtensionContext, serverExe: string): LanguageClient {
    const siteUrl   = workspace.getConfiguration('cgscript').get<string>('siteUrl', '').trim();
    const extraArgs = siteUrl ? ['--site', siteUrl] : [];
 
@@ -46,18 +56,26 @@ function createClient(context: ExtensionContext, serverExe: string): LanguageCli
 
    const clientOptions: LanguageClientOptions = {
       documentSelector: [{ scheme: 'file', language: 'cgscript' }],
-      synchronize: {
-         fileEvents: workspace.createFileSystemWatcher('**/*.cgs'),
-      },
+      synchronize: { fileEvents: workspace.createFileSystemWatcher('**/*.cgs') },
       outputChannelName: 'CgScript Language Server',
    };
 
-   return new LanguageClient(
-      'cgscript',
-      'CgScript Language Server',
-      serverOptions,
-      clientOptions
-   );
+   return new LanguageClient('cgscript', 'CgScript Language Server', serverOptions, clientOptions);
+}
+
+function createQslClient(context: ExtensionContext, serverExe: string): LanguageClient {
+   const serverOptions: ServerOptions = {
+      run:   { command: 'dotnet', args: [serverExe, '--language', 'qsl'], transport: TransportKind.stdio },
+      debug: { command: 'dotnet', args: [serverExe, '--language', 'qsl'], transport: TransportKind.stdio },
+   };
+
+   const clientOptions: LanguageClientOptions = {
+      documentSelector: [{ scheme: 'file', language: 'qsl' }],
+      synchronize: { fileEvents: workspace.createFileSystemWatcher('**/*.qsl') },
+      outputChannelName: 'QSL Language Server',
+   };
+
+   return new LanguageClient('qsl', 'QSL Language Server', serverOptions, clientOptions);
 }
 
 /** Resolves the framework-dependent server entry point. Requires dotnet on PATH. */

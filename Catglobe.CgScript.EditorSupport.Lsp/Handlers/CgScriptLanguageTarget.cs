@@ -149,16 +149,17 @@ public partial class CgScriptLanguageTarget
    // ── helpers    → see CgScriptLanguageTarget.Helpers.cs ───────────────────────
 
    // ── diagnostics (server-push notification) ────────────────────────────────────
+
    private async Task PublishDiagnosticsAsync(Uri uri)
    {
       if (Rpc is null) return;
 
-      // Each stage is isolated: a failure in one does not discard results from others.
+      var uriStr   = uri.ToString();
       var allDiags = new List<LspDiagnostic>();
       bool fatalError = false;
       Exception? fatalException = null;
 
-      // Stage 0: surface a persistent error if the live definition fetch failed to parse
+      // Stage 0: surface a persistent load error from the live definition fetch.
       if (_definitions.LoadError is { } loadError)
       {
          allDiags.Add(new LspDiagnostic
@@ -171,28 +172,12 @@ public partial class CgScriptLanguageTarget
          });
       }
 
-      // Stage 1: convert stored parse+semantic diagnostics to LSP format
+      // Stage 1: convert stored parse+semantic diagnostics to LSP format.
       try
       {
-         var result = _store.GetParseResult(uri.ToString());
+         var result = _store.GetParseResult(uriStr);
          if (result is null) return;
-
-         allDiags.AddRange(result.Diagnostics.Select(d => new LspDiagnostic
-         {
-            Severity = d.Severity == Parsing.DiagnosticSeverity.Error
-               ? Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Error
-               : d.Severity == Parsing.DiagnosticSeverity.Information
-               ? Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Information
-               : Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Warning,
-            Code    = string.IsNullOrEmpty(d.Code) ? default : new SumType<int, string>(d.Code),
-            Message = d.Message,
-            Range   = new LspRange
-            {
-               Start = new Position(d.Line - 1, d.Column),
-               End   = new Position(d.Line - 1, d.Column + d.Length),
-            },
-            Source = "cgscript",
-         }));
+         allDiags.AddRange(result.Diagnostics.Select(d => LspHelpers.DiagnosticToLsp(d, "cgscript")));
       }
       catch (Exception ex)
       {
@@ -202,10 +187,10 @@ public partial class CgScriptLanguageTarget
 
       if (!fatalError)
       {
-         // Stage 2: CGS014 — warn on empty type="" attributes in XML doc comments
+         // Stage 2: CGS014 — warn on empty type="" attributes in XML doc comments.
          try
          {
-            var text = _store.GetText(uri.ToString());
+            var text = _store.GetText(uriStr);
             if (text is not null)
             {
                var lines = text.Split('\n');
@@ -234,46 +219,22 @@ public partial class CgScriptLanguageTarget
          }
          catch (Exception ex)
          {
-            // XML-doc scanning failed — add an error diagnostic but keep all other results.
-            allDiags.Add(new LspDiagnostic
-            {
-               Severity = Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Error,
-               Code     = new SumType<int, string>("CGS000"),
-               Message  = $"Internal LSP error (XML doc scan): {ex.Message}",
-               Range    = new LspRange { Start = new Position(0, 0), End = new Position(0, 0) },
-               Source   = "cgscript",
-            });
+            allDiags.Add(LspHelpers.MakeInternalErrorDiag("CGS000", $"Internal LSP error (XML doc scan): {ex.Message}", "cgscript"));
          }
       }
       else
       {
-         // Stage 1 failed entirely — surface only the error so the user is not left with stale diagnostics.
-         allDiags.Add(new LspDiagnostic
-         {
-            Severity = Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Error,
-            Code     = new SumType<int, string>("CGS000"),
-            Message  = $"Internal LSP error: {fatalException!.Message}",
-            Range    = new LspRange { Start = new Position(0, 0), End = new Position(0, 0) },
-            Source   = "cgscript",
-         });
+         allDiags.Add(LspHelpers.MakeInternalErrorDiag("CGS000", $"Internal LSP error: {fatalException!.Message}", "cgscript"));
       }
 
-      // Stage 3: send the notification (with whatever diagnostics we managed to collect)
       try
       {
          await Rpc.NotifyWithParameterObjectAsync(Methods.TextDocumentPublishDiagnosticsName,
             new PublishDiagnosticParams { Uri = uri, Diagnostics = allDiags.ToArray() });
       }
-      catch
-      {
-         // If the RPC send itself fails, swallow silently to avoid terminating the connection.
-      }
+      catch { }
    }
 
-   /// <summary>
-   /// Publishes a single CGS000 error diagnostic for <paramref name="uri"/> when an unexpected
-   /// exception occurs outside the normal parse/analyze pipeline (e.g. during text application).
-   /// </summary>
    private Task PublishErrorDiagnosticAsync(Uri uri, Exception ex)
    {
       if (Rpc is null) return Task.CompletedTask;
@@ -281,17 +242,7 @@ public partial class CgScriptLanguageTarget
          new PublishDiagnosticParams
          {
             Uri = uri,
-            Diagnostics =
-            [
-               new LspDiagnostic
-               {
-                  Severity = Microsoft.VisualStudio.LanguageServer.Protocol.DiagnosticSeverity.Error,
-                  Code     = new SumType<int, string>("CGS000"),
-                  Message  = $"Internal LSP error: {ex.Message}",
-                  Range    = new LspRange { Start = new Position(0, 0), End = new Position(0, 0) },
-                  Source   = "cgscript",
-               },
-            ],
+            Diagnostics = [LspHelpers.MakeInternalErrorDiag("CGS000", $"Internal LSP error: {ex.Message}", "cgscript")],
          });
    }
 }

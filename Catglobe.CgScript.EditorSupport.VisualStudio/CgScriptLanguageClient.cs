@@ -15,14 +15,11 @@ namespace Catglobe.CgScript.EditorSupport.VisualStudio;
 #pragma warning disable VSEXTPREVIEW_SETTINGS // API is in preview
 
 /// <summary>
-/// Provides an in-process CgScript LSP session to Visual Studio.
-/// A pipe pair is created on each activation; <see cref="LspSessionHost"/> runs the server
-/// side in a background task, and the client side is returned to VS as an <see cref="IDuplexPipe"/>.
+/// Provides an in-process CgScript LSP session to Visual Studio for <c>.cgs</c> files.
 /// </summary>
 [VisualStudioContribution]
 public sealed class CgScriptLanguageServerProvider(CategoryObserver settingsObserver) : LanguageServerProvider
 {
-   /// <summary>Document type for <c>.cgs</c> files — required by the LSP activation filter.</summary>
    [VisualStudioContribution]
    public static DocumentTypeConfiguration CgScriptDocumentType => new("cgscript")
    {
@@ -30,18 +27,14 @@ public sealed class CgScriptLanguageServerProvider(CategoryObserver settingsObse
       BaseDocumentType = LanguageServerBaseDocumentType,
    };
 
-   /// <inheritdoc/>
    public override LanguageServerProviderConfiguration LanguageServerProviderConfiguration =>
       new("%Catglobe.CgScript.EditorSupport.VisualStudio.CgScriptLanguageServerProvider.DisplayName%",
           [DocumentFilter.FromDocumentType(CgScriptDocumentType)]);
 
-   /// <inheritdoc/>
    public override async Task<IDuplexPipe?> CreateServerConnectionAsync(CancellationToken cancellationToken)
    {
-      // Two pipes: VS writes to clientToServer; server reads from it (and vice versa).
       var clientToServer = new Pipe();
       var serverToClient = new Pipe();
-
       var serverSide = new InProcessDuplexPipe(clientToServer.Reader, serverToClient.Writer);
       var clientSide = new InProcessDuplexPipe(serverToClient.Reader, clientToServer.Writer);
 
@@ -56,7 +49,6 @@ public sealed class CgScriptLanguageServerProvider(CategoryObserver settingsObse
       return clientSide;
    }
 
-   /// <inheritdoc/>
    public override Task OnServerInitializationResultAsync(
       ServerInitializationResult serverInitializationResult,
       LanguageServerInitializationFailureInfo? initializationFailureInfo,
@@ -64,7 +56,46 @@ public sealed class CgScriptLanguageServerProvider(CategoryObserver settingsObse
    {
       if (serverInitializationResult == ServerInitializationResult.Failed)
          Enabled = false;
+      return base.OnServerInitializationResultAsync(serverInitializationResult, initializationFailureInfo, cancellationToken);
+   }
+}
 
+/// <summary>
+/// Provides an in-process QSL LSP session to Visual Studio for <c>.qsl</c> files.
+/// </summary>
+[VisualStudioContribution]
+public sealed class QslLanguageServerProvider : LanguageServerProvider
+{
+   [VisualStudioContribution]
+   public static DocumentTypeConfiguration QslDocumentType => new("qsl")
+   {
+      FileExtensions = [".qsl"],
+      BaseDocumentType = LanguageServerBaseDocumentType,
+   };
+
+   public override LanguageServerProviderConfiguration LanguageServerProviderConfiguration =>
+      new("%Catglobe.CgScript.EditorSupport.VisualStudio.QslLanguageServerProvider.DisplayName%",
+          [DocumentFilter.FromDocumentType(QslDocumentType)]);
+
+   public override Task<IDuplexPipe?> CreateServerConnectionAsync(CancellationToken cancellationToken)
+   {
+      var clientToServer = new Pipe();
+      var serverToClient = new Pipe();
+      var serverSide = new InProcessDuplexPipe(clientToServer.Reader, serverToClient.Writer);
+      var clientSide = new InProcessDuplexPipe(serverToClient.Reader, clientToServer.Writer);
+
+      _ = LspSessionHost.RunQslAsync(serverSide, new QslLanguageTarget(), cancellationToken);
+
+      return Task.FromResult<IDuplexPipe?>(clientSide);
+   }
+
+   public override Task OnServerInitializationResultAsync(
+      ServerInitializationResult serverInitializationResult,
+      LanguageServerInitializationFailureInfo? initializationFailureInfo,
+      CancellationToken cancellationToken)
+   {
+      if (serverInitializationResult == ServerInitializationResult.Failed)
+         Enabled = false;
       return base.OnServerInitializationResultAsync(serverInitializationResult, initializationFailureInfo, cancellationToken);
    }
 }
@@ -72,7 +103,6 @@ public sealed class CgScriptLanguageServerProvider(CategoryObserver settingsObse
 #pragma warning restore VSEXTPREVIEW_SETTINGS
 #pragma warning restore VSEXTPREVIEW_LSP
 
-/// <summary>Minimal <see cref="IDuplexPipe"/> wrapper around a <see cref="PipeReader"/>/<see cref="PipeWriter"/> pair.</summary>
 file sealed class InProcessDuplexPipe(PipeReader input, PipeWriter output) : IDuplexPipe
 {
    public PipeReader Input  => input;

@@ -10,6 +10,13 @@ namespace Catglobe.CgScript.EditorSupport.Parsing;
 internal sealed class DiagnosticErrorListener : BaseErrorListener, IAntlrErrorListener<int>
 {
    private readonly List<Diagnostic> _diagnostics = new();
+   private readonly string _syntaxErrorCode;
+
+   /// <param name="syntaxErrorCode">Diagnostic code used for parser/lexer syntax errors.</param>
+   public DiagnosticErrorListener(string syntaxErrorCode)
+   {
+      _syntaxErrorCode = syntaxErrorCode;
+   }
 
    public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics;
 
@@ -26,7 +33,7 @@ internal sealed class DiagnosticErrorListener : BaseErrorListener, IAntlrErrorLi
       var length = offendingSymbol is { } t
          ? t.StopIndex - t.StartIndex + 1
          : 0;
-      _diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, msg, line, charPositionInLine, length, "CGS019"));
+      _diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, msg, line, charPositionInLine, length, _syntaxErrorCode));
    }
 
    // ── Lexer error listener ──────────────────────────────────────────────────
@@ -39,6 +46,6 @@ internal sealed class DiagnosticErrorListener : BaseErrorListener, IAntlrErrorLi
       string          msg,
       RecognitionException? e)
    {
-      _diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, msg, line, charPositionInLine, 1, "CGS019"));
+      _diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, msg, line, charPositionInLine, 1, _syntaxErrorCode));
    }
 }

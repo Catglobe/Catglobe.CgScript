@@ -56,6 +56,18 @@
          <Visitor>true</Visitor>
          <Error>false</Error>
       </Antlr4>
+      <Antlr4 Include="Grammar\QslLexer.g4">
+         <Package>Catglobe.CgScript.EditorSupport.Parsing</Package>
+         <Listener>false</Listener>
+         <Visitor>true</Visitor>
+         <Error>false</Error>
+      </Antlr4>
+      <Antlr4 Include="Grammar\QslParser.g4">
+         <Package>Catglobe.CgScript.EditorSupport.Parsing</Package>
+         <Listener>false</Listener>
+         <Visitor>true</Visitor>
+         <Error>false</Error>
+      </Antlr4>
    </ItemGroup>
 
    <PropertyGroup>

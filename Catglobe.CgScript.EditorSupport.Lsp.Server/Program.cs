@@ -9,21 +9,24 @@ Console.OutputEncoding = System.Text.Encoding.UTF8;
 CgScriptDefinitions.TraceSource.Switch.Level = SourceLevels.Information;
 CgScriptDefinitions.TraceSource.Listeners.Add(new TextWriterTraceListener(Console.Error) { Filter = new EventTypeFilter(SourceLevels.All) });
 
-var siteUrl     = args.SkipWhile(a => a != "--site").Skip(1).FirstOrDefault();
-var definitions = siteUrl is not null
-   ? await CgScriptDefinitionsFactory.CreateFromUrlAsync(siteUrl)
-   : new CgScriptDefinitions();
-var store       = new DocumentStore(definitions);
-var target      = new CgScriptLanguageTarget(store, definitions);
-
 var stdin  = Console.OpenStandardInput();
 var stdout = Console.OpenStandardOutput();
+var pipe   = new DuplexPipe(PipeReader.Create(stdin), PipeWriter.Create(stdout));
 
-var pipe = new DuplexPipe(
-   PipeReader.Create(stdin),
-   PipeWriter.Create(stdout));
-
-await LspSessionHost.RunAsync(pipe, target);
+if (args.SkipWhile(a => a != "--language").Skip(1).FirstOrDefault() == "qsl")
+{
+   await LspSessionHost.RunQslAsync(pipe, new QslLanguageTarget());
+}
+else
+{
+   var siteUrl     = args.SkipWhile(a => a != "--site").Skip(1).FirstOrDefault();
+   var definitions = siteUrl is not null
+      ? await CgScriptDefinitionsFactory.CreateFromUrlAsync(siteUrl)
+      : new CgScriptDefinitions();
+   var store  = new DocumentStore(definitions);
+   var target = new CgScriptLanguageTarget(store, definitions);
+   await LspSessionHost.RunAsync(pipe, target);
+}
 
 file sealed class DuplexPipe(PipeReader reader, PipeWriter writer) : IDuplexPipe
 {

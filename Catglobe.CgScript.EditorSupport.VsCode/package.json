@@ -19,6 +19,12 @@
         "aliases": ["CgScript", "cgs"],
         "extensions": [".cgs"],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "qsl",
+        "aliases": ["QSL", "Questionnaire Script Language"],
+        "extensions": [".qsl"],
+        "configuration": "./language-configuration-qsl.json"
       }
     ],
     "grammars": [
@@ -26,6 +32,11 @@
         "language": "cgscript",
         "scopeName": "source.cgs",
         "path": "./syntaxes/cgscript.tmLanguage.json"
+      },
+      {
+        "language": "qsl",
+        "scopeName": "source.qsl",
+        "path": "./syntaxes/qsl.tmLanguage.json"
       }
     ],
     "configuration": {
@@ -50,6 +61,9 @@
   },
   "configurationDefaults": {
     "[cgscript]": {
+      "editor.semanticHighlighting.enabled": true
+    },
+    "[qsl]": {
       "editor.semanticHighlighting.enabled": true
     }
   },

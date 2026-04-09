@@ -7,9 +7,8 @@ using System.Linq;
 namespace Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 
 /// <summary>
-/// Keeps the most-recently-parsed version of each open document.
-/// Parsing is followed by semantic analysis so that the stored
-/// <see cref="ParseResult"/> contains both syntax and semantic diagnostics.
+/// Keeps the most-recently-parsed version of each open CgScript document.
+/// Documents go through preprocessing, parsing and semantic analysis on every update.
 /// </summary>
 public sealed class DocumentStore
 {
@@ -20,8 +19,7 @@ public sealed class DocumentStore
 
    public void Update(string uri, string text)
    {
-      // Expose the new text immediately so concurrent readers (hover, semantic tokens, etc.)
-      // never see a stale version while the parse is running.
+      // Expose the new text immediately so concurrent readers never see a stale version.
       if (_docs.TryGetValue(uri, out var existing))
          _docs[uri] = (text, existing.Result);
 

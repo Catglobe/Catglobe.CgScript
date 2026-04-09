@@ -1,0 +1,2313 @@
+QUESTIONNAIRE
+[
+	HTML = true;
+	REQUIRED = true;
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+	NEXT_BUTTON_VISIBLE = true;
+]
+
+QUESTION STAM_COPY_DATA TEXT
+[
+	DUMMY = true;
+	CG_SCRIPT = "/*Dictionary thisQnaireLabels = Question_getAll()
+  .ToDictionary(function(array q) {
+    return q[QUESTION_LABEL];
+  });
+
+QAS res_curr = QAS_getCurrentQAS().GetCaller();
+if (res_curr == empty) { //testing this qnaire directly
+	if (thisQnaireLabels.ContainsKey(\"Extra_Gender\")) thisQnaireLabels.Remove(\"Gender\");
+  STAM_COPY_DATA = Catglobe.Json.Encode(thisQnaireLabels.Keys); //show all
+  return;
+}
+
+Dictionary allLabelsInSource = Question_getAll(res_curr[QAS_QUESTIONNAIRE_RESOURCE_ID])
+  .ToDictionary(function(array q) {
+    return q[QUESTION_LABEL];
+  });
+Dictionary labelsToCopy = allLabelsInSource.KeysWhere(function(string q, array val) {
+    return thisQnaireLabels.ContainsKey(q);
+  })
+  .ToDictionary(function(string x) {
+    return x;
+  });
+
+if (labelsToCopy.Count == 0) returnFromGoto(); //nothing to do
+
+array allQas = getRPQUserId() == empty ? {} : QAS_getByUserResourceId(0, 15004111); //Panel Demographics DK (new) - Block 01 – Basis demografi
+if (!allLabelsInSource.ContainsKey(\"COPY_DATA_FROM_STAM\") || allQas.Count == 0) { //not a panel member or dont use panel, show all questions asked for
+	allQas = getRPQUserId() == empty ? {} : QAS_getByUserResourceId(0, 15916154);
+	if (!allLabelsInSource.ContainsKey(\"COPY_DATA_FROM_STAM\") || allQas.Count == 0) {
+		if (labelsToCopy.ContainsKey(\"Extra_Gender\")) labelsToCopy.Remove(\"Gender\");
+		STAM_COPY_DATA = Catglobe.Json.Encode(labelsToCopy.Keys);
+		return;
+	}
+}
+
+Dictionary dataMap = {
+  \"Gender\": \"Gender\",
+	\"Extra_Gender\": \"Extra_Gender\",
+  \"Age\": \"Age\",
+  \"Region\": \"Region\",
+  \"ZipCode\": \"ZipCode\",
+  \"Commune_2007\": \"Commune_2007\",
+  \"Civil_Status\": \"Civil_Status\",
+  \"Household_Size\": \"Household_Size\",
+  \"Household_Children_Below_18\": \"Household_Children_Below_18\",
+  \"Children_Age\": \"Children_Age\",
+  \"DK_Living_Type\": \"DK_Living_Type\",
+  \"DK_Living_Form\": \"DK_Living_Form\",
+  \"ShoppingResponsibility\": \"ShoppingResponsibility\",
+  \"Car_In_Household\": \"Car_In_Household\",
+  \"Lower_Education\": \"Lower_Education\",
+  \"Higher_Education\": \"Higher_Education\",
+  \"DK_Personal_Income\": \"DK_Personal_Income\",
+  \"DK_Household_Income\": \"DK_Household_Income\",
+  \"DK_Household_Style\": \"DK_Household_Style\",
+  \"Inet_Access\": \"Inet_Access\",
+  \"Inet_UsageFrequence\": \"Inet_UsageFrequence\",
+  \"DK_Household_Pets\": \"DK_Household_Pets\",
+  \"Current_Professional_Status\": \"Current_Professional_Status\",
+};
+Dictionary demographics = Question_loadQuestions(dataMap.KeysWhere(function(string key, string map) {
+  return labelsToCopy.ContainsKey(map);
+}), allQas[0]);
+Dictionary dataToSave = demographics.Keys.ToDictionary(function(string label) {
+  return dataMap[label];
+}, function(string label) {
+  return demographics[label];
+});
+
+if (dataToSave.TryGetValue(\"Inet_UsageFrequence\") != empty) {
+  dataToSave[\"Inet_UsageFrequence_Work\"] = dataToSave[\"Inet_UsageFrequence\"][0];
+  dataToSave[\"Inet_UsageFrequence_Privat\"] = dataToSave[\"Inet_UsageFrequence\"][1];
+}
+
+if (dataToSave.TryGetValue(\"Household_Size\") == 1) dataToSave[\"Household_Children_Below_18\"] = 1;
+if (dataToSave.TryGetValue(\"Gender\") != empty && dataToSave.TryGetValue(\"Extra_Gender\") == empty) dataToSave[\"Extra_Gender\"] = dataToSave[\"Gender\"];
+
+// luu add code to adjust kids age to current year
+if (dataToSave.TryGetValue(\"Children_Age\") != empty && dataToSave.ContainsKey(\"Household_Children_Below_18\")) {
+  array arrChildren_Age = dataToSave[\"Children_Age\"];
+  number countChildrenBelow18 = 0;
+  array dateTime = getDateTime();
+  number year_ = dateTime[DateTime_Year];
+  for (i
+    for 0; arrChildren_Age.Count) {
+    string kidBirthYear = arrChildren_Age[i];
+    if (kidBirthYear == empty) continue;
+    //we stored year of birth of the kid, ensure they are still below 18
+    if (year_ - convertToNumber(kidBirthYear) > 18) arrChildren_Age[i] = empty;
+    else countChildrenBelow18++;
+  }
+  dataToSave[\"Children_Age\"] = arrChildren_Age;
+  dataToSave[\"Household_Children_Below_18\"] = countChildrenBelow18 >= 5 ? 6 : countChildrenBelow18 + 1; //+1, because 1 is 0 children
+}
+
+//find the questions we want to the user to see and confirm, even if we have data
+array confirmInfoQ = allLabelsInSource.TryGetValue(\"CONFIRM_STAMDATA\");
+Dictionary confirmInfo;
+if (confirmInfoQ != empty)
+  confirmInfo = confirmInfoQ[QUESTION_ANSWER_OPTIONS].ToDictionary(function(array ao) {
+    return trim(stripHtml(ao[ANSWEROPTION_TEXT]));
+  });
+
+array dataToSaveKeys = dataToSave.Keys;
+array questionsToActuallyDisplay;
+for (i
+  for 0; dataToSaveKeys.Count) {
+  if (dataToSave[dataToSaveKeys[i]] == empty || confirmInfo.ContainsKey(dataToSaveKeys[i]))
+    questionsToActuallyDisplay.Add(dataToSaveKeys[i]);
+}
+if (questionsToActuallyDisplay.Contains(\"Extra_Gender\")) questionsToActuallyDisplay.Remove(\"Gender\");
+dataToSave[\"STAM_COPY_DATA\"] = questionsToActuallyDisplay.Count > 0 ? Catglobe.Json.Encode(questionsToActuallyDisplay) : empty;
+
+Question_saveQuestions(dataToSave, QAS_getCurrentQAS());
+*/
+Dictionary thisQnaireLabels = Question_getAll()
+	.ToDictionary(function(array q) {
+		return q[QUESTION_LABEL];
+	});
+
+QAS res_curr = QAS_getCurrentQAS().GetCaller();
+if (res_curr == empty) { //testing this qnaire directly
+	if (thisQnaireLabels.ContainsKey(\"Extra_Gender\")) thisQnaireLabels.Remove(\"Gender\");
+	STAM_COPY_DATA = Catglobe.Json.Encode(thisQnaireLabels.Keys); //show all
+	return;
+}
+
+Dictionary allLabelsInSource = Question_getAll(res_curr[QAS_QUESTIONNAIRE_RESOURCE_ID])
+	.ToDictionary(function(array q) {
+		return q[QUESTION_LABEL];
+	});
+Dictionary labelsToCopy = allLabelsInSource.KeysWhere(function(string q, array val) {
+		return thisQnaireLabels.ContainsKey(q);
+	})
+	.ToDictionary(function(string x) {
+		return x;
+	});
+
+if (labelsToCopy.Count == 0) returnFromGoto(); //nothing to do
+
+array allQas = getRPQUserId() == empty ? {} : QAS_getByUserResourceId(0, 15004111); //Panel Demographics DK (new) - Block 01 – Basis demografi
+if (!allLabelsInSource.ContainsKey(\"COPY_DATA_FROM_STAM\") || allQas.Count == 0) { //not a panel member or dont use panel, show all questions asked for
+	allQas = getRPQUserId() == empty ? {} : QAS_getByUserResourceId(0, 15916154);
+	if (!allLabelsInSource.ContainsKey(\"COPY_DATA_FROM_STAM\") || allQas.Count == 0) {
+		if (labelsToCopy.ContainsKey(\"Extra_Gender\")) labelsToCopy.Remove(\"Gender\");
+		STAM_COPY_DATA = Catglobe.Json.Encode(labelsToCopy.Keys);
+		return;
+	}
+}
+
+Dictionary dataMap = {
+	\"Gender\": \"Gender\",
+	\"Extra_Gender\": \"Extra_Gender\",
+	\"Age\": \"Age\",
+	\"Region\": \"Region\",
+	\"ZipCode\": \"ZipCode\",
+	\"Commune_2007\": \"Commune_2007\",
+	\"Civil_Status\": \"Civil_Status\",
+	\"Household_Size\": \"Household_Size\",
+	\"Household_Children_Below_18\": \"Household_Children_Below_18\",
+	\"Children_Age\": \"Children_Age\",
+	\"DK_Living_Type\": \"DK_Living_Type\",
+	\"DK_Living_Form\": \"DK_Living_Form\",
+	\"ShoppingResponsibility\": \"ShoppingResponsibility\",
+	\"Car_In_Household\": \"Car_In_Household\",
+	\"Lower_Education\": \"Lower_Education\",
+	\"Higher_Education\": \"Higher_Education\",
+	\"DK_Personal_Income\": \"DK_Personal_Income\",
+	\"DK_Household_Income\": \"DK_Household_Income\",
+	\"DK_Household_Style\": \"DK_Household_Style\",
+	\"Inet_Access\": \"Inet_Access\",
+	\"Inet_UsageFrequence\": \"Inet_UsageFrequence\",
+	\"DK_Household_Pets\": \"DK_Household_Pets\",
+	\"Current_Professional_Status\": \"Current_Professional_Status\",
+};
+Dictionary demographics = Question_loadQuestions(dataMap.KeysWhere(function(string key, string map) {
+	return labelsToCopy.ContainsKey(map);
+}), allQas[0]);
+Dictionary dataToSave = demographics.Keys.ToDictionary(function(string label) {
+	return dataMap[label];
+}, function(string label) {
+	return demographics[label];
+});
+
+if (dataToSave.TryGetValue(\"Inet_UsageFrequence\") != empty) {
+	dataToSave[\"Inet_UsageFrequence_Work\"] = dataToSave[\"Inet_UsageFrequence\"][0];
+	dataToSave[\"Inet_UsageFrequence_Privat\"] = dataToSave[\"Inet_UsageFrequence\"][1];
+}
+
+if (dataToSave.TryGetValue(\"Household_Size\") == 1) dataToSave[\"Household_Children_Below_18\"] = 1;
+//if (dataToSave.TryGetValue(\"Gender\") != empty && dataToSave.TryGetValue(\"Extra_Gender\") == empty) dataToSave[\"Extra_Gender\"] = dataToSave[\"Gender\"];
+
+// luu add code to adjust kids age to current year
+if (dataToSave.TryGetValue(\"Children_Age\") != empty && dataToSave.ContainsKey(\"Household_Children_Below_18\")) {
+	array arrChildren_Age = dataToSave[\"Children_Age\"];
+	number countChildrenBelow18 = 0;
+	array dateTime = getDateTime();
+	number year_ = dateTime[DateTime_Year];
+	for (i
+		for 0; arrChildren_Age.Count) {
+		string kidBirthYear = arrChildren_Age[i];
+		if (kidBirthYear == empty) continue;
+		//we stored year of birth of the kid, ensure they are still below 18
+		if (year_ - convertToNumber(kidBirthYear) > 18) arrChildren_Age[i] = empty;
+		else countChildrenBelow18++;
+	}
+	dataToSave[\"Children_Age\"] = arrChildren_Age;
+	dataToSave[\"Household_Children_Below_18\"] = countChildrenBelow18 >= 5 ? 6 : countChildrenBelow18 + 1; //+1, because 1 is 0 children
+}
+
+//find the questions we want to the user to see and confirm, even if we have data
+array confirmInfoQ = allLabelsInSource.TryGetValue(\"CONFIRM_STAMDATA\");
+Dictionary confirmInfo;
+if (confirmInfoQ != empty)
+	confirmInfo = confirmInfoQ[QUESTION_ANSWER_OPTIONS].ToDictionary(function(array ao) {
+		return trim(stripHtml(ao[ANSWEROPTION_TEXT]));
+	});
+
+array dataToSaveKeys = dataToSave.Keys;
+array questionsToActuallyDisplay;
+for (i
+	for 0; dataToSaveKeys.Count) {
+	if (dataToSave[dataToSaveKeys[i]] == empty || confirmInfo.ContainsKey(dataToSaveKeys[i]))
+		questionsToActuallyDisplay.Add(dataToSaveKeys[i]);
+}
+if (questionsToActuallyDisplay.Contains(\"Extra_Gender\")) questionsToActuallyDisplay.Remove(\"Gender\");
+dataToSave[\"STAM_COPY_DATA\"] = questionsToActuallyDisplay.Count > 0 ? Catglobe.Json.Encode(questionsToActuallyDisplay) : empty;
+
+Question_saveQuestions(dataToSave, QAS_getCurrentQAS());";
+]
+calculate and store json encoded list of question labels to display
+
+GROUP Page SEQUENCE QUESTIONS
+
+QUESTION Show_Stam_Questions PAGE
+IF (STAM_COPY_DATA != empty)
+[
+	ON_PAGE = "SETUPSTAMDATA,Gender,Extra_Gender,Age,ZipCode,Commune_2007,Region,Civil_Status,Household_Size,Household_Children_Below_18,Children_Age,DK_Living_Type,DK_Living_Form,ShoppingResponsibility,Car_In_Household,Lower_Education,Higher_Education,DK_Personal_Income,DK_Household_Income,DK_Household_Style,DK_Household_Pets,Inet_Access,Inet_UsageFrequence_Work,Inet_UsageFrequence_Privat,Current_Professional_Status";
+]
+<span style="font-size:16px;">Generelle oplysninger</span>
+
+QUESTION SETUPSTAMDATA PAGE
+[
+	JAVA_SCRIPT = "//Bind this after afterShowQuestion, so that any changes on init doesnt trigger the scrolling
+window.dontAutoScroll = false; //set before changing values programatically
+window.initial = true;
+function autoScroll(ev, answerSheet, qnaire, el) {
+  window.initial = false;
+  answerSheet.unbind('afterShowPage', autoScroll); //just do once
+  //determine if we need to show a given question
+  var questionLabelsToShow = new Map(JSON.parse('{{STAM_COPY_DATA}}').map(i => [i, 1]));
+  //show these together
+  [\"ZipCode\", \"Commune_2007\", \"Region\"].forEach((e, i, arr) => {
+    if (questionLabelsToShow.get(e))
+      arr.forEach(y => questionLabelsToShow.set(y, 1));
+  });
+  //show these together
+  [\"Household_Size\", \"Household_Children_Below_18\", \"Children_Age\"].forEach((e, i, arr) => {
+    if (questionLabelsToShow.get(e))
+      arr.forEach(y => questionLabelsToShow.set(y, 1));
+  });
+  //Also show these, if this question is needed
+  if (questionLabelsToShow.get(\"Inet_UsageFrequence\"))
+    [\"Inet_Access\", \"Inet_UsageFrequence_Work\", \"Inet_UsageFrequence_Privat\"].forEach(y => questionLabelsToShow.set(y, 1));
+  answerSheet.questions.forEach((q, i, arr) => {
+    var show = questionLabelsToShow.get(q.label);
+    q.attr('answerRequired', !!show);
+    var questionEle = q.elements().parent();
+    if (show) {
+      //support scroll to next
+      q.bind('answerChanged', _ => {
+        //dont goto next if current has error
+        if (typeof(q.validate) === \"function\" && !q.validate()) return;
+        if (window.dontAutoScroll) return;
+        if (q.type == 2 || q.type == 6 || q.type == 7 || q.type == 8 || q.type == 12) return; //all the multi-style question
+        var nextQ = arr[i + 1];
+        var off = 1;
+        //find first next visible question
+        while (nextQ && !nextQ.elements().is(\":visible\"))
+          nextQ = arr[i + (++off)];
+        if (nextQ) {
+          $([document.documentElement, document.body]).stop().animate({
+            scrollTop: nextQ.elements().offset().top - 30
+          }, 100);
+          nextQ.elements().find('input').first().focus();
+        } else {
+			setTimeout(()=>$(\".navigation-panel .next\").first().focus(), 0); //let any current js finish          
+        }
+      });
+      //first list is those that take care of their own visibily during init
+      if ([\"Commune_2007\", \"Household_Children_Below_18\", \"Children_Age\", \"Inet_UsageFrequence_Work\", \"Inet_UsageFrequence_Privat\"].indexOf(q.label) === -1) {
+	    //list here is the questions only shown based on values of other questions
+        if ([\"Region\"].indexOf(q.label) !== -1)
+          questionEle.hide();
+        else
+          questionEle.show();
+      }
+    } else {
+      questionEle.hide();
+      //viewer ignores answerRequired on question, if there are still subquestions that are required
+      q.subQuestions.forEach(x => x.attr('answerRequired', false));
+    }
+  });
+  el.show(); //always show this page, which is the title
+}
+Question.answerSheet.bind('afterShowPage', autoScroll);";
+]
+<div class="header_text">Generelle oplysninger</div>
+
+QUESTION Gender SINGLE
+[
+	REQUIRED = false;
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+Angiv køn
+1:Mand
+2:Kvinde
+
+QUESTION Extra_Gender SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+Angiv køn
+1:Mand
+2:Kvinde
+3:Andet køn
+
+QUESTION Age NUMBER
+[
+	MIN_VALUE = 11;
+	MAX_VALUE = 120;
+	JAVA_SCRIPT = "function handleChangeInAge(ev, q) {
+  var year = parseInt(ev.target.value);
+  if (year < 14 || year >= 120) return;
+  if (!window.initial) q.attr('answer', year); //trigger autoscroll
+}
+Question.bind('afterShowQuestion', function(ev, question) {
+  handleChangeInAge({
+    target: {
+      value: question.attr('answer')
+    }
+  }, question);
+  $(question.elements()[0]).find('input').on('input', e => handleChangeInAge(e, question));
+});";
+]
+Hvad er din alder?
+
+QUESTION ZipCode NUMBER
+[
+	MIN_VALUE = 0;
+	MAX_VALUE = 9999;
+	JAVA_SCRIPT = "function handleChangeInZip(ev, q) {
+  var commune = q.answerSheet.questions.match('label', 'Commune_2007')[0];
+  commune.answerOptions.elements().hide();
+  var zip = parseInt(ev.target.value);
+  var possible = zipcodeMapToCommune.get(zip);
+  commune.elements().parent().toggle(!!possible && possible.length > 1);
+  if (possible) {
+    commune.answerOptions.grep(x => possible.includes(x.value)).elements().show(); //show the possible commune
+    window.dontAutoScroll = window.initial;
+    if (!commune.getAnswer().find(x => possible.includes(x.value))) //reset answer if prev answer isnt shown anymore
+      commune.resetAnswer();
+	q.attr('answer', zip); //trigger next
+    if (possible.length === 1) commune.setAnswer(possible[0]);
+    window.dontAutoScroll = false;
+  }
+}
+Question.bind('afterShowQuestion', function(ev, question) {
+  handleChangeInZip({
+    target: {
+      value: question.attr('answer')
+    }
+  }, question);
+  $(question.elements()[0]).find('input').on('input', e => handleChangeInZip(e, question));
+});
+
+Question.bind('afterValidateQuestion', function(ev, question, state) {
+  if (zipcodeMapToCommune.get(question.answer) || !question.answerRequired) return;
+  question.attr('errorMessage', question.answer ? 'Det angivne postnummer eksisterer ikke i Danmark. Brug 0 hvis du bor i udlandet.' : 'Angiv postnummer');
+  state.valid = false;
+});
+
+var zipcodeMapToCommune = new Map([
+  [0, [999]],
+  [800, [169]],
+  [900, [101]],
+  [917, [153]],
+  [960, [101]],
+  [999, [101]],
+  [1000, [101]],
+  [1050, [101]],
+  [1051, [101]],
+  [1052, [101]],
+  [1053, [101]],
+  [1054, [101]],
+  [1055, [101]],
+  [1056, [101]],
+  [1057, [101]],
+  [1058, [101]],
+  [1059, [101]],
+  [1060, [101]],
+  [1061, [101]],
+  [1062, [101]],
+  [1063, [101]],
+  [1064, [101]],
+  [1065, [101]],
+  [1066, [101]],
+  [1067, [101]],
+  [1068, [101]],
+  [1069, [101]],
+  [1070, [101]],
+  [1071, [101]],
+  [1072, [101]],
+  [1073, [101]],
+  [1074, [101]],
+  [1092, [101]],
+  [1093, [101]],
+  [1095, [101]],
+  [1098, [101]],
+  [1100, [101]],
+  [1101, [101]],
+  [1102, [101]],
+  [1103, [101]],
+  [1104, [101]],
+  [1105, [101]],
+  [1106, [101]],
+  [1107, [101]],
+  [1110, [101]],
+  [1111, [101]],
+  [1112, [101]],
+  [1113, [101]],
+  [1114, [101]],
+  [1115, [101]],
+  [1116, [101]],
+  [1117, [101]],
+  [1118, [101]],
+  [1119, [101]],
+  [1120, [101]],
+  [1121, [101]],
+  [1122, [101]],
+  [1123, [101]],
+  [1124, [101]],
+  [1125, [101]],
+  [1126, [101]],
+  [1127, [101]],
+  [1128, [101]],
+  [1129, [101]],
+  [1130, [101]],
+  [1131, [101]],
+  [1140, [101]],
+  [1147, [101]],
+  [1148, [101]],
+  [1150, [101]],
+  [1151, [101]],
+  [1152, [101]],
+  [1153, [101]],
+  [1154, [101]],
+  [1155, [101]],
+  [1156, [101]],
+  [1157, [101]],
+  [1158, [101]],
+  [1159, [101]],
+  [1160, [101]],
+  [1161, [101]],
+  [1162, [101]],
+  [1164, [101]],
+  [1165, [101]],
+  [1166, [101]],
+  [1167, [101]],
+  [1168, [101]],
+  [1169, [101]],
+  [1170, [101]],
+  [1171, [101]],
+  [1172, [101]],
+  [1173, [101]],
+  [1174, [101]],
+  [1175, [101]],
+  [1200, [101]],
+  [1201, [101]],
+  [1202, [101]],
+  [1203, [101]],
+  [1204, [101]],
+  [1205, [101]],
+  [1206, [101]],
+  [1207, [101]],
+  [1208, [101]],
+  [1209, [101]],
+  [1210, [101]],
+  [1211, [101]],
+  [1213, [101]],
+  [1214, [101]],
+  [1215, [101]],
+  [1216, [101]],
+  [1217, [101]],
+  [1218, [101]],
+  [1219, [101]],
+  [1220, [101]],
+  [1221, [101]],
+  [1240, [101]],
+  [1250, [101]],
+  [1251, [101]],
+  [1253, [101]],
+  [1254, [101]],
+  [1255, [101]],
+  [1256, [101]],
+  [1257, [101]],
+  [1259, [101]],
+  [1260, [101]],
+  [1261, [101]],
+  [1263, [101]],
+  [1264, [101]],
+  [1265, [101]],
+  [1266, [101]],
+  [1267, [101]],
+  [1268, [101]],
+  [1270, [101]],
+  [1271, [101]],
+  [1291, [101]],
+  [1300, [101]],
+  [1301, [101]],
+  [1302, [101]],
+  [1303, [101]],
+  [1304, [101]],
+  [1306, [101]],
+  [1307, [101]],
+  [1308, [101]],
+  [1309, [101]],
+  [1310, [101]],
+  [1311, [101]],
+  [1312, [101]],
+  [1313, [101]],
+  [1314, [101]],
+  [1315, [101]],
+  [1316, [101]],
+  [1317, [101]],
+  [1318, [101]],
+  [1319, [101]],
+  [1320, [101]],
+  [1321, [101]],
+  [1322, [101]],
+  [1323, [101]],
+  [1324, [101]],
+  [1325, [101]],
+  [1326, [101]],
+  [1327, [101]],
+  [1328, [101]],
+  [1329, [101]],
+  [1350, [101]],
+  [1352, [101]],
+  [1353, [101]],
+  [1354, [101]],
+  [1355, [101]],
+  [1356, [101]],
+  [1357, [101]],
+  [1358, [101]],
+  [1359, [101]],
+  [1360, [101]],
+  [1361, [101]],
+  [1362, [101]],
+  [1363, [101]],
+  [1364, [101]],
+  [1365, [101]],
+  [1366, [101]],
+  [1367, [101]],
+  [1368, [101]],
+  [1369, [101]],
+  [1370, [101]],
+  [1371, [101]],
+  [1400, [101]],
+  [1401, [101]],
+  [1402, [101]],
+  [1403, [101]],
+  [1406, [101]],
+  [1407, [101]],
+  [1408, [101]],
+  [1409, [101]],
+  [1410, [101]],
+  [1411, [101]],
+  [1412, [101]],
+  [1413, [101]],
+  [1414, [101]],
+  [1415, [101]],
+  [1416, [101]],
+  [1417, [101]],
+  [1418, [101]],
+  [1419, [101]],
+  [1420, [101]],
+  [1421, [101]],
+  [1422, [101]],
+  [1423, [101]],
+  [1424, [101]],
+  [1425, [101]],
+  [1426, [101]],
+  [1427, [101]],
+  [1428, [101]],
+  [1429, [101]],
+  [1430, [101]],
+  [1431, [101]],
+  [1432, [101]],
+  [1433, [101]],
+  [1434, [101]],
+  [1435, [101]],
+  [1436, [101]],
+  [1437, [101]],
+  [1438, [101]],
+  [1439, [101]],
+  [1440, [101]],
+  [1441, [101]],
+  [1448, [101]],
+  [1450, [101]],
+  [1451, [101]],
+  [1452, [101]],
+  [1453, [101]],
+  [1454, [101]],
+  [1455, [101]],
+  [1456, [101]],
+  [1457, [101]],
+  [1458, [101]],
+  [1459, [101]],
+  [1460, [101]],
+  [1462, [101]],
+  [1463, [101]],
+  [1464, [101]],
+  [1466, [101]],
+  [1467, [101]],
+  [1468, [101]],
+  [1470, [101]],
+  [1471, [101]],
+  [1472, [101]],
+  [1500, [101]],
+  [1513, [101]],
+  [1532, [185]],
+  [1533, [185]],
+  [1550, [101]],
+  [1551, [101]],
+  [1552, [101]],
+  [1553, [101]],
+  [1554, [101]],
+  [1555, [101]],
+  [1556, [101]],
+  [1557, [101]],
+  [1558, [101]],
+  [1559, [101]],
+  [1560, [101]],
+  [1561, [101]],
+  [1562, [101]],
+  [1563, [101]],
+  [1564, [101]],
+  [1566, [101]],
+  [1567, [101]],
+  [1568, [101]],
+  [1569, [101]],
+  [1570, [101]],
+  [1571, [101]],
+  [1572, [101]],
+  [1573, [101]],
+  [1574, [101]],
+  [1575, [101]],
+  [1576, [101]],
+  [1577, [101]],
+  [1592, [101]],
+  [1599, [101]],
+  [1600, [101]],
+  [1601, [101]],
+  [1602, [101]],
+  [1603, [101]],
+  [1604, [101]],
+  [1606, [101]],
+  [1607, [101]],
+  [1608, [101]],
+  [1609, [101]],
+  [1610, [101]],
+  [1611, [101]],
+  [1612, [101]],
+  [1613, [101]],
+  [1614, [101]],
+  [1615, [101]],
+  [1616, [101]],
+  [1617, [101]],
+  [1618, [101]],
+  [1619, [101]],
+  [1620, [101]],
+  [1621, [101]],
+  [1622, [101]],
+  [1623, [101]],
+  [1624, [101]],
+  [1630, [101]],
+  [1631, [101]],
+  [1632, [101]],
+  [1633, [101]],
+  [1634, [101]],
+  [1635, [101]],
+  [1650, [101]],
+  [1651, [101]],
+  [1652, [101]],
+  [1653, [101]],
+  [1654, [101]],
+  [1655, [101]],
+  [1656, [101]],
+  [1657, [101]],
+  [1658, [101]],
+  [1659, [101]],
+  [1660, [101]],
+  [1661, [101]],
+  [1662, [101]],
+  [1663, [101]],
+  [1664, [101]],
+  [1665, [101]],
+  [1666, [101]],
+  [1667, [101]],
+  [1668, [101]],
+  [1669, [101]],
+  [1670, [101]],
+  [1671, [101]],
+  [1672, [101]],
+  [1673, [101]],
+  [1674, [101]],
+  [1675, [101]],
+  [1676, [101]],
+  [1677, [101]],
+  [1699, [101]],
+  [1700, [101]],
+  [1701, [101]],
+  [1702, [101]],
+  [1703, [101]],
+  [1704, [101]],
+  [1705, [101]],
+  [1706, [101]],
+  [1707, [101]],
+  [1708, [101]],
+  [1709, [101]],
+  [1710, [101]],
+  [1711, [101]],
+  [1712, [101]],
+  [1714, [101]],
+  [1715, [101]],
+  [1716, [101]],
+  [1717, [101]],
+  [1718, [101]],
+  [1719, [101]],
+  [1720, [101]],
+  [1721, [101]],
+  [1722, [101]],
+  [1723, [101]],
+  [1724, [101]],
+  [1725, [101]],
+  [1726, [101]],
+  [1727, [101]],
+  [1728, [101]],
+  [1729, [101]],
+  [1730, [101]],
+  [1731, [101]],
+  [1732, [101]],
+  [1733, [101]],
+  [1734, [101]],
+  [1735, [101]],
+  [1736, [101]],
+  [1737, [101]],
+  [1738, [101]],
+  [1739, [101]],
+  [1749, [101]],
+  [1750, [101]],
+  [1751, [101]],
+  [1752, [101]],
+  [1753, [101]],
+  [1754, [101]],
+  [1755, [101]],
+  [1756, [101]],
+  [1757, [101]],
+  [1758, [101]],
+  [1759, [101]],
+  [1760, [101]],
+  [1761, [101]],
+  [1762, [101]],
+  [1763, [101]],
+  [1764, [101]],
+  [1765, [101]],
+  [1766, [101]],
+  [1770, [101]],
+  [1771, [101]],
+  [1772, [101]],
+  [1773, [101]],
+  [1774, [101]],
+  [1775, [101]],
+  [1777, [101]],
+  [1780, [101]],
+  [1785, [101]],
+  [1786, [101]],
+  [1787, [101]],
+  [1790, [101]],
+  [1799, [101]],
+  [1800, [147]],
+  [1801, [147]],
+  [1802, [147]],
+  [1803, [147]],
+  [1804, [147]],
+  [1805, [147]],
+  [1806, [147]],
+  [1807, [147]],
+  [1808, [147]],
+  [1809, [147]],
+  [1810, [101, 147]],
+  [1811, [147]],
+  [1812, [147]],
+  [1813, [147]],
+  [1814, [147]],
+  [1815, [147]],
+  [1816, [147]],
+  [1817, [147]],
+  [1818, [147]],
+  [1819, [147]],
+  [1820, [147]],
+  [1822, [147]],
+  [1823, [147]],
+  [1824, [147]],
+  [1825, [147]],
+  [1826, [147]],
+  [1827, [147]],
+  [1828, [147]],
+  [1829, [147]],
+  [1850, [147]],
+  [1851, [147]],
+  [1852, [147]],
+  [1853, [147]],
+  [1854, [147]],
+  [1855, [147]],
+  [1856, [147]],
+  [1857, [147]],
+  [1860, [147]],
+  [1861, [147]],
+  [1862, [147]],
+  [1863, [147]],
+  [1864, [147]],
+  [1865, [147]],
+  [1866, [147]],
+  [1867, [147]],
+  [1868, [147]],
+  [1870, [147]],
+  [1871, [147]],
+  [1872, [147]],
+  [1873, [147]],
+  [1874, [147]],
+  [1875, [147]],
+  [1876, [147]],
+  [1877, [147]],
+  [1878, [147]],
+  [1879, [147]],
+  [1900, [147]],
+  [1901, [147]],
+  [1902, [147]],
+  [1903, [147]],
+  [1904, [147]],
+  [1905, [147]],
+  [1906, [147]],
+  [1908, [147]],
+  [1909, [147]],
+  [1910, [147]],
+  [1911, [147]],
+  [1912, [147]],
+  [1913, [147]],
+  [1914, [147]],
+  [1915, [147]],
+  [1916, [147]],
+  [1917, [147]],
+  [1920, [147]],
+  [1921, [147]],
+  [1922, [147]],
+  [1923, [147]],
+  [1924, [147]],
+  [1925, [147]],
+  [1926, [147]],
+  [1927, [147]],
+  [1928, [147]],
+  [1950, [147]],
+  [1951, [147]],
+  [1952, [147]],
+  [1953, [147]],
+  [1954, [147]],
+  [1955, [147]],
+  [1956, [147]],
+  [1957, [147]],
+  [1958, [147]],
+  [1959, [147]],
+  [1960, [147]],
+  [1961, [147]],
+  [1962, [147]],
+  [1963, [147]],
+  [1964, [147]],
+  [1965, [147]],
+  [1966, [147]],
+  [1967, [147]],
+  [1970, [147]],
+  [1971, [147]],
+  [1972, [147]],
+  [1973, [147]],
+  [1974, [147]],
+  [2000, [101, 147]],
+  [2100, [101]],
+  [2150, [101]],
+  [2200, [101, 147]],
+  [2300, [101, 185]],
+  [2400, [101]],
+  [2450, [101]],
+  [2500, [101, 147]],
+  [2600, [165, 161, 153]],
+  [2605, [153]],
+  [2610, [175, 167, 101]],
+  [2620, [165, 153]],
+  [2625, [187]],
+  [2630, [169]],
+  [2635, [183]],
+  [2640, [183, 169, 253, 265]],
+  [2650, [153, 167]],
+  [2660, [153, 167]],
+  [2665, [187]],
+  [2670, [253]],
+  [2680, [269]],
+  [2690, [269, 253]],
+  [2700, [101]],
+  [2720, [101, 147]],
+  [2730, [163, 151, 159, 175]],
+  [2740, [163, 151]],
+  [2750, [165, 240, 151]],
+  [2760, [151]],
+  [2765, [240]],
+  [2770, [101, 185]],
+  [2791, [185, 155]],
+  [2800, [230, 173, 159, 157]],
+  [2820, [157, 159]],
+  [2830, [173, 230]],
+  [2840, [230, 173]],
+  [2850, [230]],
+  [2860, [101, 159]],
+  [2870, [157]],
+  [2880, [190, 159, 163]],
+  [2900, [101, 157]],
+  [2920, [157]],
+  [2930, [173, 157]],
+  [2942, [230]],
+  [2950, [230, 223]],
+  [2960, [223]],
+  [2970, [223, 210, 230]],
+  [2980, [210, 223]],
+  [2990, [210]],
+  [3000, [217]],
+  [3050, [217, 210]],
+  [3060, [210, 217]],
+  [3070, [217]],
+  [3080, [217]],
+  [3100, [270, 217]],
+  [3120, [270]],
+  [3140, [217]],
+  [3150, [217]],
+  [3200, [219, 270]],
+  [3210, [270]],
+  [3220, [270]],
+  [3230, [270, 219, 217]],
+  [3250, [270]],
+  [3300, [260, 270]],
+  [3310, [260, 219]],
+  [3320, [219, 260]],
+  [3330, [219]],
+  [3360, [260]],
+  [3370, [260]],
+  [3390, [260]],
+  [3400, [219, 201, 210]],
+  [3450, [201, 219, 210]],
+  [3460, [190, 201, 230]],
+  [3480, [210, 219, 217]],
+  [3490, [217, 210]],
+  [3500, [173, 240, 190, 151, 159]],
+  [3520, [240, 190, 201]],
+  [3540, [240, 219, 201, 190]],
+  [3550, [219, 250, 201, 240]],
+  [3600, [250, 219, 260]],
+  [3630, [250]],
+  [3650, [240]],
+  [3660, [240]],
+  [3670, [240, 265]],
+  [3700, [400]],
+  [3720, [400]],
+  [3730, [400]],
+  [3740, [400]],
+  [3751, [400]],
+  [3760, [400, 411]],
+  [3770, [400]],
+  [3782, [400]],
+  [3790, [400]],
+  [4000, [169, 265, 350]],
+  [4030, [265, 253]],
+  [4040, [265]],
+  [4050, [250]],
+  [4060, [350]],
+  [4070, [350]],
+  [4100, [329, 259, 370, 340, 320, 316]],
+  [4130, [259, 265]],
+  [4140, [259, 265, 329]],
+  [4160, [370, 320]],
+  [4171, [370]],
+  [4173, [329, 340]],
+  [4174, [329, 259]],
+  [4180, [330, 340, 329]],
+  [4190, [340, 330]],
+  [4200, [330, 326, 340, 370]],
+  [4220, [330]],
+  [4230, [330]],
+  [4241, [330]],
+  [4242, [330]],
+  [4243, [330, 370]],
+  [4244, [330]],
+  [4245, [330]],
+  [4250, [370, 330]],
+  [4261, [370, 330]],
+  [4262, [330, 370]],
+  [4270, [326, 330]],
+  [4281, [326]],
+  [4291, [326, 340]],
+  [4293, [326, 340]],
+  [4295, [316, 340]],
+  [4296, [340, 316]],
+  [4300, [316]],
+  [4305, [316]],
+  [4320, [350, 259, 265]],
+  [4330, [316, 350, 329]],
+  [4340, [350, 316]],
+  [4350, [316]],
+  [4360, [329, 316]],
+  [4370, [329, 340, 316]],
+  [4390, [316]],
+  [4400, [326]],
+  [4420, [316]],
+  [4440, [316]],
+  [4450, [316, 326]],
+  [4460, [326, 316]],
+  [4470, [326, 316]],
+  [4480, [326]],
+  [4490, [326]],
+  [4500, [306]],
+  [4520, [316]],
+  [4532, [316]],
+  [4534, [306, 326]],
+  [4540, [306]],
+  [4550, [306]],
+  [4560, [306]],
+  [4571, [306]],
+  [4572, [306]],
+  [4573, [306]],
+  [4581, [306]],
+  [4583, [306]],
+  [4591, [306, 326]],
+  [4592, [326]],
+  [4593, [326]],
+  [4600, [259, 336]],
+  [4621, [265]],
+  [4622, [269, 265]],
+  [4623, [265, 269, 259]],
+  [4632, [259]],
+  [4640, [320, 370]],
+  [4652, [336, 320]],
+  [4653, [336, 320]],
+  [4654, [320]],
+  [4660, [336]],
+  [4671, [336]],
+  [4672, [336]],
+  [4673, [336]],
+  [4681, [259]],
+  [4682, [259, 336, 320]],
+  [4683, [370, 320]],
+  [4684, [370, 320]],
+  [4690, [320, 329, 370]],
+  [4700, [370]],
+  [4720, [390]],
+  [4733, [390, 320, 370]],
+  [4735, [390]],
+  [4736, [370]],
+  [4750, [390, 370]],
+  [4760, [390]],
+  [4771, [390]],
+  [4772, [390]],
+  [4773, [390]],
+  [4780, [390]],
+  [4791, [390]],
+  [4792, [390]],
+  [4793, [390]],
+  [4800, [376]],
+  [4840, [376]],
+  [4850, [376]],
+  [4862, [376]],
+  [4863, [376]],
+  [4871, [376]],
+  [4872, [376]],
+  [4873, [376]],
+  [4874, [376]],
+  [4880, [376]],
+  [4891, [376]],
+  [4892, [376]],
+  [4894, [360, 376]],
+  [4895, [360]],
+  [4900, [360]],
+  [4912, [360]],
+  [4913, [360]],
+  [4920, [360]],
+  [4930, [360, 376]],
+  [4941, [360]],
+  [4942, [390]],
+  [4943, [360]],
+  [4944, [360]],
+  [4945, [360]],
+  [4951, [360]],
+  [4952, [360]],
+  [4953, [360]],
+  [4960, [360]],
+  [4970, [360]],
+  [4983, [360]],
+  [4990, [376]],
+  [5000, [461]],
+  [5200, [461]],
+  [5210, [461]],
+  [5220, [461]],
+  [5230, [461]],
+  [5240, [461]],
+  [5250, [461]],
+  [5260, [461]],
+  [5270, [461, 480]],
+  [5290, [440]],
+  [5300, [440]],
+  [5320, [461]],
+  [5330, [461, 440]],
+  [5350, [440]],
+  [5370, [440]],
+  [5380, [440]],
+  [5390, [440]],
+  [5400, [480]],
+  [5450, [480]],
+  [5462, [480]],
+  [5463, [410]],
+  [5464, [410]],
+  [5466, [410]],
+  [5471, [480]],
+  [5474, [480]],
+  [5485, [480]],
+  [5491, [480, 461]],
+  [5492, [420, 480, 461]],
+  [5500, [410]],
+  [5540, [440, 450]],
+  [5550, [430, 440, 450]],
+  [5560, [420, 410, 480]],
+  [5580, [410]],
+  [5591, [410]],
+  [5592, [410]],
+  [5600, [430]],
+  [5603, [430]],
+  [5610, [420]],
+  [5620, [420]],
+  [5631, [420]],
+  [5642, [430, 420]],
+  [5672, [430]],
+  [5683, [420]],
+  [5690, [420]],
+  [5700, [479]],
+  [5750, [430]],
+  [5762, [430, 479]],
+  [5771, [479, 430]],
+  [5772, [479, 430]],
+  [5792, [430]],
+  [5800, [450]],
+  [5853, [450, 430]],
+  [5854, [430, 479]],
+  [5856, [430]],
+  [5863, [440, 430]],
+  [5871, [450]],
+  [5874, [450, 479]],
+  [5881, [479]],
+  [5882, [479]],
+  [5883, [479]],
+  [5884, [479]],
+  [5892, [479]],
+  [5900, [482]],
+  [5932, [482]],
+  [5935, [482]],
+  [5943, [482]],
+  [5953, [482]],
+  [5960, [492]],
+  [5970, [492]],
+  [5985, [492]],
+  [6000, [621]],
+  [6040, [630, 621]],
+  [6051, [621]],
+  [6052, [621, 630]],
+  [6064, [621]],
+  [6070, [621, 510]],
+  [6091, [621]],
+  [6092, [621]],
+  [6093, [621]],
+  [6094, [621, 510]],
+  [6100, [510, 621]],
+  [6200, [580]],
+  [6210, [580]],
+  [6230, [580]],
+  [6240, [550]],
+  [6261, [550]],
+  [6270, [550]],
+  [6280, [550]],
+  [6300, [540]],
+  [6310, [540]],
+  [6320, [540]],
+  [6330, [580]],
+  [6340, [580]],
+  [6360, [580]],
+  [6372, [580]],
+  [6392, [580]],
+  [6400, [540]],
+  [6430, [621, 540]],
+  [6440, [540]],
+  [6470, [540]],
+  [6500, [510]],
+  [6510, [510]],
+  [6520, [510, 550]],
+  [6534, [510, 550, 580]],
+  [6535, [550]],
+  [6541, [550, 510]],
+  [6560, [621, 510]],
+  [6580, [621]],
+  [6600, [575]],
+  [6621, [575]],
+  [6622, [575]],
+  [6623, [530, 575, 630]],
+  [6630, [510, 575]],
+  [6640, [621]],
+  [6650, [575]],
+  [6660, [575]],
+  [6670, [561, 575]],
+  [6682, [530, 575, 573]],
+  [6683, [561, 575]],
+  [6690, [561, 575]],
+  [6700, [561]],
+  [6705, [561]],
+  [6710, [561]],
+  [6715, [561]],
+  [6720, [563]],
+  [6731, [561]],
+  [6740, [561]],
+  [6752, [575]],
+  [6753, [575, 573]],
+  [6760, [561]],
+  [6771, [561]],
+  [6780, [550]],
+  [6792, [550]],
+  [6800, [573]],
+  [6818, [573, 561]],
+  [6823, [530, 573]],
+  [6830, [760, 573]],
+  [6840, [573]],
+  [6851, [573]],
+  [6852, [573]],
+  [6853, [573]],
+  [6854, [573]],
+  [6855, [573]],
+  [6857, [573]],
+  [6862, [573]],
+  [6870, [760, 573]],
+  [6880, [760, 573]],
+  [6893, [760]],
+  [6900, [760]],
+  [6920, [760]],
+  [6933, [760, 657]],
+  [6940, [760]],
+  [6950, [760]],
+  [6960, [760]],
+  [6971, [760]],
+  [6973, [657, 760]],
+  [6980, [760]],
+  [6990, [760, 657, 661, 665]],
+  [7000, [630, 607]],
+  [7007, [607]],
+  [7080, [630]],
+  [7100, [766, 630]],
+  [7120, [766, 630]],
+  [7130, [766]],
+  [7140, [766]],
+  [7150, [766]],
+  [7160, [766, 756, 630]],
+  [7171, [766]],
+  [7173, [630]],
+  [7182, [630]],
+  [7183, [630]],
+  [7184, [630]],
+  [7190, [530, 630]],
+  [7200, [530, 573, 630]],
+  [7250, [530]],
+  [7260, [657, 530]],
+  [7270, [657, 760, 530]],
+  [7280, [657, 760]],
+  [7300, [630]],
+  [7321, [630]],
+  [7323, [756, 766, 630]],
+  [7330, [756, 657, 630]],
+  [7361, [756, 630]],
+  [7362, [756, 740]],
+  [7400, [657, 756, 760]],
+  [7430, [756]],
+  [7441, [740, 756]],
+  [7442, [740, 756]],
+  [7451, [657, 756]],
+  [7470, [657, 791, 740]],
+  [7480, [760, 657]],
+  [7490, [657]],
+  [7500, [661, 657, 671]],
+  [7540, [791, 657, 661]],
+  [7550, [657]],
+  [7560, [671, 661]],
+  [7570, [665, 661]],
+  [7600, [661, 665, 671]],
+  [7620, [665]],
+  [7650, [665]],
+  [7660, [671, 665]],
+  [7673, [665]],
+  [7680, [665]],
+  [7700, [787]],
+  [7730, [787]],
+  [7741, [787]],
+  [7742, [787]],
+  [7752, [787]],
+  [7755, [787]],
+  [7760, [671, 787]],
+  [7770, [787]],
+  [7790, [671]],
+  [7800, [791, 779, 661]],
+  [7830, [661, 779, 657, 671]],
+  [7840, [779, 791]],
+  [7850, [791]],
+  [7860, [779]],
+  [7870, [779]],
+  [7884, [779]],
+  [7900, [773]],
+  [7950, [773]],
+  [7960, [773]],
+  [7970, [773]],
+  [7980, [773]],
+  [7990, [773]],
+  [8000, [751]],
+  [8200, [751]],
+  [8210, [751]],
+  [8220, [751]],
+  [8230, [751]],
+  [8240, [751]],
+  [8245, [751]],
+  [8250, [751]],
+  [8260, [751]],
+  [8270, [751]],
+  [8300, [727, 751]],
+  [8305, [741]],
+  [8310, [751]],
+  [8320, [751]],
+  [8330, [751]],
+  [8340, [727, 751]],
+  [8350, [727]],
+  [8355, [751]],
+  [8361, [751]],
+  [8362, [746, 751]],
+  [8370, [710]],
+  [8380, [710, 751]],
+  [8381, [751]],
+  [8382, [710, 751]],
+  [8400, [706]],
+  [8410, [706]],
+  [8420, [706]],
+  [8444, [706, 707]],
+  [8450, [740, 710]],
+  [8462, [751]],
+  [8464, [746, 751]],
+  [8471, [746, 751, 710]],
+  [8472, [710, 746, 740]],
+  [8500, [707]],
+  [8520, [751]],
+  [8530, [751]],
+  [8541, [751]],
+  [8543, [706, 751]],
+  [8544, [706]],
+  [8550, [706, 707]],
+  [8560, [707, 706]],
+  [8570, [707, 706]],
+  [8581, [706, 707]],
+  [8585, [707]],
+  [8586, [707]],
+  [8592, [707]],
+  [8600, [740, 756, 746]],
+  [8620, [740, 791]],
+  [8632, [740]],
+  [8641, [740, 710]],
+  [8643, [791, 740]],
+  [8653, [740]],
+  [8654, [615, 756, 740]],
+  [8660, [746, 751, 727, 615]],
+  [8670, [746]],
+  [8680, [615, 746, 740]],
+  [8700, [615, 766]],
+  [8721, [766]],
+  [8722, [766]],
+  [8723, [766]],
+  [8732, [615]],
+  [8740, [740, 615]],
+  [8751, [615, 746]],
+  [8752, [615]],
+  [8762, [766, 615]],
+  [8763, [766]],
+  [8765, [615, 756]],
+  [8766, [766, 756]],
+  [8781, [615, 766]],
+  [8783, [615, 766]],
+  [8800, [791, 740]],
+  [8830, [791]],
+  [8831, [791]],
+  [8832, [791]],
+  [8840, [740, 791]],
+  [8850, [791, 710]],
+  [8860, [791, 710, 730]],
+  [8870, [730, 710]],
+  [8881, [740, 710]],
+  [8882, [740, 710]],
+  [8883, [740]],
+  [8900, [730]],
+  [8920, [730]],
+  [8930, [730]],
+  [8940, [730, 710]],
+  [8950, [707]],
+  [8960, [730, 710]],
+  [8961, [707]],
+  [8963, [707, 706]],
+  [8970, [730, 846]],
+  [8981, [730]],
+  [8983, [730]],
+  [8990, [730, 846]],
+  [9000, [851]],
+  [9200, [851]],
+  [9210, [851]],
+  [9220, [851]],
+  [9230, [840, 851]],
+  [9240, [820, 851, 840]],
+  [9260, [840, 851]],
+  [9270, [851]],
+  [9280, [851]],
+  [9293, [840, 851]],
+  [9300, [813]],
+  [9310, [851]],
+  [9320, [851, 810]],
+  [9330, [813, 810]],
+  [9340, [810, 813]],
+  [9352, [813, 810]],
+  [9362, [851]],
+  [9370, [810, 851]],
+  [9380, [851]],
+  [9381, [851, 849]],
+  [9382, [851, 849, 810]],
+  [9400, [851]],
+  [9430, [851, 849]],
+  [9440, [810, 849, 851]],
+  [9460, [849]],
+  [9480, [860, 810, 849]],
+  [9490, [849]],
+  [9492, [849]],
+  [9493, [849]],
+  [9500, [791, 846, 840]],
+  [9510, [846, 840]],
+  [9520, [840]],
+  [9530, [840, 851]],
+  [9541, [820, 840]],
+  [9550, [730, 846]],
+  [9560, [840, 846]],
+  [9574, [840]],
+  [9575, [840]],
+  [9600, [840, 820]],
+  [9610, [840, 820]],
+  [9620, [791, 840, 846, 820]],
+  [9631, [791, 820]],
+  [9632, [791, 846]],
+  [9640, [820]],
+  [9670, [820, 849]],
+  [9681, [820]],
+  [9690, [849]],
+  [9700, [810, 849]],
+  [9740, [860, 810]],
+  [9750, [813, 860, 810]],
+  [9760, [810, 860]],
+  [9800, [860]],
+  [9830, [860, 813]],
+  [9850, [860]],
+  [9870, [860, 813]],
+  [9881, [860, 813]],
+  [9900, [860, 813]],
+  [9940, [825]],
+  [9970, [813]],
+  [9981, [813]],
+  [9982, [813, 860]],
+  [9990, [813]]
+]);";
+]
+Hvad er dit postnummer? <span style="font-size:14px;">Brug 0, hvis du ikke bor i Danmark</span>
+
+QUESTION Commune_2007 SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+	JAVA_SCRIPT = "function CommuneChanged(ev, question) {
+  var options = question.getAnswer();
+  var region = question.answerSheet.questions.match('label', 'Region')[0];
+  window.dontAutoScroll = window.initial;
+  if (options.length)
+    region.setAnswer(communeToRegion.get(options[0].value));
+  else
+    region.resetAnswer();
+  window.dontAutoScroll = false;
+}
+Question.bind('afterShowQuestion', CommuneChanged);
+Question.bind('answerChanged', CommuneChanged);
+
+Question.bind('afterValidateQuestion', function(ev, question, state) {
+  var answers = question.answerOptions.getAnswer();
+  if ((answers.length && communeToRegion.get(answers[0].value)) || !question.answerRequired) return;
+  question.attr('errorMessage', 'Angiv postnummer/kommune');
+  state.valid = false;
+});
+
+var communeToRegion = new Map([
+  [999, 999],
+  [169, 1],
+  [101, 1],
+  [153, 1],
+  [185, 1],
+  [147, 1],
+  [165, 1],
+  [161, 1],
+  [175, 1],
+  [167, 1],
+  [187, 1],
+  [183, 1],
+  [253, 2],
+  [265, 2],
+  [269, 2],
+  [163, 1],
+  [151, 1],
+  [159, 1],
+  [240, 1],
+  [155, 1],
+  [230, 1],
+  [173, 1],
+  [157, 1],
+  [190, 1],
+  [223, 1],
+  [210, 1],
+  [217, 1],
+  [270, 1],
+  [219, 1],
+  [260, 1],
+  [201, 1],
+  [250, 1],
+  [400, 1],
+  [411, 1],
+  [350, 2],
+  [329, 2],
+  [259, 2],
+  [370, 2],
+  [340, 2],
+  [320, 2],
+  [316, 2],
+  [330, 2],
+  [326, 2],
+  [306, 2],
+  [336, 2],
+  [390, 2],
+  [376, 2],
+  [360, 2],
+  [461, 3],
+  [480, 3],
+  [440, 3],
+  [410, 3],
+  [420, 3],
+  [450, 3],
+  [430, 3],
+  [479, 3],
+  [482, 3],
+  [492, 3],
+  [621, 3],
+  [630, 3],
+  [510, 3],
+  [580, 3],
+  [550, 3],
+  [540, 3],
+  [575, 3],
+  [530, 3],
+  [561, 3],
+  [573, 3],
+  [563, 3],
+  [760, 4],
+  [657, 4],
+  [661, 4],
+  [665, 4],
+  [607, 3],
+  [766, 4],
+  [756, 4],
+  [740, 4],
+  [791, 4],
+  [671, 4],
+  [787, 5],
+  [779, 4],
+  [773, 5],
+  [751, 4],
+  [727, 4],
+  [741, 4],
+  [746, 4],
+  [710, 4],
+  [706, 4],
+  [707, 4],
+  [615, 4],
+  [730, 4],
+  [846, 5],
+  [851, 5],
+  [840, 5],
+  [820, 5],
+  [813, 5],
+  [810, 5],
+  [849, 5],
+  [860, 5],
+  [825, 5]
+]);";
+]
+Hvilken kommune bor du i?<br /><em>Vælg venligst fra nedenstående liste <small>(Listen viser de kommuner, gældende fra 2007, der svarer til dit postnummer).</small></em>
+165:Albertslund
+201:Aller&#248;d
+420:Assens
+151:Ballerup
+530:Billund
+400:Bornholm
+153:Br&#248;ndby
+810:Brønderslev
+411:Christians&#248;
+155:Drag&#248;r
+240:Egedal
+561:Esbjerg
+563:Fan&#248;
+710:Favrskov
+320:Faxe
+210:Fredensborg
+607:Fredericia
+147:Frederiksberg
+813:Frederikshavn
+250:Frederikssund
+190:Fures&#248;
+430:Faaborg-Midtfyn
+157:Gentofte
+159:Gladsaxe
+161:Glostrup
+253:Greve
+270:Gribskov
+376:Guldborgsund
+510:Haderslev
+260:Halsn&#230;s (tidl. Frederiksv&#230;rk-Hundested)
+766:Hedensted
+217:Helsing&#248;r
+163:Herlev
+657:Herning
+219:Hiller&#248;d
+860:Hj&#248;rring
+316:Holb&#230;k
+661:Holstebro
+615:Horsens
+167:Hvidovre
+169:H&#248;je-Taastrup
+223:H&#248;rsholm
+756:Ikast-Brande
+183:Ish&#248;j
+849:Jammerbugt
+326:Kalundborg
+440:Kerteminde
+621:Kolding
+101:K&#248;benhavn
+259:K&#248;ge
+482:Langeland
+350:Lejre
+665:Lemvig
+360:Lolland
+173:Lyngby-Taarb&#230;k
+825:L&#230;s&#248;
+846:Mariagerfjord
+410:Middelfart
+773:Mors&#248;
+707:Norddjurs
+480:Nordfyns
+450:Nyborg
+370:N&#230;stved
+727:Odder
+461:Odense
+306:Odsherred
+730:Randers
+840:Rebild
+760:Ringk&#248;bing-Skjern
+329:Ringsted
+265:Roskilde
+230:Rudersdal
+175:R&#248;dovre
+741:Sams&#248;
+740:Silkeborg
+746:Skanderborg
+779:Skive
+330:Slagelse
+269:Solr&#248;d
+340:Sor&#248;
+336:Stevns
+671:Struer
+479:Svendborg
+706:Syddjurs
+540:S&#248;nderborg
+787:Thisted
+550:T&#248;nder
+185:T&#229;rnby
+187:Vallensb&#230;k
+573:Varde
+575:Vejen
+630:Vejle
+820:Vesthimmerland
+791:Viborg
+390:Vordingborg
+492:&#198;r&#248;
+580:Aabenraa
+851:Aalborg
+751:Aarhus
+999:Bor ikke i Danmark
+
+QUESTION Region SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+Hvilken region bor du i?
+1:Region Hovedstaden
+2:Region Sjælland
+3:Region Syddanmark
+4:Region Midtjylland
+5:Region Nordjylland
+6:Ved ikke / andet
+999:Bor ikke i Danmark
+
+QUESTION Civil_Status SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+Hvad er din civilstatus?
+1:Gift
+2:Samlevende
+3:Single/enlig
+4:Enke/enkemand
+9:Jeg har en kæreste, som jeg ikke bor sammen med
+8:Jeg er separeret eller skilt
+7:Bor sammen med mine for&#230;ldre
+5:Andet
+6:Ønsker ikke at oplyse
+
+QUESTION Household_Size SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+	JAVA_SCRIPT = "function HouseholdSizeChanged(ev, question) {
+  var options = question.getAnswer();
+  var below18Question = question.answerSheet.questions.match('label', 'Household_Children_Below_18')[0];
+  var nrPeople = options.length ? options[0].value : 1;
+
+  if (nrPeople == 1) {
+    below18Question.elements().parent().hide();
+    below18Question.attr('answer', 1);
+  } else {
+    if (below18Question.attr('answer') && !window.initial)
+    	below18Question.attr('answer', '');
+    below18Question.elements().parent().show();
+    below18Question.elements().find('.cg-ui-grid-row').hide();
+    below18Question.elements().find('.cg-ui-grid-row:lt(' + nrPeople + ')').show();
+  }
+}
+Question.bind('afterShowQuestion', HouseholdSizeChanged);
+Question.bind('answerChanged', HouseholdSizeChanged);";
+]
+Hvor mange personer bor der i husstanden?
+1:1
+2:2
+3:3
+4:4
+5:5
+6:6 eller flere
+
+QUESTION Household_Children_Below_18 SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+	JAVA_SCRIPT = "function HouseholdChildrenChanged(ev, question) {
+  var options = question.getAnswer();
+  var below18AgeQuestion = question.answerSheet.questions.match('label', 'Children_Age')[0];
+  var nrKids = options.length ? options[0].value - 1 : 0; //subtract 1 since value 1 is 0 kids
+
+  if (nrKids === 0) {
+    below18AgeQuestion.elements().parent().hide();
+  } else {
+    below18AgeQuestion.elements().parent().show();
+    below18AgeQuestion.elements().find('.cg-ui-grid-row').hide();
+    below18AgeQuestion.elements().find('.cg-ui-grid-row:lt(' + nrKids + ')').show();
+  }
+  below18AgeQuestion.subQuestions.forEach((x, i) => x.attr('answerRequired', i < nrKids));
+}
+Question.bind('afterShowQuestion', HouseholdChildrenChanged);
+Question.bind('answerChanged', HouseholdChildrenChanged);";
+]
+Hvor mange hjemmeboende børn (personer under 18 år) er der i husstanden?
+1:0
+2:1
+3:2
+4:3
+5:4
+6:5 eller flere
+
+QUESTION Children_Age TEXTGRID
+[
+	QUESTION_STYLE_SHEET = "#Children_Age-question table {
+	width: 300px;
+}
+#Children_Age-question input {
+	width: 100px;
+}";
+	JAVA_SCRIPT = "/*Question.bind('afterValidateQuestion', function(ev, question, state) {
+	if (!question.answerRequired) return;
+	var year = new Date().getFullYear();
+	question.subQuestions.forEach(x => {
+		if (!x.attr('answerRequired')) {
+			//clean up excesive answers if someone lowered the number of kids
+			if (x.attr('answer'))
+				x.attr('answer', '');
+			return;
+		}
+		var a = parseInt(x.attr('answer')) || 0;
+		if (a > year || a < (year - 18)) {
+			x.attr('state', Questionnaire.Models.QuestionState.Error);
+			question.attr('errorMessage', \"Indtast dit barns fødselsår (skal være mellem \" + (year - 18) + \" og \" + year + \")\");
+			state.valid = false;
+			question.elements().parent().show(); //some people may have invalid data which causes it to fail, so ensure it is shown so respondent can see the problem
+		}
+	});
+});*/
+Question.bind('afterValidateQuestion', function(ev, question, state) {
+	if (!question.answerRequired) return;
+	var year = new Date().getFullYear();
+	question.subQuestions.forEach(x => {
+		if (!x.attr('answerRequired')) {
+			//clean up excesive answers if someone lowered the number of kids
+			if (x.attr('answer'))
+				x.attr('answer', '');
+			return;
+		}
+		var a = parseInt(x.attr('answer')) || 0;
+		if (isNaN(x.attr('answer')) || a > year || a < (year - 18)) {
+			x.attr('state', Questionnaire.Models.QuestionState.Error);
+			question.attr('errorMessage', \"Indtast dit barns fødselsår (skal være mellem \" + (year - 18) + \" og \" + year + \")\");
+			state.valid = false;
+			question.elements().parent().show(); //some people may have invalid data which causes it to fail, so ensure it is shown so respondent can see the problem
+		}
+	});
+});";
+]
+Hvornår er barnet / børnene under 18 år født?<br /><em>(Indtast årstal eks. 2017)</em>
+SQ:Barn 1
+SQ:Barn 2
+SQ:Barn 3
+SQ:Barn 4
+SQ:Barn 5
+
+QUESTION DK_Living_Type SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+Hvilken type bolig bor du i?
+1:Villa
+2:Parcelhus
+3:Rækkehus
+4:Lejlighed
+5:Værelse
+6:Gård
+7:Husbåd
+8:Andet
+
+QUESTION DK_Living_Form SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+Hvad er din boligform?
+1:Ejerbolig
+2:Andelsbolig
+3:Lejebolig
+4:Andet
+5:Ved ikke
+
+QUESTION ShoppingResponsibility SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+Hvilken af følgende svarmuligheder passer bedst på dig personligt, når det drejer sig om indkøbsansvar i din husstand.
+1:Står for alle indkøb
+2:Står for de fleste indkøb
+3:Deles ligeligt med andre
+4:Deltager, men sjældnere
+5:Foretager aldrig indkøb
+6:Ved ikke
+
+QUESTION Car_In_Household SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+	JAVA_SCRIPT = "Question.bind('answerChanged', function(ev, question) {
+  var options = question.getAnswer();
+  var hasCars = options.some(x=>x.value <= 3);
+  var householdStyleQuestion = question.answerSheet.questions.match('label', 'DK_Household_Style')[0];
+
+  window.dontAutoScroll = true;
+  if (hasCars) {
+    if (!householdStyleQuestion.getAnswer().some(x=>x.value === 1))
+      householdStyleQuestion.setAnswer(1);
+  } else {
+    if (householdStyleQuestion.getAnswer().some(x=>x.value === 1))
+      householdStyleQuestion.toggleAnswer(1);
+  }
+  window.dontAutoScroll = false;
+});";
+]
+Hvor mange personbiler er der i husstanden?
+1:1 bil
+2:2 biler
+3:3 biler eller flere
+4:Ingen biler
+5:Ved ikke
+
+QUESTION Lower_Education SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+Hvad er din seneste afsluttede skoleuddannelse?
+1:Folkeskole / 7 års skolegang
+2:Mellemskole / 8 eller 9 års skolegang
+3:Realeksamen / 10 års skolegang
+4:Studentereksamen, hf, hh, htx
+5:Ingen afsluttet skoleuddannelse
+8:Andet
+6:Vil ikke oplyse
+7:Ved ikke
+
+QUESTION Higher_Education SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+Hvad er din længste afsluttede erhvervsuddannelse eller videregående uddannelse?
+1:Grundskole (Folkeskole/ Mellemskole/ Realeksamen)
+2:Gymnasial uddannelse (Studentereksamen/ HF)
+3:Erhvervsgymnasial uddannelse (HH/HTX/ HHX)
+4:Erhvervsfaglig uddannelse
+5:Kort videregående (under 3 år)
+6:Mellemlang videregående (3-4 år)
+7:Lang videregående (5 år eller mere)
+8:Forskeruddannelse (for eksempel Ph.d.)
+9:Andet
+10:Ved ikke
+
+QUESTION DK_Personal_Income SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+<p>Hvad er din personlige samlede indkomst før skat pr. år?</p><p><i>Vi tænker kun på bruttoindtægten, dvs. før evt. skat er trukket fra</i></p>
+1:0-99.999 kr.
+2:100.000-149.999 kr.
+3:150.000-199.999 kr.
+4:200.000-249.999 kr.
+5:250.000-299.999 kr.
+6:300.000-399.999 kr.
+7:400.000-499.999 kr.
+8:500.000-599.999 kr.
+9:600.000-699.999 kr.
+10:700.000-799.999 kr.
+11:800.000-899.999 kr.
+12:900.000-999.999 kr.
+13:1.000.000 kr. eller derover
+14:Vil ikke oplyse
+15:Ved ikke
+
+QUESTION DK_Household_Income SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+<p>Hvad er husstandens samlede indkomst før skat pr. år?</p><p><i>Vi tænker kun på bruttoindtægten, dvs. før evt. skat er trukket fra</i></p>
+1:0-99.999 kr.
+2:100.000-149.999 kr.
+3:150.000-199.999 kr.
+4:200.000-249.999 kr.
+5:250.000-299.999 kr.
+6:300.000-399.999 kr.
+7:400.000-499.999 kr.
+8:500.000-599.999 kr.
+9:600.000-699.999 kr.
+10:700.000-799.999 kr.
+11:800.000-899.999 kr.
+12:900.000-999.999 kr.
+13:1.000.000-1.099.999 kr.
+14:1.100.000-1.199.999 kr.
+15:1.200.0000-1.299.999 kr.
+16:1.300.000-1.399.999 kr.
+17:1.400.000-1.499.999 kr.
+18:1.500.000 kr. eller derover
+19:Vil ikke oplyse
+20:Ved ikke
+
+QUESTION DK_Household_Style MULTI
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+Hvilke af følgende sætninger passer på dig eller din husstand? <span style="font-size:14px;"><em>Angiv gerne flere svar.</em></span>
+1:Jeg/vi har en eller flere biler i husstanden
+2:Jeg/vi har eget fritidshus/sommerhus
+3:Jeg/vi har egen fritidsbåd
+4:[NO_MULTI = true;]Ingen af ovennævnte
+
+QUESTION DK_Household_Pets MULTI
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+Hvilke af følgende kæledyr har du/I i husstanden? <span style="font-size:14px;"><em>Angiv gerne flere svar.</em></span>
+1:Hund(e)
+2:Kat(te)
+3:Fisk
+4:Fugl(e)
+5:Hest(e)
+6:Gnavere og mindre dyr (hare, hamster, mus, etc.)
+7:Padder (frøer, etc.)
+8:Reptiler (slanger, skildpadder, øgler, etc.)
+10:Andet
+9:[NO_MULTI = true;]Jeg/Vi har ingen kæledyr
+
+QUESTION Inet_Access MULTI
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+	JAVA_SCRIPT = "function InetAccessChanged(ev, question) {
+  var inetUsageFrequencePrivatQuestion = question.answerSheet.questions.match('label', 'Inet_UsageFrequence_Privat')[0];
+  var inetUsageFrequenceWorkQuestion = question.answerSheet.questions.match('label', 'Inet_UsageFrequence_Work')[0];
+  var options = question.getAnswer();
+  var enable = !options.some(x => x.value === 5 || x.value === 6);
+  var haswork = enable && options.some(x => x.value === 2);
+  window.dontAutoScroll = true;
+  if (enable) {
+    inetUsageFrequencePrivatQuestion.answerRequired = true;
+    inetUsageFrequenceWorkQuestion.answerRequired = true;
+    inetUsageFrequencePrivatQuestion.elements().parent().show();
+    inetUsageFrequenceWorkQuestion.elements().parent().show();
+  } else {
+    inetUsageFrequencePrivatQuestion.answerRequired = false;
+    inetUsageFrequencePrivatQuestion.elements().parent().hide();
+    if (inetUsageFrequencePrivatQuestion.attr('answer') && !window.initial) inetUsageFrequencePrivatQuestion.attr('answer', '');
+  }
+  if (!haswork) {
+    inetUsageFrequenceWorkQuestion.answerRequired = false;
+    inetUsageFrequenceWorkQuestion.elements().parent().hide();
+    if (inetUsageFrequenceWorkQuestion.attr('answer') && !window.initial) inetUsageFrequenceWorkQuestion.attr('answer', '');
+  }
+  window.dontAutoScroll = false;
+}
+Question.bind('afterShowQuestion', InetAccessChanged);
+Question.bind('answerChanged', InetAccessChanged);";
+]
+Har du adgang til Internettet hjemme, på din arbejdsplads eller andre steder? <span style="font-size:14px;"><em>Angiv gerne flere svar.</em></span>
+1:Hjemme
+2:Arbejde
+3:Skole/uddannelsesinstitution
+7:Smartphone/tablet med mobil bredbånd
+4:Andre steder
+5:[NO_MULTI = true;]Ingen adgang
+6:[NO_MULTI = true;]Vil ikke oplyse
+
+QUESTION Inet_UsageFrequence_Work SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+Hvor ofte benytter du internettet <strong>i arbejdssammenhæng</strong>?
+1:Dagligt
+2:Ugentligt
+3:Månedligt
+4:Kvartalsvis
+5:Halvårligt
+6:Årligt
+7:Sjældnere
+8:Benytter aldrig / Har ikke arbejde
+9:Ved ikke
+
+QUESTION Inet_UsageFrequence_Privat SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+Hvor ofte benytter du internettet <strong>privat</strong>?
+1:Dagligt
+2:Ugentligt
+3:Månedligt
+4:Kvartalsvis
+5:Halvårligt
+6:Årligt
+7:Sjældnere
+8:Benytter aldrig
+9:Ved ikke
+
+QUESTION Current_Professional_Status SINGLE
+[
+	AUTO_ARRANGE_ANSWER_OPTIONS = false;
+	ANSWER_OPTION_COLUMNS = 1;
+]
+Hvilken beskæftigelse har du selv for tiden?
+1:Selvstændig
+2:Offentligt ansat
+3:Privat ansat
+4:Arbejdsløs
+5:Studerende
+6:Orlov
+7:Pensionist / efterløn
+8:Medhjælpende ægtefælle
+9:Hjemmegående ægtefælle
+10:Ved ikke / vil ikke svare
+
+END
+
+QUESTION Year_Born NUMBER
+[
+	DUMMY = true;
+	MIN_VALUE = 1900;
+	MAX_VALUE = 9999;
+	CG_SCRIPT = "array dateTime = getDateTime();
+number year_ = convertToNumber(dateTime[DateTime_Year]);
+if (Age != empty) Year_Born = (year_ - Age);";
+]
+Hvilket år er du født i?
+
+QUESTION D_Age_Group SINGLE
+[
+	DUMMY = true;
+	AUTO_ARRANGE_ANSWER_OPTIONS = true;
+]
+Dette bruges til vejning /used for making weight
+1:18-34
+2:35-49
+3:50-64
+4:65+
+
+QUESTION D_Age_Gender SINGLE
+[
+	DUMMY = true;
+	AUTO_ARRANGE_ANSWER_OPTIONS = true;
+]
+Dette bruges til vejning /used for making weight
+1:M 18-34
+2:M 35-49
+3:M 50-64
+4:M 65+
+5:K 18-34
+6:K 35-49
+7:K 50-64
+8:K 65+
+
+QUESTION Inet_UsageFrequence SINGLEGRID
+[
+	DUMMY = true;
+]
+Hvor ofte benytter du internettet?
+SQ:I arbejdssammenh&#230;ng
+SQ:Privat
+1:Dagligt
+2:Ugentligt
+3:Månedligt
+4:Kvartalsvis
+5:Halvårligt
+6:Årligt
+7:Sjældnere
+8:Benytter aldrig / Har ikke arbejde
+9:Ved ikke
+
+QUESTION D_COPY_STAMDATA_BACK PAGE
+[
+	DUMMY = true;
+	CG_SCRIPT = "Dictionary newData = Question_loadQuestions();
+if (Gender == empty && Extra_Gender != empty) Gender = Extra_Gender == [1, 3] ? 1 : 2;
+if (Gender != empty && Extra_Gender == empty) Extra_Gender = Gender;
+if (Gender != empty && Age != empty) {
+  if (Gender == 1 && Age == [18 - 34]) D_Age_Gender = 1;
+  if (Gender == 1 && Age == [35 - 49]) D_Age_Gender = 2;
+  if (Gender == 1 && Age == [50 - 64]) D_Age_Gender = 3;
+  if (Gender == 1 && Age == [65 - 120]) D_Age_Gender = 4;
+  if (Gender == 2 && Age == [18 - 34]) D_Age_Gender = 5;
+  if (Gender == 2 && Age == [35 - 49]) D_Age_Gender = 6;
+  if (Gender == 2 && Age == [50 - 64]) D_Age_Gender = 7;
+  if (Gender == 2 && Age == [65 - 120]) D_Age_Gender = 8;
+}
+if (Age != empty) {
+  if (Age == [18 - 34]) D_Age_Group = 1;
+  if (Age == [35 - 49]) D_Age_Group = 2;
+  if (Age == [50 - 64]) D_Age_Group = 3;
+  if (Age == [65 - 120]) D_Age_Group = 4;
+}
+if (Inet_UsageFrequence_Work != empty || Inet_UsageFrequence_Privat != empty) {
+  Inet_UsageFrequence[0] = Inet_UsageFrequence_Work;
+  Inet_UsageFrequence[1] = Inet_UsageFrequence_Privat;
+}
+
+
+Dictionary thisQnaireLabels = Question_getAll()
+  .ToDictionary(function(array q) {
+    return q[QUESTION_LABEL];
+  });
+
+QAS res_curr = QAS_getCurrentQAS().GetCaller();
+if (res_curr == empty) //testing this qnaire directly
+  return;
+
+Dictionary allLabelsInSource = Question_getAll(res_curr[QAS_QUESTIONNAIRE_RESOURCE_ID])
+  .ToDictionary(function(array q) {
+    return q[QUESTION_LABEL];
+  });
+
+Dictionary labelsToCopy = allLabelsInSource.KeysWhere(function(string q, array val) {
+    return thisQnaireLabels.ContainsKey(q);
+  })
+  .ToDictionary(function(string key) {
+    return key;
+  }, function(string key) {
+    return newData[key];
+  });
+
+if (labelsToCopy.Count > 0)
+  Question_saveQuestions(labelsToCopy, res_curr);
+
+//if we asked for any questions and prop says to copy back or we are calling this qas directly
+if (STAM_COPY_DATA != empty && getRPQUserId() != empty && allLabelsInSource.ContainsKey(\"UPDATE_DATA_IN_STAM\")) {
+  array allQas = QAS_getByUserResourceId(0, 15004111); //Panel Demographics DK (new) - Block 01 – Basis demografi
+  if (allQas.Count > 0) { //only for a panel member
+    Dictionary dataMap = {
+      \"Gender\": \"Gender\",
+		\"Extra_Gender\": \"Extra_Gender\",
+      \"Age\": \"Age\",
+      \"Region\": \"Region\",
+      \"ZipCode\": \"ZipCode\",
+      \"Commune_2007\": \"Commune_2007\",
+      \"Civil_Status\": \"Civil_Status\",
+      \"Household_Size\": \"Household_Size\",
+      \"Household_Children_Below_18\": \"Household_Children_Below_18\",
+      \"Children_Age\": \"Children_Age\",
+      \"DK_Living_Type\": \"DK_Living_Type\",
+      \"DK_Living_Form\": \"DK_Living_Form\",
+      \"ShoppingResponsibility\": \"ShoppingResponsibility\",
+      \"Car_In_Household\": \"Car_In_Household\",
+      \"Lower_Education\": \"Lower_Education\",
+      \"Higher_Education\": \"Higher_Education\",
+      \"DK_Personal_Income\": \"DK_Personal_Income\",
+      \"DK_Household_Income\": \"DK_Household_Income\",
+      \"DK_Household_Style\": \"DK_Household_Style\",
+      \"Inet_Access\": \"Inet_Access\",
+      \"Inet_UsageFrequence\": \"Inet_UsageFrequence\",
+      \"DK_Household_Pets\": \"DK_Household_Pets\",
+      \"Current_Professional_Status\": \"Current_Professional_Status\",
+		\"Year_Born\":\"Year_Born\"
+    };
+    //we dont use labelsToCopy, because some questions depends on answers of other questions, so anything that we now have data for is stored back to panel
+    Dictionary dataToSave = newData.Keys.Where(function(string key) {
+        return dataMap.ContainsKey(key) && newData[key] != empty;
+      })
+      .ToDictionary(function(string key) {
+        return dataMap[key];
+      }, function(string key) {
+        return newData[key];
+      });
+    Question_saveQuestions(dataToSave, allQas[0]);
+  }
+}
+
+returnFromGoto();";
+]
+Copy data back to asker and if needed to panel also
+
+QUESTION End_Successful PAGE
+[
+	DONE = true;
+]
+Only shown in test mode

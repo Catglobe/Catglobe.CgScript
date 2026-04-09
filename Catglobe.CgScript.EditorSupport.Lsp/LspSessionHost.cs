@@ -63,6 +63,69 @@ public static class LspSessionHost
       await rpc.Completion;
    }
 
+   public static async Task RunQslAsync(
+      WebSocket            webSocket,
+      QslLanguageTarget    target,
+      CancellationToken    cancellationToken = default)
+   {
+      var handler = new WebSocketMessageHandler(webSocket, new JsonMessageFormatter());
+      using var rpc = new JsonRpc(handler);
+      rpc.TraceSource.Switch.Level = System.Diagnostics.SourceLevels.Warning;
+      rpc.TraceSource.Listeners.Clear();
+      rpc.TraceSource.Listeners.Add(new System.Diagnostics.DefaultTraceListener());
+      target.Rpc = rpc;
+      RegisterQslHandlers(rpc, target);
+      rpc.StartListening();
+      using var reg = cancellationToken.Register(() => rpc.Dispose());
+      await rpc.Completion;
+   }
+
+   public static async Task RunQslAsync(
+      IDuplexPipe          pipe,
+      QslLanguageTarget    target,
+      CancellationToken    cancellationToken = default)
+   {
+      var handler = new HeaderDelimitedMessageHandler(pipe.Output.AsStream(), pipe.Input.AsStream(), new JsonMessageFormatter());
+      using var rpc = new JsonRpc(handler);
+      rpc.TraceSource.Switch.Level = System.Diagnostics.SourceLevels.Information;
+      rpc.TraceSource.Listeners.Clear();
+      rpc.TraceSource.Listeners.Add(new System.Diagnostics.DefaultTraceListener());
+      rpc.Disconnected += (_, e) =>
+      {
+         if (e.Exception != null)
+            System.Diagnostics.Debug.WriteLine($"[QSL LSP] Disconnected: {e.Reason}\n{e.Exception}");
+      };
+      target.Rpc = rpc;
+      RegisterQslHandlers(rpc, target);
+      rpc.StartListening();
+      using var reg = cancellationToken.Register(() => rpc.Dispose());
+      await rpc.Completion;
+   }
+
+   private static void RegisterQslHandlers(JsonRpc rpc, QslLanguageTarget t)
+   {
+      rpc.AddLspHandler(Methods.Initialize,                   t.Initialize);
+      rpc.AddLspNotification(Methods.Initialized,             t.Initialized);
+      rpc.AddLspHandler(Methods.Shutdown,                     t.Shutdown);
+      rpc.AddLspNotification(Methods.Exit,                    t.Exit);
+      rpc.AddLspNotification(Methods.TextDocumentDidOpen,     t.OnDidOpen);
+      rpc.AddLspNotification(Methods.TextDocumentDidChange,   t.OnDidChange);
+      rpc.AddLspNotification(Methods.TextDocumentDidSave,     t.OnDidSave);
+      rpc.AddLspNotification(Methods.TextDocumentDidClose,    t.OnDidClose);
+      rpc.AddLspHandler(Methods.TextDocumentSemanticTokensFull,      t.OnSemanticTokensFull);
+      rpc.AddLspHandler(Methods.TextDocumentSemanticTokensFullDelta,  t.OnSemanticTokensFullDelta);
+      rpc.AddLspHandler(Methods.TextDocumentSemanticTokensRange,     t.OnSemanticTokensRange);
+      rpc.AddLspHandler(Methods.TextDocumentHover,                   t.OnHover);
+      rpc.AddLspHandler(Methods.TextDocumentDefinition,              t.OnDefinition);
+      rpc.AddLspHandler(Methods.TextDocumentReferences,              t.OnReferences);
+      rpc.AddLspHandler("textDocument/prepareRename",                (Func<TextDocumentPositionParams, LspRange?>)t.OnPrepareRename);
+      rpc.AddLspHandler(Methods.TextDocumentRename,                  t.OnRename);
+      rpc.AddLspHandler(Methods.TextDocumentDocumentHighlight,       t.OnDocumentHighlight);
+      rpc.AddLspHandler(Methods.TextDocumentDocumentSymbol,          t.OnDocumentSymbol);
+      rpc.AddLspHandler(Methods.TextDocumentCompletion,              t.OnCompletion);
+      rpc.AddLspHandler(Methods.TextDocumentFoldingRange,            t.OnFoldingRange);
+   }
+
    private static void RegisterHandlers(JsonRpc rpc, CgScriptLanguageTarget t)
    {
       rpc.AddLspHandler(Methods.Initialize,                  t.Initialize);

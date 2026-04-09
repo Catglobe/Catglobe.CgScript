@@ -21,7 +21,7 @@ public static class CgScriptParseService
    /// <returns>A <see cref="ParseResult"/> containing the parse tree and any diagnostics.</returns>
    public static ParseResult Parse(string source, ITypeResolver? typeResolver = null)
    {
-      var errorListener = new DiagnosticErrorListener();
+      var errorListener = new DiagnosticErrorListener("CGS019");
 
       // Lexer
       var inputStream = CharStreams.fromString(source);

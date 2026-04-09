@@ -1,5 +1,6 @@
 {
   "Catglobe.CgScript.EditorSupport.VisualStudio.CgScriptLanguageServerProvider.DisplayName": "CgScript Language Server",
+  "Catglobe.CgScript.EditorSupport.VisualStudio.QslLanguageServerProvider.DisplayName": "QSL Language Server",
   "CgScript.Settings.Category.DisplayName": "CgScript",
   "CgScript.Settings.Category.Description": "CgScript language support settings",
   "CgScript.Settings.SiteUrl.DisplayName": "Site URL",
