@@ -670,6 +670,71 @@ builder.Services.AddOpenTelemetry().WithTracing(tracerProviderBuilder =>
 ```
 You can now view CgScript-related activities in your OpenTelemetry-compatible backend (such as Jaeger, Zipkin, or Azure Monitor).
 
+# CodeMirror editor for ASP.NET apps
+
+The `Catglobe.CgScript.EditorSupport.CodeMirror.AspNet` NuGet package ships a self-contained browser JavaScript bundle that provides CodeMirror 6 editors with full LSP support for both **CgScript** (`.cgs`) and **QSL** (`.qsl`) files.
+
+## Setup
+
+1. Add the NuGet package to your ASP.NET project:
+   ```xml
+   <PackageReference Include="Catglobe.CgScript.EditorSupport.CodeMirror.AspNet" Version="*" />
+   ```
+
+2. Register static web assets in `Program.cs` (standard for all RCL packages):
+   ```csharp
+   app.MapStaticAssets();
+   ```
+
+3. Include the bundle in your page (Razor example):
+   ```html
+   <script type="module" src="@CgScriptCodeMirrorAssets.BundlePath"></script>
+   ```
+   Or import it from your own JS/TS entry point:
+   ```js
+   import { CodeMirrorForCgScript, CodeMirrorForQsl, manageLspConnection }
+       from '/_content/Catglobe.CgScript.EditorSupport.CodeMirror.AspNet/cgscript-cm6.js';
+   ```
+
+## CgScript editor
+
+```js
+import { CodeMirrorForCgScript, manageLspConnection, openTransport }
+    from '/_content/Catglobe.CgScript.EditorSupport.CodeMirror.AspNet/cgscript-cm6.js';
+
+const editor = new CodeMirrorForCgScript(
+    document.getElementById('editor'),
+    initialContent,
+    'default',                         // or 'midnight'
+    { onDocChange: text => save(text) }
+);
+
+// Connect to the LSP server WebSocket (adjust URL to your setup)
+const fileUri = `file:///cgscript${location.pathname}.cgs`;
+manageLspConnection('/lsp/cgscript', editor, fileUri);
+```
+
+## QSL editor
+
+```js
+import { CodeMirrorForQsl, manageLspConnection }
+    from '/_content/Catglobe.CgScript.EditorSupport.CodeMirror.AspNet/cgscript-cm6.js';
+
+const editor = new CodeMirrorForQsl(
+    document.getElementById('editor'),
+    initialContent,
+    'default',
+    { onDocChange: text => save(text) }
+);
+
+const fileUri = `file:///qsl${location.pathname}.qsl`;
+manageLspConnection('/lsp/qsl', editor, fileUri);
+```
+
+## LSP server
+
+The editors connect to the `Catglobe.CgScript.EditorSupport.Lsp.Server` process over WebSocket. Run it as a sidecar or proxy the WebSocket endpoint from your ASP.NET app to the running process. Pass `--language cgscript` or `--language qsl` to select which language the server instance handles.
+
 # FAQ
 
 ## File name mapping to security
