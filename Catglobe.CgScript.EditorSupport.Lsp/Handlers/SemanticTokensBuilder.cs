@@ -173,7 +173,29 @@ public static class SemanticTokensBuilder
          {
             int typeIdx = GetSimpleTypeIndex(token.Type);
             if (typeIdx < 0) continue;
-            result.Add(new RawToken(line, col, length, typeIdx, 0));
+            // Multi-line tokens (string literals, ML comments) must be split into
+            // one entry per line — the LSP semantic tokens protocol forbids tokens
+            // that cross line boundaries.
+            var tokenText = token.Text;
+            if (tokenText.Contains('\n'))
+            {
+               var lines = tokenText.Split('\n');
+               int tokenLine = line;
+               int tokenCol  = col;
+               for (int li = 0; li < lines.Length; li++)
+               {
+                  var segment = lines[li];
+                  if (segment.EndsWith('\r')) segment = segment[..^1];
+                  if (segment.Length > 0)
+                     result.Add(new RawToken(tokenLine, tokenCol, segment.Length, typeIdx, 0));
+                  tokenLine++;
+                  tokenCol = 0;
+               }
+            }
+            else
+            {
+               result.Add(new RawToken(line, col, length, typeIdx, 0));
+            }
          }
       }
 

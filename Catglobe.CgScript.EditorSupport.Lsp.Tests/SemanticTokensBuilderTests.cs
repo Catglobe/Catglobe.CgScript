@@ -121,6 +121,77 @@ public class SemanticTokensBuilderTests
          "Expected comment tokens to be highlighted inside a block.");
    }
 
+   // ── Multi-line token splitting (issues #111, #113) ────────────────────────
+
+   [Fact]
+   public void Build_MultiLineStringLiteral_EmitsOneTokenPerLine()
+   {
+      // Issue #113: multi-line string should colour each line, not just the first.
+      const int TypeString = 1;
+      const string src = "string s = \"hello\nworld\";";
+      var data = SemanticTokensBuilder.Build(src).Data;
+
+      // Expect two string tokens — one for each line of the literal.
+      Assert.Equal(2, CountTokensOfType(data, TypeString));
+   }
+
+   [Fact]
+   public void Build_MultiLineStringLiteral_TokensOnCorrectLines()
+   {
+      // The string starts on line 0 — second segment must be on line 1.
+      const int TypeString = 1;
+      const string src = "string s = \"line0\nline1\";";
+      var data = SemanticTokensBuilder.Build(src).Data;
+
+      var lines = AbsoluteLines(data);
+      var tokenTypes = new List<int>();
+      for (int i = 3; i < data.Length; i += 5) tokenTypes.Add(data[i]);
+
+      // Collect lines for string tokens.
+      var stringLines = lines.Zip(tokenTypes)
+                              .Where(p => p.Second == TypeString)
+                              .Select(p => p.First)
+                              .ToList();
+
+      Assert.Contains(0, stringLines); // first segment on line 0
+      Assert.Contains(1, stringLines); // second segment on line 1
+   }
+
+   [Fact]
+   public void Build_MultiLineBlockComment_EmitsOneTokenPerLine()
+   {
+      // Issue #111: /* ... */ spanning multiple lines should colour each line.
+      const int TypeComment = 3;
+      const string src = "/*\nThis is\na comment\n*/\nnumber x = 1;";
+      var data = SemanticTokensBuilder.Build(src).Data;
+
+      // Four lines in the comment block → 4 segments (but line 0 is just "/*" length 2,
+      // line 3 is just "*/" length 2, middle lines are non-empty too).
+      Assert.True(CountTokensOfType(data, TypeComment) >= 3,
+         "Expected at least 3 comment tokens for a 4-line block comment.");
+   }
+
+   [Fact]
+   public void Build_MultiLineBlockComment_NoTokenCrossesLineBoundary()
+   {
+      // LSP forbids tokens spanning line boundaries — verify all emitted lengths
+      // are ≤ the length of their respective source line.
+      const string src = "/*\nline one\nline two\n*/\nnumber x;";
+      var data = SemanticTokensBuilder.Build(src).Data;
+
+      var srcLines = src.Split('\n');
+      int line = 0;
+      for (int i = 0; i < data.Length; i += 5)
+      {
+         line += data[i];
+         int len = data[i + 2];
+         Assert.True(line < srcLines.Length,
+            $"Token references line {line} but source only has {srcLines.Length} lines.");
+         Assert.True(len <= srcLines[line].TrimEnd('\r').Length,
+            $"Token length {len} exceeds source line {line} length '{srcLines[line]}'.");
+      }
+   }
+
    // ── Helpers ───────────────────────────────────────────────────────────────
 
    private static int CountTokensOfType(int[] data, int typeIdx)
