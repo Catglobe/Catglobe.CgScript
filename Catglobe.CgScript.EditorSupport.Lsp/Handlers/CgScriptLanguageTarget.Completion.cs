@@ -299,7 +299,7 @@ public partial class CgScriptLanguageTarget
             item.Documentation = new MarkupContent
             {
                Kind  = MarkupKind.Markdown,
-               Value = BuildEnumConstantDoc(name, includeDeprecatedPrefix: false),
+               Value = BuildEnumConstantDoc(name),
             };
          items.Add(item);
       }
