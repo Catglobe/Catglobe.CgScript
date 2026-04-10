@@ -54437,276 +54437,6 @@
         }
       ]
     },
-    "StyleTypeCgs": {
-      "prefix": "",
-      "doc": "Table style type constants",
-      "values": [
-        {
-          "name": "TableDiagram_AllTable",
-          "value": 0
-        },
-        {
-          "name": "TableDiagram_ColumnHeader",
-          "value": 1
-        },
-        {
-          "name": "TableDiagram_ColumnHeaderLevel1",
-          "value": 2
-        },
-        {
-          "name": "TableDiagram_ColumnHeaderLevel2",
-          "value": 3
-        },
-        {
-          "name": "TableDiagram_ColumnHeaderLevel3",
-          "value": 4
-        },
-        {
-          "name": "TableDiagram_ColumnHeaderLevel4",
-          "value": 5
-        },
-        {
-          "name": "TableDiagram_RowHeader",
-          "value": 6
-        },
-        {
-          "name": "TableDiagram_RowHeaderLevel1",
-          "value": 7
-        },
-        {
-          "name": "TableDiagram_RowHeaderLevel2",
-          "value": 8
-        },
-        {
-          "name": "TableDiagram_RowHeaderLevel3",
-          "value": 9
-        },
-        {
-          "name": "TableDiagram_AnswerRow",
-          "value": 10
-        },
-        {
-          "name": "TableDiagram_AnswerRowAlternate",
-          "value": 11
-        },
-        {
-          "name": "TableDiagram_SpacerCell",
-          "value": 12
-        },
-        {
-          "name": "TableDiagram_AbsoluteColumn",
-          "value": 13
-        },
-        {
-          "name": "TableDiagram_AbsoluteColumnHeader",
-          "value": 14
-        },
-        {
-          "name": "TableDiagram_AbsoluteColumnValue",
-          "value": 15
-        },
-        {
-          "name": "TableDiagram_PercentageColumn",
-          "value": 16
-        },
-        {
-          "name": "TableDiagram_PercentageColumnHeader",
-          "value": 17
-        },
-        {
-          "name": "TableDiagram_PercentageColumnValue",
-          "value": 18
-        },
-        {
-          "name": "TableDiagram_TotalColumn",
-          "value": 19
-        },
-        {
-          "name": "TableDiagram_TotalColumnHeader",
-          "value": 20
-        },
-        {
-          "name": "TableDiagram_TotalColumnValue",
-          "value": 21
-        },
-        {
-          "name": "TableDiagram_TotalRow",
-          "value": 22
-        },
-        {
-          "name": "TableDiagram_TotalRowHeader",
-          "value": 23
-        },
-        {
-          "name": "TableDiagram_TotalRowValue",
-          "value": 24
-        },
-        {
-          "name": "TableDiagram_VarianceRow",
-          "value": 25
-        },
-        {
-          "name": "TableDiagram_VarianceRowHeader",
-          "value": 26
-        },
-        {
-          "name": "TableDiagram_VarianceRowValue",
-          "value": 27
-        },
-        {
-          "name": "TableDiagram_AverageRow",
-          "value": 28
-        },
-        {
-          "name": "TableDiagram_AverageRowHeader",
-          "value": 29
-        },
-        {
-          "name": "TableDiagram_AverageRowValue",
-          "value": 30
-        },
-        {
-          "name": "TableDiagram_StdDevRow",
-          "value": 31
-        },
-        {
-          "name": "TableDiagram_StdDevRowHeader",
-          "value": 32
-        },
-        {
-          "name": "TableDiagram_StdDevRowValue",
-          "value": 33
-        },
-        {
-          "name": "TableDiagram_StdErrorRow",
-          "value": 34
-        },
-        {
-          "name": "TableDiagram_StdErrorRowHeader",
-          "value": 35
-        },
-        {
-          "name": "TableDiagram_StdErrorRowValue",
-          "value": 36
-        },
-        {
-          "name": "TableDiagram_MedianRow",
-          "value": 37
-        },
-        {
-          "name": "TableDiagram_MedianRowHeader",
-          "value": 38
-        },
-        {
-          "name": "TableDiagram_MedianRowValue",
-          "value": 39
-        },
-        {
-          "name": "TableDiagram_QuantilesRow",
-          "value": 40
-        },
-        {
-          "name": "TableDiagram_QuantilesRowHeader",
-          "value": 41
-        },
-        {
-          "name": "TableDiagram_QuantilesRowValue",
-          "value": 42
-        },
-        {
-          "name": "TableDiagram_PercentileRow",
-          "value": 43
-        },
-        {
-          "name": "TableDiagram_PercentileRowHeader",
-          "value": 44
-        },
-        {
-          "name": "TableDiagram_PercentileRowValue",
-          "value": 45
-        },
-        {
-          "name": "TableDiagram_SignificanceCell",
-          "value": 46
-        },
-        {
-          "name": "TableDiagram_SignificanceRow",
-          "value": 47
-        },
-        {
-          "name": "TableDiagram_SignificanceRowHeader",
-          "value": 48
-        },
-        {
-          "name": "TableDiagram_SignificanceRowValue",
-          "value": 49
-        },
-        {
-          "name": "TableDiagram_FilterRow",
-          "value": 50
-        },
-        {
-          "name": "TableDiagram_FilterRowHeader",
-          "value": 51
-        },
-        {
-          "name": "TableDiagram_FilterRowValue",
-          "value": 52
-        },
-        {
-          "name": "TableDiagram_CountAnswerRow",
-          "value": 53
-        },
-        {
-          "name": "TableDiagram_CountAnswerRowHeader",
-          "value": 54
-        },
-        {
-          "name": "TableDiagram_CountAnswerRowValue",
-          "value": 55
-        },
-        {
-          "name": "TableDiagram_TotalRespondentRow",
-          "value": 56
-        },
-        {
-          "name": "TableDiagram_TotalRespondentRowHeader",
-          "value": 57
-        },
-        {
-          "name": "TableDiagram_TotalRespondentRowValue",
-          "value": 58
-        },
-        {
-          "name": "TableDiagram_WeightRow",
-          "value": 59
-        },
-        {
-          "name": "TableDiagram_WeightRowHeader",
-          "value": 60
-        },
-        {
-          "name": "TableDiagram_WeightRowValue",
-          "value": 61
-        },
-        {
-          "name": "TableDiagram_QuestionHeader",
-          "value": 62
-        },
-        {
-          "name": "TableDiagram_NumberValue",
-          "value": 63
-        },
-        {
-          "name": "TableDiagram_EmptyCell",
-          "value": 64
-        },
-        {
-          "name": "TableDiagram_LastLevelRowHeader",
-          "value": 65
-        }
-      ]
-    },
     "DayOfWeekCgsObsolete": {
       "prefix": "",
       "doc": "Day of week constants. Replaced by DayOfWeek_*",
@@ -58510,6 +58240,276 @@
         {
           "name": "TableChartLayout_Standard",
           "value": 4
+        }
+      ]
+    },
+    "TableDiagram": {
+      "prefix": "TableDiagram_",
+      "doc": "Table style type constants",
+      "values": [
+        {
+          "name": "TableDiagram_AllTable",
+          "value": 0
+        },
+        {
+          "name": "TableDiagram_ColumnHeader",
+          "value": 1
+        },
+        {
+          "name": "TableDiagram_ColumnHeaderLevel1",
+          "value": 2
+        },
+        {
+          "name": "TableDiagram_ColumnHeaderLevel2",
+          "value": 3
+        },
+        {
+          "name": "TableDiagram_ColumnHeaderLevel3",
+          "value": 4
+        },
+        {
+          "name": "TableDiagram_ColumnHeaderLevel4",
+          "value": 5
+        },
+        {
+          "name": "TableDiagram_RowHeader",
+          "value": 6
+        },
+        {
+          "name": "TableDiagram_RowHeaderLevel1",
+          "value": 7
+        },
+        {
+          "name": "TableDiagram_RowHeaderLevel2",
+          "value": 8
+        },
+        {
+          "name": "TableDiagram_RowHeaderLevel3",
+          "value": 9
+        },
+        {
+          "name": "TableDiagram_AnswerRow",
+          "value": 10
+        },
+        {
+          "name": "TableDiagram_AnswerRowAlternate",
+          "value": 11
+        },
+        {
+          "name": "TableDiagram_SpacerCell",
+          "value": 12
+        },
+        {
+          "name": "TableDiagram_AbsoluteColumn",
+          "value": 13
+        },
+        {
+          "name": "TableDiagram_AbsoluteColumnHeader",
+          "value": 14
+        },
+        {
+          "name": "TableDiagram_AbsoluteColumnValue",
+          "value": 15
+        },
+        {
+          "name": "TableDiagram_PercentageColumn",
+          "value": 16
+        },
+        {
+          "name": "TableDiagram_PercentageColumnHeader",
+          "value": 17
+        },
+        {
+          "name": "TableDiagram_PercentageColumnValue",
+          "value": 18
+        },
+        {
+          "name": "TableDiagram_TotalColumn",
+          "value": 19
+        },
+        {
+          "name": "TableDiagram_TotalColumnHeader",
+          "value": 20
+        },
+        {
+          "name": "TableDiagram_TotalColumnValue",
+          "value": 21
+        },
+        {
+          "name": "TableDiagram_TotalRow",
+          "value": 22
+        },
+        {
+          "name": "TableDiagram_TotalRowHeader",
+          "value": 23
+        },
+        {
+          "name": "TableDiagram_TotalRowValue",
+          "value": 24
+        },
+        {
+          "name": "TableDiagram_VarianceRow",
+          "value": 25
+        },
+        {
+          "name": "TableDiagram_VarianceRowHeader",
+          "value": 26
+        },
+        {
+          "name": "TableDiagram_VarianceRowValue",
+          "value": 27
+        },
+        {
+          "name": "TableDiagram_AverageRow",
+          "value": 28
+        },
+        {
+          "name": "TableDiagram_AverageRowHeader",
+          "value": 29
+        },
+        {
+          "name": "TableDiagram_AverageRowValue",
+          "value": 30
+        },
+        {
+          "name": "TableDiagram_StdDevRow",
+          "value": 31
+        },
+        {
+          "name": "TableDiagram_StdDevRowHeader",
+          "value": 32
+        },
+        {
+          "name": "TableDiagram_StdDevRowValue",
+          "value": 33
+        },
+        {
+          "name": "TableDiagram_StdErrorRow",
+          "value": 34
+        },
+        {
+          "name": "TableDiagram_StdErrorRowHeader",
+          "value": 35
+        },
+        {
+          "name": "TableDiagram_StdErrorRowValue",
+          "value": 36
+        },
+        {
+          "name": "TableDiagram_MedianRow",
+          "value": 37
+        },
+        {
+          "name": "TableDiagram_MedianRowHeader",
+          "value": 38
+        },
+        {
+          "name": "TableDiagram_MedianRowValue",
+          "value": 39
+        },
+        {
+          "name": "TableDiagram_QuantilesRow",
+          "value": 40
+        },
+        {
+          "name": "TableDiagram_QuantilesRowHeader",
+          "value": 41
+        },
+        {
+          "name": "TableDiagram_QuantilesRowValue",
+          "value": 42
+        },
+        {
+          "name": "TableDiagram_PercentileRow",
+          "value": 43
+        },
+        {
+          "name": "TableDiagram_PercentileRowHeader",
+          "value": 44
+        },
+        {
+          "name": "TableDiagram_PercentileRowValue",
+          "value": 45
+        },
+        {
+          "name": "TableDiagram_SignificanceCell",
+          "value": 46
+        },
+        {
+          "name": "TableDiagram_SignificanceRow",
+          "value": 47
+        },
+        {
+          "name": "TableDiagram_SignificanceRowHeader",
+          "value": 48
+        },
+        {
+          "name": "TableDiagram_SignificanceRowValue",
+          "value": 49
+        },
+        {
+          "name": "TableDiagram_FilterRow",
+          "value": 50
+        },
+        {
+          "name": "TableDiagram_FilterRowHeader",
+          "value": 51
+        },
+        {
+          "name": "TableDiagram_FilterRowValue",
+          "value": 52
+        },
+        {
+          "name": "TableDiagram_CountAnswerRow",
+          "value": 53
+        },
+        {
+          "name": "TableDiagram_CountAnswerRowHeader",
+          "value": 54
+        },
+        {
+          "name": "TableDiagram_CountAnswerRowValue",
+          "value": 55
+        },
+        {
+          "name": "TableDiagram_TotalRespondentRow",
+          "value": 56
+        },
+        {
+          "name": "TableDiagram_TotalRespondentRowHeader",
+          "value": 57
+        },
+        {
+          "name": "TableDiagram_TotalRespondentRowValue",
+          "value": 58
+        },
+        {
+          "name": "TableDiagram_WeightRow",
+          "value": 59
+        },
+        {
+          "name": "TableDiagram_WeightRowHeader",
+          "value": 60
+        },
+        {
+          "name": "TableDiagram_WeightRowValue",
+          "value": 61
+        },
+        {
+          "name": "TableDiagram_QuestionHeader",
+          "value": 62
+        },
+        {
+          "name": "TableDiagram_NumberValue",
+          "value": 63
+        },
+        {
+          "name": "TableDiagram_EmptyCell",
+          "value": 64
+        },
+        {
+          "name": "TableDiagram_LastLevelRowHeader",
+          "value": 65
         }
       ]
     },
