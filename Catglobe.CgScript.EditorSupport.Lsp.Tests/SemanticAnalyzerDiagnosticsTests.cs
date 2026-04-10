@@ -169,12 +169,200 @@ public class SemanticAnalyzerDiagnosticsTests
    }
 
    [Fact]
+   public void BoolVar_AssignedBoolLiteral_NoCGS020()
+   {
+      var diags = Analyze("bool b = true;");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void BoolVar_AssignedFalseLiteral_NoCGS020()
+   {
+      var diags = Analyze("bool b = false;");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void ArrayVar_AssignedArrayLiteral_NoCGS020()
+   {
+      var diags = Analyze("array a = {1, 2, 3};");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void ArrayVar_AssignedRangeLiteral_ReportsCGS020()
+   {
+      // [1, 2, 3] is a Range literal in CgScript, not an array
+      var diags = Analyze("array a = [1, 2, 3];");
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void FunctionVar_AssignedFunctionLiteral_NoCGS020()
+   {
+      var diags = Analyze("function f = function() {};");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
    public void ObjectVar_AssignedAnything_NoCGS020()
    {
       // object and ? types accept any value
       var diags = Analyze("object o = 123;");
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void BoolVar_AssignedNumber_ReportsCGS020()
+   {
+      var diags = Analyze("bool b = 1;");
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void BoolVar_AssignedString_ReportsCGS020()
+   {
+      var diags = Analyze("bool b = \"text\";");
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void BoolVar_AssignedNewArray_ReportsCGS020()
+   {
+      var diags = Analyze("bool b = new Array();", objects: ["Array"]);
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void ArrayVar_AssignedNumber_ReportsCGS020()
+   {
+      var diags = Analyze("array a = 42;");
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void ArrayVar_AssignedString_ReportsCGS020()
+   {
+      var diags = Analyze("array a = \"text\";");
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void ArrayVar_AssignedBool_ReportsCGS020()
+   {
+      var diags = Analyze("array a = true;");
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void FunctionVar_AssignedNumber_ReportsCGS020()
+   {
+      var diags = Analyze("function f = 1;");
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void FunctionVar_AssignedString_ReportsCGS020()
+   {
+      var diags = Analyze("function f = \"text\";");
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void NumberVar_AssignedBool_ReportsCGS020()
+   {
+      var diags = Analyze("number n = true;");
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void StringVar_AssignedBool_ReportsCGS020()
+   {
+      var diags = Analyze("string s = true;");
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void NumberVar_AssignedClassInstance_ReportsCGS020()
+   {
+      var diags = Analyze("number n = new Dictionary();", objects: ["Dictionary"]);
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void StringVar_AssignedNewArray_ReportsCGS020()
+   {
+      var diags = Analyze("string s = new Array();", objects: ["Array"]);
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   // ── CGS020: class type assignment validation ──────────────────────────────
+
+   [Fact]
+   public void DictionaryVar_AssignedNewArray_ReportsCGS020()
+   {
+      // Dictionary d = new Array() — Array does not inherit from Dictionary
+      var result = CgScriptParseService.Parse("Dictionary d = new Array();");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void QuestionVar_AssignedNumber_NoCGS020()
+   {
+      // question Q1 = 42 — question keyword type accepts any value
+      var diags = Analyze("question Q1 = 42;");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void QuestionSubclassVar_AssignedArrayLiteral_NoCGS020()
+   {
+      // MultiGridQuestion Q2 = [2,3] — inherits from Question which accepts anything
+      var result = CgScriptParseService.Parse("MultiGridQuestion Q2 = [2,3];");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void ParentClassVar_AssignedChildClassInstance_NoCGS020()
+   {
+      // CatTaskSchedule t = new CatTaskNeverSchedule() — CatTaskNeverSchedule inherits CatTaskSchedule
+      var result = CgScriptParseService.Parse("CatTaskSchedule t = new CatTaskNeverSchedule();");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void UnrelatedClassVar_AssignedOtherClass_ReportsCGS020()
+   {
+      // Array a = new Dictionary() — Dictionary does not inherit from Array
+      var result = CgScriptParseService.Parse("Array a = new Dictionary();");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
    }
 
    // ── CGS020: location accuracy ─────────────────────────────────────────────
