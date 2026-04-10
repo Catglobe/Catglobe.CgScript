@@ -98,16 +98,16 @@ public class CgScriptDefinitionsEnumTests
    }
 
    [Fact]
-   public void PlainConstant_Completion_HasNoDocumentation()
+   public void ObsoleteConstant_Completion_HasDeprecatedDetailAndDocumentation()
    {
-      // TASK_RESOURCE_ID has no doc; its completion should not set Documentation
-      // (obsoleteDoc is separate and does not count as documentation).
+      // TASK_RESOURCE_ID is obsolete — Detail shows "(deprecated)", Documentation shows enum info without duplicate prefix.
       var (target, uri) = CreateTarget("TASK_RESOURCE_ID");
 
       var items = GetCompletions(target, uri, prefix: "TASK_RESOURCE_ID");
 
       var item = items.FirstOrDefault(i => i.Label == "TASK_RESOURCE_ID");
       Assert.NotNull(item);
-      Assert.Null(item.Documentation);
+      Assert.Equal("(deprecated)", item.Detail);
+      Assert.NotNull(item.Documentation);
    }
 }
