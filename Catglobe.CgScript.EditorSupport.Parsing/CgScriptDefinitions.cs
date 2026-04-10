@@ -322,7 +322,7 @@ public class CgScriptDefinitions
          IReadOnlyDictionary<string, EnumDefinition>      enums)
    {
       var constantNames = enums.Values.SelectMany(e => e.Values.Select(v => v.Name));
-      var hs = new HashSet<string>(constantNames, StringComparer.OrdinalIgnoreCase);
+      var hs = new HashSet<string>(constantNames, StringComparer.Ordinal);
 #if NET5_0_OR_GREATER
       IReadOnlySet<string> constantsSet = hs;
 #else
@@ -330,8 +330,8 @@ public class CgScriptDefinitions
 #endif
       var enumByConstant = enums.Values
          .SelectMany(e => e.Values.Select(v => (Key: v.Name, Enum: e, Value: v)))
-         .GroupBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
-         .ToDictionary(g => g.Key, g => (g.First().Enum, g.First().Value), StringComparer.OrdinalIgnoreCase);
+         .GroupBy(x => x.Key, StringComparer.Ordinal)
+         .ToDictionary(g => g.Key, g => (g.First().Enum, g.First().Value), StringComparer.Ordinal);
       return (BuildObjectMemberInfos(objects), BuildFunctionInfos(functions),
               BuildObsoleteFunctions(functions), BuildObsoleteConstants(enums),
               constantsSet, enumByConstant);
