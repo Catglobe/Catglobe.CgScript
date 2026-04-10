@@ -41,7 +41,9 @@ public sealed record MethodOverload(
    MethodParam[]  Param      = null!,
    string         ReturnType = "",
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
-   string?        ObsoleteDoc = null)
+   string?        ObsoleteDoc = null,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   string?        InheritedFrom = null)
 {
    /// <summary>The parameter list; never null after construction.</summary>
    public MethodParam[] Param { get; init; } = Param ?? [];
@@ -71,7 +73,9 @@ public sealed record PropertyDefinition(
    bool    HasSetter   = false,
    string  ReturnType  = "",
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
-   string? ObsoleteDoc = null)
+   string? ObsoleteDoc = null,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   string? InheritedFrom = null)
 {
    /// <summary>Returns <c>true</c> when <see cref="ObsoleteDoc"/> is non-null.</summary>
    [System.Text.Json.Serialization.JsonIgnore]
@@ -89,7 +93,9 @@ public sealed record ObjectDefinition(
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
    Dictionary<string, MethodOverload[]>?   StaticMethods = null,
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
-   Dictionary<string, PropertyDefinition>? Properties    = null);
+   Dictionary<string, PropertyDefinition>? Properties    = null,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   string? Parent = null);
 
 /// <summary>One value within a CgScript enum.</summary>
 public sealed record EnumValueDefinition(
