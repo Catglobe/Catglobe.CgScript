@@ -283,13 +283,13 @@ public partial class CgScriptLanguageTarget
    /// <summary>
    /// Builds the markdown hover text for an enum-derived constant.
    /// </summary>
-   private string BuildEnumConstantDoc(string name)
+   private string BuildEnumConstantDoc(string name, bool includeDeprecatedPrefix = true)
    {
       if (!_definitions.EnumByConstant.TryGetValue(name, out var entry))
          return $"constant: {name}";
 
       var sb = new System.Text.StringBuilder();
-      if (entry.Value.IsObsolete) sb.Append(DeprecatedPrefix(entry.Value.ObsoleteDoc));
+      if (entry.Value.IsObsolete && includeDeprecatedPrefix) sb.Append(DeprecatedPrefix(entry.Value.ObsoleteDoc));
       if (!string.IsNullOrWhiteSpace(entry.Enum.Doc))
          sb.Append(entry.Enum.Doc);
       if (!string.IsNullOrWhiteSpace(entry.Value.Doc))
