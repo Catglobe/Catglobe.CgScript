@@ -14379,7 +14379,7 @@
         "param": [
           {
             "name": "status",
-            "doc": "The new QAS status (use RPQ_Status constants)",
+            "doc": "The new QAS status (use QuestionnaireAnswerSheet_Status constants)",
             "type": "int"
           }
         ]
@@ -14866,7 +14866,7 @@
         "param": [
           {
             "name": "status",
-            "doc": "The new QAS status (use RPQ_Status constants)",
+            "doc": "The new QAS status (use QuestionnaireAnswerSheet_Status constants)",
             "type": "int"
           }
         ]
@@ -27315,7 +27315,7 @@
           "returnType": "int"
         },
         "Status": {
-          "doc": "Set which status to look for, use RPQ_Status_* constants",
+          "doc": "Set which status to look for, use QuestionnaireAnswerSheet_Status_* constants",
           "hasSetter": true,
           "returnType": "array"
         },
@@ -37345,7 +37345,7 @@
           "returnType": "DateTime"
         },
         "Status": {
-          "doc": "Current status of qas. See UserProjectQuestionnaire_Status_xxx/RPQ_Status_xxx.",
+          "doc": "Current status of qas. See QuestionnaireAnswerSheet_Status_xxx.",
           "hasSetter": true,
           "returnType": "int"
         },
@@ -40516,7 +40516,7 @@
         ],
         "EstimatedTime": [
           {
-            "doc": "Get estimated time to complete based on current time estimate of the pq",
+            "doc": "Get estimated time to complete based on current time estimate of the questionnaire",
             "returnType": "number",
             "param": [
               {
@@ -40529,7 +40529,7 @@
         ],
         "EstimatedTotalTime": [
           {
-            "doc": "Get sum of estimated time to complete based on current time estimate of the pq",
+            "doc": "Get sum of estimated time to complete based on current time estimate of the questionnaire",
             "returnType": "number",
             "param": [
               {
@@ -40605,10 +40605,24 @@
             ]
           }
         ],
+        "NumberOfActiveNotContactedQas": [
+          {
+            "doc": "Get count of NumberOfActiveNotContactedQas",
+            "returnType": "int",
+            "param": [
+              {
+                "name": "QuestionnaireId",
+                "doc": "The Id to get the info from",
+                "type": "int"
+              }
+            ]
+          }
+        ],
         "NumberOfActiveNotContactedRpq": [
           {
-            "doc": "Get count of NumberOfActiveNotContactedRpq",
+            "doc": "Get count of NumberOfActiveNotContactedQas",
             "returnType": "int",
+            "obsoleteDoc": "Use NumberOfActiveNotContactedQas",
             "param": [
               {
                 "name": "QuestionnaireId",
@@ -40774,10 +40788,24 @@
             ]
           }
         ],
+        "NumberOfNotContactedQas": [
+          {
+            "doc": "Get count of NumberOfNotContactedQas",
+            "returnType": "int",
+            "param": [
+              {
+                "name": "QuestionnaireId",
+                "doc": "The Id to get the info from",
+                "type": "int"
+              }
+            ]
+          }
+        ],
         "NumberOfNotContactedRpq": [
           {
-            "doc": "Get count of NumberOfNotContactedRpq",
+            "doc": "Get count of NumberOfNotContactedQas",
             "returnType": "int",
+            "obsoleteDoc": "Use NumberOfNotContactedQas",
             "param": [
               {
                 "name": "QuestionnaireId",
@@ -57565,6 +57593,11 @@
         },
         {
           "name": "Question_Property_RPQStatus",
+          "value": 76,
+          "obsoleteDoc": "Use Question_Property_QASStatus"
+        },
+        {
+          "name": "Question_Property_QASStatus",
           "value": 76
         },
         {
@@ -58149,23 +58182,28 @@
       "values": [
         {
           "name": "RPQ_Status_Normal",
-          "value": 1
+          "value": 1,
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusNormal"
         },
         {
           "name": "RPQ_Status_QuotaFull",
-          "value": 2
+          "value": 2,
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusQuotaFull"
         },
         {
           "name": "RPQ_Status_OutsideTarget",
-          "value": 3
+          "value": 3,
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusOutsideTarget"
         },
         {
           "name": "RPQ_Status_InterviewFailed",
-          "value": 4
+          "value": 4,
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusInterviewFailed"
         },
         {
           "name": "RPQ_Status_InterviewSucceeded",
-          "value": 5
+          "value": 5,
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusInterviewSucceeded"
         }
       ]
     },
@@ -60025,27 +60063,32 @@
     },
     "UserProjectQuestionnaire_Status": {
       "prefix": "UserProjectQuestionnaire_Status_",
-      "doc": "UPQ status constants",
+      "doc": "QAS status constants",
       "values": [
         {
           "name": "UserProjectQuestionnaire_Status_Normal",
-          "value": 1
+          "value": 1,
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusNormal"
         },
         {
           "name": "UserProjectQuestionnaire_Status_QuotaFull",
-          "value": 2
+          "value": 2,
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusQuotaFull"
         },
         {
           "name": "UserProjectQuestionnaire_Status_OutsideTarget",
-          "value": 3
+          "value": 3,
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusOutsideTarget"
         },
         {
           "name": "UserProjectQuestionnaire_Status_InterviewFailed",
-          "value": 4
+          "value": 4,
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusInterviewFailed"
         },
         {
           "name": "UserProjectQuestionnaire_Status_InterviewSucceeded",
-          "value": 5
+          "value": 5,
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusInterviewSucceeded"
         }
       ]
     },
