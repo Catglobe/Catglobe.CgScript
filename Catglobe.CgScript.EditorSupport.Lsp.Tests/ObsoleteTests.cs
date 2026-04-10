@@ -399,10 +399,10 @@ public class ObsoleteTests
       Assert.Contains("Deprecated", text, StringComparison.OrdinalIgnoreCase);
    }
 
-   // ── Completion: obsolete enum constant shows "(deprecated)" in Detail ────────
+   // ── Completion: obsolete enum constant shows ⚠ Deprecated in Documentation ──
 
    [Fact]
-   public void Completion_ObsoleteEnumConstant_HasDeprecatedDetail()
+   public void Completion_ObsoleteEnumConstant_HasDeprecatedDocumentation()
    {
       var enumDef = new EnumDefinition(
          "TEST_", "",
@@ -419,6 +419,8 @@ public class ObsoleteTests
 
       var item = items.FirstOrDefault(i => i.Label == "TEST_OLD");
       Assert.NotNull(item);
-      Assert.Contains("deprecated", item.Detail ?? "", StringComparison.OrdinalIgnoreCase);
+      Assert.Null(item.Detail);
+      Assert.NotNull(item.Documentation);
+      Assert.Contains("Deprecated", item.Documentation.Value.Second.Value, StringComparison.Ordinal);
    }
 }

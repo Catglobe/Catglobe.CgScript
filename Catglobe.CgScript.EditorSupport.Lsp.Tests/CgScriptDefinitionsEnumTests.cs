@@ -98,16 +98,16 @@ public class CgScriptDefinitionsEnumTests
    }
 
    [Fact]
-   public void ObsoleteConstant_Completion_HasDeprecatedDetailAndDocumentation()
+   public void ObsoleteConstant_Completion_HasDocumentation()
    {
-      // TASK_RESOURCE_ID is obsolete — Detail shows "(deprecated)", Documentation shows enum info without duplicate prefix.
+      // TASK_RESOURCE_ID is obsolete — Documentation shows ⚠ Deprecated with enum info.
       var (target, uri) = CreateTarget("TASK_RESOURCE_ID");
 
       var items = GetCompletions(target, uri, prefix: "TASK_RESOURCE_ID");
 
       var item = items.FirstOrDefault(i => i.Label == "TASK_RESOURCE_ID");
       Assert.NotNull(item);
-      Assert.Equal("(deprecated)", item.Detail);
+      Assert.Null(item.Detail);
       Assert.NotNull(item.Documentation);
    }
 }

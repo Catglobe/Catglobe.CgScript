@@ -287,13 +287,11 @@ public partial class CgScriptLanguageTarget
 
       foreach (var name in _definitions.ConstantsStartingWith(all ? "" : prefix))
       {
-         bool inEnum        = _definitions.EnumByConstant.TryGetValue(name, out var entry);
-         bool constObsolete = inEnum && entry.Value.IsObsolete;
+         bool inEnum = _definitions.EnumByConstant.TryGetValue(name, out var entry);
          var item = new CompletionItem
          {
-            Label  = name,
-            Kind   = CompletionItemKind.Constant,
-            Detail = constObsolete ? "(deprecated)" : null,
+            Label = name,
+            Kind  = CompletionItemKind.Constant,
          };
          if (inEnum && (!string.IsNullOrWhiteSpace(entry.Value.Doc) || !string.IsNullOrWhiteSpace(entry.Enum.Doc) || entry.Value.IsObsolete))
             item.Documentation = new MarkupContent
