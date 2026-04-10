@@ -430,7 +430,7 @@
     ],
     "Blacklist_checkExist": [
       {
-        "doc": "Check if the specified emails exist in the blacklist. Returns a dictionary of email ΓåÆ bool.",
+        "doc": "Check if the specified emails exist in the blacklist. Returns a dictionary of email → bool.",
         "returnType": "Dictionary",
         "param": [
           {
@@ -443,7 +443,7 @@
     ],
     "Blacklist_getDetail": [
       {
-        "doc": "Get detail information (date, comment) for the specified emails. Returns a dictionary of email ΓåÆ details.",
+        "doc": "Get detail information (date, comment) for the specified emails. Returns a dictionary of email → details.",
         "returnType": "Dictionary",
         "param": [
           {
@@ -491,7 +491,7 @@
           {
             "name": "maxToSend",
             "doc": "Maximum number of recipients to include; -1 means no limit",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -645,7 +645,7 @@
           {
             "name": "Bulkmail template resource id",
             "doc": "Resource id of the bulkmail resource template",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -690,7 +690,7 @@
           {
             "name": "maxToSend",
             "doc": "Maximum number of recipients to include; -1 means no limit",
-            "type": "int"
+            "type": "int?"
           }
         ]
       },
@@ -707,7 +707,7 @@
           {
             "name": "maxToSend",
             "doc": "Maximum number of recipients to include; -1 means no limit",
-            "type": "int"
+            "type": "int?"
           },
           {
             "name": "schedule",
@@ -743,7 +743,7 @@
           {
             "name": "maxToSend",
             "doc": "Maximum number of recipients; -1 means no limit",
-            "type": "int"
+            "type": "int?"
           }
         ]
       },
@@ -760,7 +760,7 @@
           {
             "name": "maxToSend",
             "doc": "Maximum number of recipients; -1 means no limit",
-            "type": "int"
+            "type": "int?"
           },
           {
             "name": "callback",
@@ -880,7 +880,7 @@
           {
             "name": "BulkSMS template resource id",
             "doc": "BulkSMS resource template id",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -925,7 +925,7 @@
           {
             "name": "Maximum number to send",
             "doc": "Maximum number to send",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -941,50 +941,50 @@
         "returnType": "array",
         "param": [
           {
-            "name": "rpqId",
-            "doc": "Primary key of the resource project questionnaire",
-            "type": "int"
+            "name": "qasId",
+            "doc": "Primary key of the answer sheet",
+            "type": "int?"
           }
         ]
       }
     ],
     "CATI_getCallStatistics": [
       {
-        "doc": "Gets call statistics for a project questionnaire",
+        "doc": "Gets call statistics for a Questionnaire",
         "returnType": "Dictionary",
         "param": [
           {
-            "name": "pqId",
-            "doc": "Project questionnaire resource id",
+            "name": "questionnaireId",
+            "doc": "Questionnaire resource id",
             "type": "int"
           }
         ]
       },
       {
-        "doc": "Gets call statistics for a project questionnaire",
+        "doc": "Gets call statistics for a Questionnaire",
         "returnType": "Dictionary",
         "param": [
           {
-            "name": "pqId",
-            "doc": "Project questionnaire resource id",
+            "name": "questionnaireId",
+            "doc": "Questionnaire resource id",
             "type": "int"
           },
           {
             "name": "onlyLastContact",
             "doc": "If true, only counts the last contact per respondent",
-            "type": "bool"
+            "type": "bool?"
           }
         ]
       }
     ],
     "CATI_getLinkToCATIForm": [
       {
-        "doc": "Returns the link to the CATI form for the given RPQ",
+        "doc": "Returns the link to the CATI form for the given QAS",
         "returnType": "string",
         "param": [
           {
             "name": "Questionnaire answer sheet Id",
-            "doc": "The RPQ id",
+            "doc": "The QAS id",
             "type": "int"
           }
         ]
@@ -1287,7 +1287,7 @@
           {
             "name": "dcsResourceId",
             "doc": "Resource id of the data cache",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -1318,7 +1318,7 @@
           {
             "name": "dcsResourceId",
             "doc": "Resource id of the data cache",
-            "type": "int"
+            "type": "int?"
           }
         ]
       },
@@ -1335,7 +1335,7 @@
           {
             "name": "dcsResourceId",
             "doc": "Resource id of the data cache",
-            "type": "int"
+            "type": "int?"
           },
           {
             "name": "weight",
@@ -1357,7 +1357,7 @@
           {
             "name": "dcsResourceId",
             "doc": "Resource id of the data cache",
-            "type": "int"
+            "type": "int?"
           },
           {
             "name": "weight",
@@ -1628,6 +1628,17 @@
     ],
     "DateTime_fromInvariant": [
       {
+        "doc": "Parses an invariant datetime string to a DateTime object, or Empty when the input is absent",
+        "returnType": "array",
+        "param": [
+          {
+            "name": "DateTime string",
+            "doc": "The invariant datetime string to parse",
+            "type": "string"
+          }
+        ]
+      },
+      {
         "doc": "Parses an invariant datetime string to a DateTime object, or Empty when both inputs are absent",
         "returnType": "array",
         "param": [
@@ -1645,6 +1656,17 @@
       }
     ],
     "DateTime_fromJson": [
+      {
+        "doc": "Deserialises a JSON datetime string to a DateTime array, or Empty when the input is absent",
+        "returnType": "array",
+        "param": [
+          {
+            "name": "DateTime string",
+            "doc": "The JSON datetime string to parse",
+            "type": "string"
+          }
+        ]
+      },
       {
         "doc": "Deserialises a JSON datetime string to a DateTime array, or Empty when both inputs are absent",
         "returnType": "array",
@@ -1895,6 +1917,23 @@
       {
         "doc": "Returns the total number of seconds between two DateTime objects",
         "returnType": "number",
+        "obsoleteDoc": "Use DateTime.secondsBetween(second)",
+        "param": [
+          {
+            "name": "First DateTime",
+            "doc": "The first DateTime object",
+            "type": "DateTime"
+          },
+          {
+            "name": "Second DateTime",
+            "doc": "The second DateTime object",
+            "type": "DateTime"
+          }
+        ]
+      },
+      {
+        "doc": "Returns the total number of seconds between two DateTime objects",
+        "returnType": "number",
         "obsoleteDoc": "Use DateTime.secondsBetween(second, timezoneId)",
         "param": [
           {
@@ -2045,6 +2084,18 @@
     ],
     "DateTime_toJson": [
       {
+        "doc": "Serialises a DateTime to a JSON ISO 8601 string",
+        "returnType": "string",
+        "obsoleteDoc": "Use DateTime.toJson()",
+        "param": [
+          {
+            "name": "DateTime",
+            "doc": "The DateTime object to serialise; pass empty to get an Empty result",
+            "type": "DateTime"
+          }
+        ]
+      },
+      {
         "doc": "Serialises a DateTime to a JSON ISO 8601 string (0=DateTime, 1=DateOnly, 2=TimeOnly)",
         "returnType": "string",
         "obsoleteDoc": "Use DateTime.toJson(type)",
@@ -2057,7 +2108,7 @@
           {
             "name": "Type",
             "doc": "Output format: 0 = DateTime (default), 1 = DateOnly, 2 = TimeOnly",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -2206,12 +2257,12 @@
         "param": [
           {
             "name": "start date time",
-            "doc": "Start of the date range (inclusive; must be ΓëÑ 1753-01-01)",
+            "doc": "Start of the date range (inclusive; must be ≥ 1753-01-01)",
             "type": "DateTime"
           },
           {
             "name": "end date time",
-            "doc": "End of the date range (inclusive; must be ΓëÑ 1753-01-01)",
+            "doc": "End of the date range (inclusive; must be ≥ 1753-01-01)",
             "type": "DateTime"
           }
         ]
@@ -2222,18 +2273,18 @@
         "param": [
           {
             "name": "start date time",
-            "doc": "Start of the date range (inclusive; must be ΓëÑ 1753-01-01)",
+            "doc": "Start of the date range (inclusive; must be ≥ 1753-01-01)",
             "type": "DateTime"
           },
           {
             "name": "end date time",
-            "doc": "End of the date range (inclusive; must be ΓëÑ 1753-01-01)",
+            "doc": "End of the date range (inclusive; must be ≥ 1753-01-01)",
             "type": "DateTime"
           },
           {
             "name": "Group resource id",
             "doc": "Group resource unique id to filter results by",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -2816,7 +2867,7 @@
           {
             "name": "Include deleted",
             "doc": "Whether to include deleted users",
-            "type": "bool"
+            "type": "bool?"
           }
         ]
       },
@@ -2848,12 +2899,12 @@
           {
             "name": "Include deleted",
             "doc": "Whether to include deleted users",
-            "type": "bool"
+            "type": "bool?"
           },
           {
             "name": "Include disabled",
             "doc": "Whether to include disabled users",
-            "type": "bool"
+            "type": "bool?"
           }
         ]
       }
@@ -2998,7 +3049,7 @@
           {
             "name": "Parallel build",
             "doc": "Whether to rebuild rules in parallel transactions",
-            "type": "bool"
+            "type": "bool?"
           }
         ]
       },
@@ -3338,7 +3389,7 @@
           {
             "name": "Phonenumber type",
             "doc": "The phone number type to validate for",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -3994,7 +4045,7 @@
     ],
     "Quarantine_addToQuarantine": [
       {
-        "doc": "Adds the current RPQ user to a quarantine, using the RPQ name as comment.",
+        "doc": "Adds the current QAS user to a quarantine, using the QAS name as comment.",
         "returnType": "Empty",
         "param": [
           {
@@ -4005,7 +4056,7 @@
         ]
       },
       {
-        "doc": "Adds the specified users to a quarantine, using the RPQ name as comment.",
+        "doc": "Adds the specified users to a quarantine, using the QAS name as comment.",
         "returnType": "Empty",
         "param": [
           {
@@ -4107,17 +4158,17 @@
     ],
     "QuestionInfo_getAll": [
       {
-        "doc": "Returns all questions in the current PQ context",
+        "doc": "Returns all questions in the current Questionnaire context",
         "returnType": "array",
         "param": []
       },
       {
-        "doc": "Returns all questions for the given PQ resource id",
+        "doc": "Returns all questions for the given Questionnaire resource id",
         "returnType": "array",
         "param": [
           {
             "name": "Questionnaire resource id",
-            "doc": "The PQ resource id",
+            "doc": "The Questionnaire resource id",
             "type": "int"
           }
         ]
@@ -4154,7 +4205,7 @@
     ],
     "QuestionInfo_getQuestionByIndex": [
       {
-        "doc": "Returns the question at the given index in the current PQ context",
+        "doc": "Returns the question at the given index in the current Questionnaire context",
         "returnType": "QuestionInfo",
         "param": [
           {
@@ -4165,7 +4216,7 @@
         ]
       },
       {
-        "doc": "Returns the question at the given index for the specified PQ and language",
+        "doc": "Returns the question at the given index for the specified Questionnaire and language",
         "returnType": "QuestionInfo",
         "param": [
           {
@@ -4175,8 +4226,8 @@
           },
           {
             "name": "Questionnaire resource id",
-            "doc": "The PQ resource id",
-            "type": "int"
+            "doc": "The Questionnaire resource id",
+            "type": "int?"
           },
           {
             "name": "Iso-code",
@@ -4188,23 +4239,23 @@
     ],
     "QuestionInfo_getQuestions": [
       {
-        "doc": "Returns question objects for all given labels in a PQ",
+        "doc": "Returns question objects for all given labels in a Questionnaire",
         "returnType": "array",
         "param": [
           {
-            "name": "pqId",
-            "doc": "The project questionnaire resource id",
+            "name": "questionnaireId",
+            "doc": "The Questionnaire resource id",
             "type": "int"
           }
         ]
       },
       {
-        "doc": "Returns question objects for the specified labels in a PQ",
+        "doc": "Returns question objects for the specified labels in a Questionnaire",
         "returnType": "array",
         "param": [
           {
-            "name": "pqId",
-            "doc": "The project questionnaire resource id",
+            "name": "questionnaireId",
+            "doc": "The Questionnaire resource id",
             "type": "int"
           },
           {
@@ -4215,12 +4266,12 @@
         ]
       },
       {
-        "doc": "Returns question objects for the specified labels in a PQ, filtered to a given language",
+        "doc": "Returns question objects for the specified labels in a Questionnaire, filtered to a given language",
         "returnType": "array",
         "param": [
           {
-            "name": "pqId",
-            "doc": "The project questionnaire resource id",
+            "name": "questionnaireId",
+            "doc": "The Questionnaire resource id",
             "type": "int"
           },
           {
@@ -4250,8 +4301,25 @@
         "param": [
           {
             "name": "Questionnaire resource id",
-            "doc": "The PQ resource id",
-            "type": "int"
+            "doc": "The Questionnaire resource id",
+            "type": "int?"
+          }
+        ]
+      },
+      {
+        "doc": "Returns all questions for the specified questionnaire template with options.",
+        "returnType": "array",
+        "obsoleteDoc": "Use QuestionInfo_getAll",
+        "param": [
+          {
+            "name": "Questionnaire resource id",
+            "doc": "The Questionnaire resource id",
+            "type": "int?"
+          },
+          {
+            "name": "Iso-code",
+            "doc": "Language ISO code",
+            "type": "string"
           }
         ]
       }
@@ -4337,8 +4405,25 @@
           },
           {
             "name": "Questionnaire resource id",
-            "doc": "The PQ resource id",
+            "doc": "The Questionnaire resource id",
+            "type": "int?"
+          }
+        ]
+      },
+      {
+        "doc": "Returns the question at the specified index for the given questionnaire template.",
+        "returnType": "QuestionInfo",
+        "obsoleteDoc": "Use QuestionInfo_getQuestionByIndex",
+        "param": [
+          {
+            "name": "Question index",
+            "doc": "Index of the question",
             "type": "int"
+          },
+          {
+            "name": "Questionnaire resource id",
+            "doc": "The Questionnaire resource id",
+            "type": "int?"
           },
           {
             "name": "Iso-code",
@@ -4355,7 +4440,7 @@
         "obsoleteDoc": "Use QuestionInfo_getQuestions",
         "param": [
           {
-            "name": "pqId",
+            "name": "questionnaireId",
             "doc": "Resource id of the project questionnaire",
             "type": "int"
           }
@@ -4367,7 +4452,7 @@
         "obsoleteDoc": "Use QuestionInfo_getQuestions",
         "param": [
           {
-            "name": "pqId",
+            "name": "questionnaireId",
             "doc": "Resource id of the project questionnaire",
             "type": "int"
           },
@@ -4384,7 +4469,7 @@
         "obsoleteDoc": "Use QuestionInfo_getQuestions",
         "param": [
           {
-            "name": "pqId",
+            "name": "questionnaireId",
             "doc": "Resource id of the project questionnaire",
             "type": "int"
           },
@@ -4590,7 +4675,7 @@
           {
             "name": "gridNumber",
             "doc": "Zero-based index of the grid sub-question",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -4609,12 +4694,12 @@
         "param": []
       },
       {
-        "doc": "Resets the answer sheet with the given RPQ id.",
+        "doc": "Resets the answer sheet with the given QAS id.",
         "returnType": "Empty",
         "param": [
           {
-            "name": "rpqId",
-            "doc": "Primary key of the resource project questionnaire",
+            "name": "qasId",
+            "doc": "Primary key of the answer sheet",
             "type": "int"
           }
         ]
@@ -4622,7 +4707,7 @@
     ],
     "QuestionnaireTemplate_current": [
       {
-        "doc": "Get questionnaire template in current QAS or PQ context",
+        "doc": "Get questionnaire template in current QAS or Questionnaire context",
         "returnType": "QuestionnaireTemplate",
         "param": []
       }
@@ -4675,13 +4760,13 @@
     ],
     "Questionnaire_createNewWithEmptyQuestionnaireTemplate": [
       {
-        "doc": "Creates a new project questionnaire with a freshly generated empty questionnaire template.",
+        "doc": "Creates a new Questionnaire with a freshly generated empty questionnaire template.",
         "returnType": "Questionnaire",
         "obsoleteDoc": "Use new Questionnaire(name, parentId, layoutId, userInfo) instead",
         "param": [
           {
             "name": "Questionnaire name",
-            "doc": "Name of the new project questionnaire",
+            "doc": "Name of the new Questionnaire",
             "type": "string"
           },
           {
@@ -4702,13 +4787,13 @@
         ]
       },
       {
-        "doc": "Creates a new project questionnaire with a freshly generated empty questionnaire template using the specified language.",
+        "doc": "Creates a new Questionnaire with a freshly generated empty questionnaire template using the specified language.",
         "returnType": "Questionnaire",
         "obsoleteDoc": "Use new Questionnaire(name, parentId, layoutId, userInfo) instead",
         "param": [
           {
             "name": "Questionnaire name",
-            "doc": "Name of the new project questionnaire",
+            "doc": "Name of the new Questionnaire",
             "type": "string"
           },
           {
@@ -4734,13 +4819,13 @@
         ]
       },
       {
-        "doc": "Creates a new project questionnaire with a freshly generated empty questionnaire template using specified language and questionnaire template resource.",
+        "doc": "Creates a new Questionnaire with a freshly generated empty questionnaire template using specified language and questionnaire template resource.",
         "returnType": "Questionnaire",
         "obsoleteDoc": "Use new Questionnaire(name, parentId, layoutId, userInfo) instead",
         "param": [
           {
             "name": "Questionnaire name",
-            "doc": "Name of the new project questionnaire",
+            "doc": "Name of the new Questionnaire",
             "type": "string"
           },
           {
@@ -4766,14 +4851,14 @@
           {
             "name": "qtResourceTemplateResourceId",
             "doc": "Resource template resource id for the questionnaire template",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
     ],
     "Questionnaire_current": [
       {
-        "doc": "Get questionnaire in current QAS or PQ context",
+        "doc": "Get Questionnaire in current QAS or Questionnaire context",
         "returnType": "Questionnaire",
         "param": []
       }
@@ -4793,12 +4878,12 @@
     ],
     "Questionnaire_getCountQASs": [
       {
-        "doc": "Counts answer sheets for a PQ, optionally filtered by group, test-inclusion, completion state, status, and date range",
+        "doc": "Counts answer sheets for a questionnaire, optionally filtered by group, test-inclusion, completion state, status, and date range",
         "returnType": "int",
         "param": [
           {
-            "name": "pqId",
-            "doc": "Project questionnaire resource id",
+            "name": "questionnaireId",
+            "doc": "Questionnaire resource id",
             "type": "int"
           },
           {
@@ -4814,64 +4899,12 @@
         ]
       },
       {
-        "doc": "Counts answer sheets for a PQ, optionally filtered by group, test-inclusion, completion state, status, and date range",
+        "doc": "Counts answer sheets for a questionnaire, optionally filtered by group, test-inclusion, completion state, status, and date range",
         "returnType": "int",
         "param": [
           {
-            "name": "pqId",
-            "doc": "Project questionnaire resource id",
-            "type": "int"
-          },
-          {
-            "name": "groupId",
-            "doc": "Group resource id (-1 for all)",
-            "type": "int"
-          },
-          {
-            "name": "includeTest",
-            "doc": "Whether to include test submissions",
-            "type": "bool"
-          },
-          {
-            "name": "completed",
-            "doc": "Completion filter (true/false)",
-            "type": "bool"
-          }
-        ]
-      },
-      {
-        "doc": "Counts answer sheets for a PQ, optionally filtered by group, test-inclusion, completion state, status, and date range",
-        "returnType": "int",
-        "param": [
-          {
-            "name": "pqId",
-            "doc": "Project questionnaire resource id",
-            "type": "int"
-          },
-          {
-            "name": "groupId",
-            "doc": "Group resource id (-1 for all)",
-            "type": "int"
-          },
-          {
-            "name": "includeTest",
-            "doc": "Whether to include test submissions",
-            "type": "bool"
-          },
-          {
-            "name": "status",
-            "doc": "Status filter value",
-            "type": "int"
-          }
-        ]
-      },
-      {
-        "doc": "Counts answer sheets for a PQ, optionally filtered by group, test-inclusion, completion state, status, and date range",
-        "returnType": "int",
-        "param": [
-          {
-            "name": "pqId",
-            "doc": "Project questionnaire resource id",
+            "name": "questionnaireId",
+            "doc": "Questionnaire resource id",
             "type": "int"
           },
           {
@@ -4887,22 +4920,74 @@
           {
             "name": "completed",
             "doc": "Completion filter (true/false)",
+            "type": "bool?"
+          }
+        ]
+      },
+      {
+        "doc": "Counts answer sheets for a questionnaire, optionally filtered by group, test-inclusion, completion state, status, and date range",
+        "returnType": "int",
+        "param": [
+          {
+            "name": "questionnaireId",
+            "doc": "Questionnaire resource id",
+            "type": "int"
+          },
+          {
+            "name": "groupId",
+            "doc": "Group resource id (-1 for all)",
+            "type": "int"
+          },
+          {
+            "name": "includeTest",
+            "doc": "Whether to include test submissions",
             "type": "bool"
           },
           {
             "name": "status",
             "doc": "Status filter value",
-            "type": "int"
+            "type": "int?"
           }
         ]
       },
       {
-        "doc": "Counts answer sheets for a PQ, optionally filtered by group, test-inclusion, completion state, status, and date range",
+        "doc": "Counts answer sheets for a questionnaire, optionally filtered by group, test-inclusion, completion state, status, and date range",
         "returnType": "int",
         "param": [
           {
-            "name": "pqId",
-            "doc": "Project questionnaire resource id",
+            "name": "questionnaireId",
+            "doc": "Questionnaire resource id",
+            "type": "int"
+          },
+          {
+            "name": "groupId",
+            "doc": "Group resource id (-1 for all)",
+            "type": "int"
+          },
+          {
+            "name": "includeTest",
+            "doc": "Whether to include test submissions",
+            "type": "bool"
+          },
+          {
+            "name": "completed",
+            "doc": "Completion filter (true/false)",
+            "type": "bool?"
+          },
+          {
+            "name": "status",
+            "doc": "Status filter value",
+            "type": "int?"
+          }
+        ]
+      },
+      {
+        "doc": "Counts answer sheets for a questionnaire, optionally filtered by group, test-inclusion, completion state, status, and date range",
+        "returnType": "int",
+        "param": [
+          {
+            "name": "questionnaireId",
+            "doc": "Questionnaire resource id",
             "type": "int"
           },
           {
@@ -4928,12 +5013,12 @@
         ]
       },
       {
-        "doc": "Counts answer sheets for a PQ, optionally filtered by group, test-inclusion, completion state, status, and date range",
+        "doc": "Counts answer sheets for a questionnaire, optionally filtered by group, test-inclusion, completion state, status, and date range",
         "returnType": "int",
         "param": [
           {
-            "name": "pqId",
-            "doc": "Project questionnaire resource id",
+            "name": "questionnaireId",
+            "doc": "Questionnaire resource id",
             "type": "int"
           },
           {
@@ -4949,7 +5034,7 @@
           {
             "name": "completed",
             "doc": "Completion filter (true/false)",
-            "type": "bool"
+            "type": "bool?"
           },
           {
             "name": "startDate",
@@ -4964,12 +5049,12 @@
         ]
       },
       {
-        "doc": "Counts answer sheets for a PQ, optionally filtered by group, test-inclusion, completion state, status, and date range",
+        "doc": "Counts answer sheets for a questionnaire, optionally filtered by group, test-inclusion, completion state, status, and date range",
         "returnType": "int",
         "param": [
           {
-            "name": "pqId",
-            "doc": "Project questionnaire resource id",
+            "name": "questionnaireId",
+            "doc": "Questionnaire resource id",
             "type": "int"
           },
           {
@@ -4985,7 +5070,7 @@
           {
             "name": "status",
             "doc": "Status filter value",
-            "type": "int"
+            "type": "int?"
           },
           {
             "name": "startDate",
@@ -5000,12 +5085,12 @@
         ]
       },
       {
-        "doc": "Counts answer sheets for a PQ, optionally filtered by group, test-inclusion, completion state, status, and date range",
+        "doc": "Counts answer sheets for a questionnaire, optionally filtered by group, test-inclusion, completion state, status, and date range",
         "returnType": "int",
         "param": [
           {
-            "name": "pqId",
-            "doc": "Project questionnaire resource id",
+            "name": "questionnaireId",
+            "doc": "Questionnaire resource id",
             "type": "int"
           },
           {
@@ -5021,12 +5106,12 @@
           {
             "name": "completed",
             "doc": "Completion filter (true/false)",
-            "type": "bool"
+            "type": "bool?"
           },
           {
             "name": "status",
             "doc": "Status filter value",
-            "type": "int"
+            "type": "int?"
           },
           {
             "name": "startDate",
@@ -5051,18 +5136,18 @@
     ],
     "Questionnaire_getQuestionGroups": [
       {
-        "doc": "Returns the question groups for the current PQ context",
+        "doc": "Returns the question groups for the current Questionnaire context",
         "returnType": "object",
         "param": []
       },
       {
-        "doc": "Returns the question groups for the specified PQ",
+        "doc": "Returns the question groups for the specified Questionnaire",
         "returnType": "object",
         "param": [
           {
             "name": "Questionnaire resource id",
-            "doc": "The PQ resource id",
-            "type": "int"
+            "doc": "The Questionnaire resource id",
+            "type": "int?"
           }
         ]
       }
@@ -5075,7 +5160,7 @@
         "param": [
           {
             "name": "Questionnaire resource id",
-            "doc": "The project questionnaire resource id",
+            "doc": "The Questionnaire resource id",
             "type": "int"
           }
         ]
@@ -5096,18 +5181,18 @@
     ],
     "Questionnaire_new": [
       {
-        "doc": "Creates a new project questionnaire from an existing questionnaire template and returns the PQ array object",
+        "doc": "Creates a new Questionnaire from an existing questionnaire template and returns the Questionnaire object",
         "returnType": "Questionnaire",
         "obsoleteDoc": "Use new Questionnaire(name, parentId, layoutId, templateId, resourceTemplateId) instead",
         "param": [
           {
             "name": "Questionnaire name",
-            "doc": "Name of the new project questionnaire",
+            "doc": "Name of the new Questionnaire",
             "type": "string"
           },
           {
             "name": "Questionnaire resource template resource id",
-            "doc": "Resource template resource id governing PQ permissions and defaults",
+            "doc": "Resource template resource id governing questionnaire permissions and defaults",
             "type": "int"
           },
           {
@@ -5122,7 +5207,7 @@
           },
           {
             "name": "Questionnaire parent resource id",
-            "doc": "Parent resource id under which the PQ is created",
+            "doc": "Parent resource id under which the questionnaire is created",
             "type": "int"
           }
         ]
@@ -5130,7 +5215,7 @@
     ],
     "Questionnaire_quotaExists": [
       {
-        "doc": "Determines whether the quota exists in the current PQ context",
+        "doc": "Determines whether the quota exists in the current questionnaire context",
         "returnType": "bool",
         "param": [
           {
@@ -5141,7 +5226,7 @@
         ]
       },
       {
-        "doc": "Determines whether the quota exists in the specified PQ",
+        "doc": "Determines whether the quota exists in the specified questionnaire",
         "returnType": "bool",
         "param": [
           {
@@ -5150,9 +5235,9 @@
             "type": "string"
           },
           {
-            "name": "PQ unique id",
-            "doc": "The PQ resource id",
-            "type": "int"
+            "name": "Questionnaire unique id",
+            "doc": "The Questionnaire resource id",
+            "type": "int?"
           }
         ]
       }
@@ -5173,12 +5258,12 @@
     ],
     "Questionnaire_setCompleted": [
       {
-        "doc": "Marks or unmarks a project questionnaire as completed and records the outcome description.",
+        "doc": "Marks or unmarks a Questionnaire as completed and records the outcome description.",
         "returnType": "Empty",
         "param": [
           {
             "name": "qResourceId",
-            "doc": "Unique resource id of the project questionnaire",
+            "doc": "Unique resource id of the Questionnaire",
             "type": "int"
           },
           {
@@ -5194,12 +5279,12 @@
         ]
       },
       {
-        "doc": "Marks or unmarks a project questionnaire as completed, impersonating the specified user for permission checks.",
+        "doc": "Marks or unmarks a Questionnaire as completed, impersonating the specified user for permission checks.",
         "returnType": "Empty",
         "param": [
           {
             "name": "qResourceId",
-            "doc": "Unique resource id of the project questionnaire",
+            "doc": "Unique resource id of the Questionnaire",
             "type": "int"
           },
           {
@@ -5215,14 +5300,14 @@
           {
             "name": "userResourceId",
             "doc": "Resource id of the user to impersonate for permission checks",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
     ],
     "Questionnaire_setQuotaTarget": [
       {
-        "doc": "Updates the quota target in the current PQ context",
+        "doc": "Updates the quota target in the current questionnaire context",
         "returnType": "Empty",
         "param": [
           {
@@ -5238,7 +5323,7 @@
         ]
       },
       {
-        "doc": "Updates the quota target in the specified PQ",
+        "doc": "Updates the quota target in the specified questionnaire",
         "returnType": "Empty",
         "param": [
           {
@@ -5252,9 +5337,9 @@
             "type": "int"
           },
           {
-            "name": "PQ unique id",
-            "doc": "The PQ resource id",
-            "type": "int"
+            "name": "Questionnaire unique id",
+            "doc": "The Questionnaire resource id",
+            "type": "int?"
           }
         ]
       }
@@ -5266,7 +5351,7 @@
         "param": [
           {
             "name": "Questionnaire resource id",
-            "doc": "The PQ resource id",
+            "doc": "The Questionnaire resource id",
             "type": "int"
           },
           {
@@ -5279,25 +5364,25 @@
     ],
     "Quota_deleteAllQuotas": [
       {
-        "doc": "Deletes all quotas from the current PQ context",
+        "doc": "Deletes all quotas from the current Questionnaire context",
         "returnType": "Empty",
         "param": []
       },
       {
-        "doc": "Deletes all quotas from the specified PQ",
+        "doc": "Deletes all quotas from the specified Questionnaire",
         "returnType": "Empty",
         "param": [
           {
             "name": "Quota questionnaire resource id",
-            "doc": "The PQ resource id",
-            "type": "int"
+            "doc": "The questionnaire resource id",
+            "type": "int?"
           }
         ]
       }
     ],
     "Quota_deleteQuota": [
       {
-        "doc": "Deletes the quota with the given name from the current PQ context",
+        "doc": "Deletes the quota with the given name from the current Questionnaire context",
         "returnType": "Empty",
         "param": [
           {
@@ -5308,7 +5393,7 @@
         ]
       },
       {
-        "doc": "Deletes the quota with the given name from the specified PQ",
+        "doc": "Deletes the quota with the given name from the specified Questionnaire",
         "returnType": "Empty",
         "param": [
           {
@@ -5318,33 +5403,33 @@
           },
           {
             "name": "Quota questionnaire resource id",
-            "doc": "The PQ resource id",
-            "type": "int"
+            "doc": "The questionnaire resource id",
+            "type": "int?"
           }
         ]
       }
     ],
     "Quota_getAllQuotas": [
       {
-        "doc": "Returns all quotas for the current PQ context",
+        "doc": "Returns all quotas for the current Questionnaire context",
         "returnType": "Array of Quota",
         "param": []
       },
       {
-        "doc": "Returns all quotas for the specified PQ",
+        "doc": "Returns all quotas for the specified Questionnaire",
         "returnType": "Array of Quota",
         "param": [
           {
             "name": "Quota questionnaire resource id",
-            "doc": "The PQ resource id",
-            "type": "int"
+            "doc": "The questionnaire resource id",
+            "type": "int?"
           }
         ]
       }
     ],
     "Quota_getQuotaByName": [
       {
-        "doc": "Returns the quota with the given name in the current PQ context",
+        "doc": "Returns the quota with the given name in the current Questionnaire context",
         "returnType": "Quota",
         "param": [
           {
@@ -5355,7 +5440,7 @@
         ]
       },
       {
-        "doc": "Returns the quota with the given name in the specified PQ",
+        "doc": "Returns the quota with the given name in the specified Questionnaire",
         "returnType": "Quota",
         "param": [
           {
@@ -5365,15 +5450,15 @@
           },
           {
             "name": "Quota questionnaire resource id",
-            "doc": "The PQ resource id",
-            "type": "int"
+            "doc": "The questionnaire resource id",
+            "type": "int?"
           }
         ]
       }
     ],
     "Quota_getQuotasByNameLike": [
       {
-        "doc": "Returns quotas whose names contain the given string in the current PQ context",
+        "doc": "Returns quotas whose names contain the given string in the current Questionnaire context",
         "returnType": "Array of Quota",
         "param": [
           {
@@ -5384,7 +5469,7 @@
         ]
       },
       {
-        "doc": "Returns quotas whose names contain the given string in the specified PQ",
+        "doc": "Returns quotas whose names contain the given string in the specified Questionnaire",
         "returnType": "Array of Quota",
         "param": [
           {
@@ -5394,15 +5479,15 @@
           },
           {
             "name": "Quota questionnaire resource id",
-            "doc": "The PQ resource id",
-            "type": "int"
+            "doc": "The questionnaire resource id",
+            "type": "int?"
           }
         ]
       }
     ],
     "Quota_new": [
       {
-        "doc": "Creates a new quota object for the current PQ context",
+        "doc": "Creates a new quota object for the current questionnaire context",
         "returnType": "Quota",
         "obsoleteDoc": "Use new Quota(...) instead",
         "param": [
@@ -5424,7 +5509,7 @@
         ]
       },
       {
-        "doc": "Creates a new quota object for the specified PQ",
+        "doc": "Creates a new quota object for the specified Questionnaire",
         "returnType": "Quota",
         "obsoleteDoc": "Use new Quota(...) instead",
         "param": [
@@ -5445,8 +5530,8 @@
           },
           {
             "name": "Quota questionnaire resource id",
-            "doc": "The PQ resource id",
-            "type": "int"
+            "doc": "The questionnaire resource id",
+            "type": "int?"
           }
         ]
       }
@@ -5488,7 +5573,7 @@
         "param": [
           {
             "name": "Quota questionnaire resource id",
-            "doc": "The PQ resource id",
+            "doc": "The questionnaire resource id",
             "type": "int"
           }
         ]
@@ -5504,7 +5589,7 @@
           },
           {
             "name": "Quota questionnaire resource id",
-            "doc": "The PQ resource id",
+            "doc": "The questionnaire resource id",
             "type": "int"
           }
         ]
@@ -5512,25 +5597,25 @@
     ],
     "Quota_updateAllQuotas": [
       {
-        "doc": "Updates all quotas for the current PQ context",
+        "doc": "Updates all quotas for the current Questionnaire context",
         "returnType": "Empty",
         "param": []
       }
     ],
     "Quota_updateAllQuotasForAllQASs": [
       {
-        "doc": "Updates all quotas for all QASs in the current PQ context",
+        "doc": "Updates all quotas for all QASs in the current Questionnaire context",
         "returnType": "int",
         "param": []
       },
       {
-        "doc": "Updates all quotas for all QASs in the specified PQ",
+        "doc": "Updates all quotas for all QASs in the specified Questionnaire",
         "returnType": "int",
         "param": [
           {
             "name": "Quota questionnaire resource id",
-            "doc": "The PQ resource id",
-            "type": "int"
+            "doc": "The questionnaire resource id",
+            "type": "int?"
           }
         ]
       }
@@ -5550,7 +5635,7 @@
     ],
     "Quota_updateQuotaForAllQASs": [
       {
-        "doc": "Updates the specified quota for all QASs in the current PQ context",
+        "doc": "Updates the specified quota for all QASs in the current Questionnaire context",
         "returnType": "int",
         "param": [
           {
@@ -5561,7 +5646,7 @@
         ]
       },
       {
-        "doc": "Updates the specified quota for all QASs in the specified PQ",
+        "doc": "Updates the specified quota for all QASs in the specified Questionnaire",
         "returnType": "int",
         "param": [
           {
@@ -5571,8 +5656,8 @@
           },
           {
             "name": "Quota questionnaire resource id",
-            "doc": "The PQ resource id",
-            "type": "int"
+            "doc": "The questionnaire resource id",
+            "type": "int?"
           }
         ]
       }
@@ -5611,7 +5696,7 @@
           {
             "name": "Ignore case",
             "doc": "When true the match is case-insensitive",
-            "type": "bool"
+            "type": "bool?"
           }
         ]
       }
@@ -5953,7 +6038,7 @@
           {
             "name": "ignoreResourceId",
             "doc": "Resource unique id to ignore when checking for existence",
-            "type": "int"
+            "type": "int?"
           }
         ]
       },
@@ -5979,7 +6064,7 @@
           {
             "name": "ignoreResourceId",
             "doc": "Resource unique id to ignore when checking for existence",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -6075,7 +6160,7 @@
           {
             "name": "maxCount",
             "doc": "Maximum number of results to return",
-            "type": "int"
+            "type": "int?"
           }
         ]
       },
@@ -6106,12 +6191,12 @@
           {
             "name": "maxCount",
             "doc": "Maximum number of results to return",
-            "type": "int"
+            "type": "int?"
           },
           {
             "name": "parentResourceId",
             "doc": "Parent resource id to restrict search under (0 for all)",
-            "type": "int"
+            "type": "int?"
           }
         ]
       },
@@ -6142,17 +6227,17 @@
           {
             "name": "maxCount",
             "doc": "Maximum number of results to return",
-            "type": "int"
+            "type": "int?"
           },
           {
             "name": "parentResourceId",
             "doc": "Parent resource id to restrict search under (0 for all)",
-            "type": "int"
+            "type": "int?"
           },
           {
             "name": "includeSubChildren",
             "doc": "Whether to include all descendants rather than direct children only",
-            "type": "bool"
+            "type": "bool?"
           }
         ]
       }
@@ -6181,7 +6266,7 @@
           {
             "name": "Inherit",
             "doc": "Whether to inherit access from parent",
-            "type": "bool"
+            "type": "bool?"
           }
         ]
       }
@@ -6307,7 +6392,7 @@
     ],
     "Security_changeResourceGuid": [
       {
-        "doc": "Changes the GUID of a resource ΓÇö requires admin rights",
+        "doc": "Changes the GUID of a resource — requires admin rights",
         "returnType": "Empty",
         "param": [
           {
@@ -6423,7 +6508,7 @@
           {
             "name": "From Resource Id",
             "doc": "Resource id of the from resource",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -6472,7 +6557,7 @@
           {
             "name": "From Resource Id",
             "doc": "Resource id of the from resource",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -6595,8 +6680,8 @@
           },
           {
             "name": "Worksheet distribution",
-            "doc": "Strategy for distributing tabulations across worksheets",
-            "type": "TabulationWorksheetDistributionType constant"
+            "doc": "Strategy for distributing tabulations across worksheets, using Tabulation_SheetDistribution_*",
+            "type": "int?"
           }
         ]
       }
@@ -7127,7 +7212,7 @@
     ],
     "Tabulation_setPdfMargin": [
       {
-        "doc": "Sets a PDF margin value in points (valid range: 0ΓÇô100) for the specified margin type",
+        "doc": "Sets a PDF margin value in points (valid range: 0–100) for the specified margin type",
         "returnType": "Empty",
         "param": [
           {
@@ -7625,7 +7710,7 @@
           {
             "name": "User resource id",
             "doc": "The user resource id",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -7654,7 +7739,7 @@
           {
             "name": "User resource id",
             "doc": "The user resource id",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -7693,7 +7778,7 @@
           {
             "name": "User resource id",
             "doc": "The user resource id",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -7732,7 +7817,7 @@
           {
             "name": "User resource id",
             "doc": "The user resource id",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -7890,7 +7975,7 @@
           {
             "name": "Task template",
             "doc": "Resource id of the task template (0 for default)",
-            "type": "int"
+            "type": "int?"
           }
         ]
       },
@@ -7939,7 +8024,7 @@
           {
             "name": "Task template",
             "doc": "Resource id of the task template (0 for default)",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -7988,7 +8073,7 @@
           {
             "name": "User resource id",
             "doc": "The acting user resource id",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -8027,7 +8112,7 @@
           {
             "name": "User resource id",
             "doc": "The user resource id",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -8138,7 +8223,7 @@
           {
             "name": "User resource id",
             "doc": "The user resource id",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -8404,7 +8489,7 @@
           {
             "name": "Team member resource id",
             "doc": "Resource id of the specific team member entry to remove",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -8619,7 +8704,7 @@
           {
             "name": "userResourceId",
             "doc": "Resource id of the user; 0 for the current user",
-            "type": "int"
+            "type": "int?"
           }
         ]
       },
@@ -8650,12 +8735,12 @@
           {
             "name": "userResourceId",
             "doc": "Resource id of the user; 0 for the current user",
-            "type": "int"
+            "type": "int?"
           },
           {
             "name": "roleId",
             "doc": "Id of the team role to use; 0 for no role",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -8703,6 +8788,22 @@
             "name": "Day and time to start",
             "doc": "Start of the date range (inclusive)",
             "type": "DateTime"
+          }
+        ]
+      },
+      {
+        "doc": "Get time registrations grouped by resource and user for the specified resource within a date range",
+        "returnType": "Dictionary",
+        "param": [
+          {
+            "name": "resource id",
+            "doc": "Unique id of the resource whose time registrations to retrieve",
+            "type": "int"
+          },
+          {
+            "name": "Day and time to start",
+            "doc": "Start of the date range (inclusive)",
+            "type": "DateTime"
           },
           {
             "name": "Day and time to end",
@@ -8721,6 +8822,22 @@
             "name": "resource id",
             "doc": "Array of resource unique ids whose time registrations to retrieve",
             "type": "Array of ints"
+          }
+        ]
+      },
+      {
+        "doc": "Get time registrations grouped by resource and user for multiple resources within a date range",
+        "returnType": "Dictionary",
+        "param": [
+          {
+            "name": "resource id",
+            "doc": "Array of resource unique ids whose time registrations to retrieve",
+            "type": "Array of ints"
+          },
+          {
+            "name": "Day and time to start",
+            "doc": "Start of the date range (inclusive)",
+            "type": "DateTime"
           }
         ]
       },
@@ -9531,7 +9648,7 @@
         "param": [
           {
             "name": "CompletedPercentage",
-            "doc": "The percentage complete (0ΓÇô100)",
+            "doc": "The percentage complete (0–100)",
             "type": "int"
           },
           {
@@ -9662,21 +9779,21 @@
     ],
     "activeCultures": [
       {
-        "doc": "Returns a dictionary of active cultures (ISO code ΓåÆ localized name)",
+        "doc": "Returns a dictionary of active cultures (ISO code → localized name)",
         "returnType": "Dictionary",
         "param": []
       }
     ],
     "activeCurrencies": [
       {
-        "doc": "Returns a dictionary of active currencies (ISO code ΓåÆ native name and symbol)",
+        "doc": "Returns a dictionary of active currencies (ISO code → native name and symbol)",
         "returnType": "Dictionary",
         "param": []
       }
     ],
     "activeLanguages": [
       {
-        "doc": "Returns a dictionary of active languages (ISO code ΓåÆ localized name)",
+        "doc": "Returns a dictionary of active languages (ISO code → localized name)",
         "returnType": "Dictionary",
         "param": []
       }
@@ -9868,7 +9985,7 @@
           },
           {
             "name": "NoItem",
-            "doc": "Sliding-window size ΓÇö the number of items averaged together (1ΓÇô1024)",
+            "doc": "Sliding-window size — the number of items averaged together (1–1024)",
             "type": "int"
           },
           {
@@ -10135,11 +10252,11 @@
       {
         "doc": "Creates a new answer sheet.",
         "returnType": "int",
-        "obsoleteDoc": "Uses old legacy project questionnaire id. Use new QAS(...) with the resource id instead.",
+        "obsoleteDoc": "Uses old legacy Questionnaire id. Use new QAS(...) with the resource id instead.",
         "param": [
           {
             "name": "projectQuestionnaireId",
-            "doc": "Legacy id of the project questionnaire",
+            "doc": "Legacy id of the Questionnaire",
             "type": "int"
           }
         ]
@@ -10147,16 +10264,16 @@
       {
         "doc": "Creates a new answer sheet, optionally assigning the current user.",
         "returnType": "int",
-        "obsoleteDoc": "Uses old legacy project questionnaire id. Use new QAS(...) with the resource id instead.",
+        "obsoleteDoc": "Uses old legacy Questionnaire id. Use new QAS(...) with the resource id instead.",
         "param": [
           {
             "name": "projectQuestionnaireId",
-            "doc": "Legacy id of the project questionnaire",
+            "doc": "Legacy id of the Questionnaire",
             "type": "int"
           },
           {
             "name": "assignCurrentUser",
-            "doc": "True to assign the current user to the new RPQ",
+            "doc": "True to assign the current user to the new QAS",
             "type": "bool"
           }
         ]
@@ -10164,21 +10281,21 @@
       {
         "doc": "Creates a new answer sheet or returns the existing one, optionally assigning the current user.",
         "returnType": "int",
-        "obsoleteDoc": "Uses old legacy project questionnaire id. Use new QAS(...) with the resource id instead.",
+        "obsoleteDoc": "Uses old legacy Questionnaire id. Use new QAS(...) with the resource id instead.",
         "param": [
           {
             "name": "projectQuestionnaireId",
-            "doc": "Legacy id of the project questionnaire",
+            "doc": "Legacy id of the Questionnaire",
             "type": "int"
           },
           {
             "name": "assignCurrentUser",
-            "doc": "True to assign the current user to the new RPQ",
+            "doc": "True to assign the current user to the new QAS",
             "type": "bool"
           },
           {
             "name": "useExisting",
-            "doc": "True to return an existing RPQ if one already exists",
+            "doc": "True to return an existing QAS if one already exists",
             "type": "bool"
           }
         ]
@@ -10196,7 +10313,7 @@
           },
           {
             "name": "columns",
-            "doc": "Array of column-axis-name arrays ΓÇö one inner array per column stack",
+            "doc": "Array of column-axis-name arrays — one inner array per column stack",
             "type": "array"
           }
         ]
@@ -10334,52 +10451,52 @@
     ],
     "createUserProjectQuestionnaire": [
       {
-        "doc": "Creates a new answer sheet for the current RPQ user.",
+        "doc": "Creates a new answer sheet for the current QAS user.",
         "returnType": "int",
         "obsoleteDoc": "Uses old legacy ids. Convert to resource ids and use new QAS(...) instead.",
         "param": [
           {
             "name": "projectQuestionnaireId",
-            "doc": "Legacy id of the project questionnaire",
+            "doc": "Legacy id of the Questionnaire",
             "type": "int"
           }
         ]
       },
       {
-        "doc": "Creates a new answer sheet for the current RPQ user, optionally assigning the current user.",
+        "doc": "Creates a new answer sheet for the current QAS user, optionally assigning the current user.",
         "returnType": "int",
         "obsoleteDoc": "Uses old legacy ids. Convert to resource ids and use new QAS(...) instead.",
         "param": [
           {
             "name": "projectQuestionnaireId",
-            "doc": "Legacy id of the project questionnaire",
+            "doc": "Legacy id of the Questionnaire",
             "type": "int"
           },
           {
             "name": "assignCurrentUser",
-            "doc": "True to assign the current user to the new RPQ",
+            "doc": "True to assign the current user to the new QAS",
             "type": "bool"
           }
         ]
       },
       {
-        "doc": "Creates a new answer sheet or returns the existing one for the current RPQ user.",
+        "doc": "Creates a new answer sheet or returns the existing one for the current QAS user.",
         "returnType": "int",
         "obsoleteDoc": "Uses old legacy ids. Convert to resource ids and use new QAS(...) instead.",
         "param": [
           {
             "name": "projectQuestionnaireId",
-            "doc": "Legacy id of the project questionnaire",
+            "doc": "Legacy id of the Questionnaire",
             "type": "int"
           },
           {
             "name": "assignCurrentUser",
-            "doc": "True to assign the current user to the new RPQ",
+            "doc": "True to assign the current user to the new QAS",
             "type": "bool"
           },
           {
             "name": "useExisting",
-            "doc": "True to return an existing RPQ if one already exists",
+            "doc": "True to return an existing QAS if one already exists",
             "type": "bool"
           }
         ]
@@ -10550,7 +10667,7 @@
     ],
     "getAddress": [
       {
-        "doc": "Returns the street address of the current RPQ user, or empty if not set",
+        "doc": "Returns the street address of the current QAS user, or empty if not set",
         "returnType": "string",
         "param": []
       }
@@ -10679,14 +10796,14 @@
     ],
     "getCatiAppointmentTime": [
       {
-        "doc": "Returns the next CATI contact time for the current RPQ, or empty if not set",
+        "doc": "Returns the next CATI contact time for the current QAS, or empty if not set",
         "returnType": "array",
         "param": []
       }
     ],
     "getCatiOutcomeStatus": [
       {
-        "doc": "Gets the outcome status of the last CATI contact for the current RPQ",
+        "doc": "Gets the outcome status of the last CATI contact for the current QAS",
         "returnType": "int?",
         "param": []
       }
@@ -10700,14 +10817,14 @@
     ],
     "getCity": [
       {
-        "doc": "Returns the city of the current RPQ user, or empty if not set",
+        "doc": "Returns the city of the current QAS user, or empty if not set",
         "returnType": "string",
         "param": []
       }
     ],
     "getCountry": [
       {
-        "doc": "Returns the country number of the current RPQ user, or empty if not set",
+        "doc": "Returns the country number of the current QAS user, or empty if not set",
         "returnType": "int?",
         "param": []
       }
@@ -10721,7 +10838,7 @@
     ],
     "getCulture": [
       {
-        "doc": "Returns the culture ISO code of the current RPQ user",
+        "doc": "Returns the culture ISO code of the current QAS user",
         "returnType": "string",
         "param": []
       }
@@ -10884,14 +11001,14 @@
     ],
     "getEmail": [
       {
-        "doc": "Returns the email of the current RPQ user",
+        "doc": "Returns the email of the current QAS user",
         "returnType": "string",
         "param": []
       }
     ],
     "getFirstName": [
       {
-        "doc": "Returns the first name of the current RPQ user",
+        "doc": "Returns the first name of the current QAS user",
         "returnType": "string",
         "param": []
       }
@@ -10905,14 +11022,14 @@
     ],
     "getLanguage": [
       {
-        "doc": "Returns the language ISO code of the current RPQ user",
+        "doc": "Returns the language ISO code of the current QAS user",
         "returnType": "string",
         "param": []
       }
     ],
     "getLastName": [
       {
-        "doc": "Returns the last name of the current RPQ user",
+        "doc": "Returns the last name of the current QAS user",
         "returnType": "string",
         "param": []
       }
@@ -10926,7 +11043,7 @@
     ],
     "getMiddleName": [
       {
-        "doc": "Returns the middle name of the current RPQ user",
+        "doc": "Returns the middle name of the current QAS user",
         "returnType": "string",
         "param": []
       }
@@ -11096,7 +11213,7 @@
     ],
     "getPhoneNumber": [
       {
-        "doc": "Returns the phone number of the current RPQ user for the specified type, or empty if not found",
+        "doc": "Returns the phone number of the current QAS user for the specified type, or empty if not found",
         "returnType": "string",
         "param": [
           {
@@ -11109,20 +11226,20 @@
     ],
     "getPoints": [
       {
-        "doc": "Returns the points balance of the current RPQ user",
+        "doc": "Returns the points balance of the current QAS user",
         "returnType": "int",
         "param": []
       }
     ],
     "getProjectQuestionnaireId": [
       {
-        "doc": "Returns the legacy id of a project questionnaire by qualified name.",
+        "doc": "Returns the legacy id of a Questionnaire by qualified name.",
         "returnType": "int?",
         "obsoleteDoc": "Use new Questionnaire(qualifiedName).Id instead.",
         "param": [
           {
             "name": "qualifiedName",
-            "doc": "Qualified name of the project questionnaire",
+            "doc": "Qualified name of the Questionnaire",
             "type": "string"
           }
         ]
@@ -11130,19 +11247,19 @@
     ],
     "getProjectQuestionnaireName": [
       {
-        "doc": "Returns the qualified name of the current RPQ's project questionnaire.",
+        "doc": "Returns the qualified name of the current QAS's Questionnaire.",
         "returnType": "string",
         "obsoleteDoc": "Use getProjectQuestionnaireNameByResourceId(qnaireId) or new Questionnaire(Id).QualifiedName instead.",
         "param": []
       },
       {
-        "doc": "Returns the qualified name of the project questionnaire with the given legacy id.",
+        "doc": "Returns the qualified name of the Questionnaire with the given legacy id.",
         "returnType": "string",
-        "obsoleteDoc": "Uses old legacy project questionnaire id. Use getProjectQuestionnaireNameByResourceId with the resource id instead.",
+        "obsoleteDoc": "Uses old legacy Questionnaire id. Use getProjectQuestionnaireNameByResourceId with the resource id instead.",
         "param": [
           {
             "name": "id",
-            "doc": "Legacy id of the project questionnaire",
+            "doc": "Legacy id of the Questionnaire",
             "type": "int"
           }
         ]
@@ -11150,12 +11267,12 @@
     ],
     "getProjectQuestionnaireNameByResourceId": [
       {
-        "doc": "Returns the qualified name of a project questionnaire by its resource id",
+        "doc": "Returns the qualified name of a Questionnaire by its resource id",
         "returnType": "string",
         "param": [
           {
-            "name": "project questionnaire id",
-            "doc": "Resource id of the project questionnaire",
+            "name": "questionnaire id",
+            "doc": "Questionnaire resource id",
             "type": "int"
           }
         ]
@@ -11163,7 +11280,7 @@
     ],
     "getProjectQuestionnaireStatus": [
       {
-        "doc": "Returns the current status of the current project questionnaire.",
+        "doc": "Returns the current status of the current Questionnaire.",
         "returnType": "int",
         "obsoleteDoc": "Use the questionnaire object methods instead.",
         "param": []
@@ -11218,8 +11335,8 @@
           },
           {
             "name": "Questionnaire Resource Id",
-            "doc": "PQ resource id",
-            "type": "int"
+            "doc": "Questionnaire resource id",
+            "type": "int?"
           }
         ]
       }
@@ -11299,35 +11416,35 @@
     ],
     "getRPQEndDate": [
       {
-        "doc": "Returns array representation of end date on current RPQ",
+        "doc": "Returns array representation of end date on current QAS",
         "returnType": "array",
         "param": []
       }
     ],
     "getRPQId": [
       {
-        "doc": "Returns the id of the current resource project questionnaire",
+        "doc": "Returns the id of the current answer sheet",
         "returnType": "int",
         "param": []
       }
     ],
     "getRPQStartDate": [
       {
-        "doc": "Returns array representation of start date on current RPQ",
+        "doc": "Returns array representation of start date on current QAS",
         "returnType": "array",
         "param": []
       }
     ],
     "getRPQStatus": [
       {
-        "doc": "Returns the status of the current resource project questionnaire",
+        "doc": "Returns the status of the current answer sheet",
         "returnType": "int",
         "param": []
       }
     ],
     "getRPQTest": [
       {
-        "doc": "Returns whether the current RPQ is a test",
+        "doc": "Returns whether the current QAS is a test",
         "returnType": "bool",
         "param": []
       }
@@ -11341,7 +11458,7 @@
     ],
     "getRPQUserId": [
       {
-        "doc": "Returns the legacy id of the current RPQ user.",
+        "doc": "Returns the legacy id of the current QAS user.",
         "returnType": "int?",
         "obsoleteDoc": "Use QAS.UserResourceId instead.",
         "param": []
@@ -11378,7 +11495,7 @@
     ],
     "getRegion": [
       {
-        "doc": "Returns the region of the current RPQ user, or empty if not set",
+        "doc": "Returns the region of the current QAS user, or empty if not set",
         "returnType": "string",
         "param": []
       }
@@ -11601,7 +11718,7 @@
     ],
     "getReturnToProjectQuestionnaireId": [
       {
-        "doc": "Returns the legacy id of the return-to project questionnaire.",
+        "doc": "Returns the legacy id of the return-to Questionnaire.",
         "returnType": "int?",
         "obsoleteDoc": "Use GetReturnToQuestionnaireId instead.",
         "param": []
@@ -11623,7 +11740,7 @@
     ],
     "getSampleRuleId": [
       {
-        "doc": "Returns the sample rule id of the current RPQ, or empty if not set",
+        "doc": "Returns the sample rule id of the current QAS, or empty if not set",
         "returnType": "int?",
         "param": []
       }
@@ -11908,7 +12025,7 @@
     ],
     "getUserProjectQuestionnaireId": [
       {
-        "doc": "Returns the id of the current resource project questionnaire",
+        "doc": "Returns the id of the current answer sheet",
         "returnType": "int",
         "param": []
       }
@@ -11922,14 +12039,14 @@
     ],
     "getUserProjectQuestionnaireStatus": [
       {
-        "doc": "Returns the status of the current resource project questionnaire",
+        "doc": "Returns the status of the current answer sheet",
         "returnType": "int",
         "param": []
       }
     ],
     "getUserProjectQuestionnaireUserId": [
       {
-        "doc": "Returns the legacy id of the current RPQ user.",
+        "doc": "Returns the legacy id of the current QAS user.",
         "returnType": "int?",
         "obsoleteDoc": "Use QAS.UserResourceId instead.",
         "param": []
@@ -11951,7 +12068,7 @@
     ],
     "getUsername": [
       {
-        "doc": "Returns the username of the current RPQ user",
+        "doc": "Returns the username of the current QAS user",
         "returnType": "string",
         "param": []
       }
@@ -11979,7 +12096,7 @@
     ],
     "getZipcode": [
       {
-        "doc": "Returns the zip code of the current RPQ user, or empty if not set",
+        "doc": "Returns the zip code of the current QAS user, or empty if not set",
         "returnType": "string",
         "param": []
       }
@@ -12143,7 +12260,7 @@
     ],
     "isCati": [
       {
-        "doc": "Returns whether or not the current RPQ is a CATI-RPQ",
+        "doc": "Returns whether or not the current QAS is a CATI-QAS",
         "returnType": "bool",
         "param": []
       }
@@ -12459,25 +12576,25 @@
     ],
     "questionnaireAnswerSheetExists": [
       {
-        "doc": "Returns whether an answer sheet exists for the current RPQ user in the given PQ.",
+        "doc": "Returns whether an answer sheet exists for the current QAS user in the given Questionnaire.",
         "returnType": "bool",
-        "obsoleteDoc": "Uses old legacy project questionnaire id. Use QAS_exists with the resource id instead.",
+        "obsoleteDoc": "Uses old legacy Questionnaire id. Use QAS_exists with the resource id instead.",
         "param": [
           {
-            "name": "pqId",
-            "doc": "Legacy id of the project questionnaire",
+            "name": "questionnaireId",
+            "doc": "Legacy id of the Questionnaire",
             "type": "int"
           }
         ]
       },
       {
-        "doc": "Returns whether an answer sheet exists for the specified user in the given PQ.",
+        "doc": "Returns whether an answer sheet exists for the specified user in the given Questionnaire.",
         "returnType": "bool",
-        "obsoleteDoc": "Uses old legacy project questionnaire id. Use QAS_exists with the resource id instead.",
+        "obsoleteDoc": "Uses old legacy Questionnaire id. Use QAS_exists with the resource id instead.",
         "param": [
           {
-            "name": "pqId",
-            "doc": "Legacy id of the project questionnaire",
+            "name": "questionnaireId",
+            "doc": "Legacy id of the Questionnaire",
             "type": "int"
           },
           {
@@ -12713,62 +12830,40 @@
     ],
     "sendBulkMail": [
       {
-        "doc": "Sends a bulk mail asynchronously.",
+        "doc": "Sends the current bulk mail context asynchronously.",
         "returnType": "int",
         "obsoleteDoc": "Use new BulkMail(resourceId).Send() instead",
-        "param": [
-          {
-            "name": "bulkMailId",
-            "doc": "Legacy id of the bulk mail",
-            "type": "int"
-          }
-        ]
+        "param": []
       },
       {
-        "doc": "Sends a bulk mail asynchronously, limited to a maximum number of sends.",
+        "doc": "Sends the current bulk mail context asynchronously, limited to a maximum number of sends.",
         "returnType": "int",
         "obsoleteDoc": "Use new BulkMail(resourceId).Send() instead",
         "param": [
-          {
-            "name": "bulkMailId",
-            "doc": "Legacy id of the bulk mail",
-            "type": "int"
-          },
           {
             "name": "maxToSend",
             "doc": "Maximum number of mails to send",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
     ],
     "sendBulkMailSyncronious": [
       {
-        "doc": "Sends a bulk mail synchronously.",
+        "doc": "Sends the current bulk mail context synchronously.",
         "returnType": "int",
         "obsoleteDoc": "Use new BulkMail(resourceId).SendSyncronious() instead",
-        "param": [
-          {
-            "name": "bulkMailId",
-            "doc": "Legacy id of the bulk mail",
-            "type": "int"
-          }
-        ]
+        "param": []
       },
       {
-        "doc": "Sends a bulk mail synchronously, limited to a maximum number of sends.",
+        "doc": "Sends the current bulk mail context synchronously, limited to a maximum number of sends.",
         "returnType": "int",
         "obsoleteDoc": "Use new BulkMail(resourceId).SendSyncronious() instead",
         "param": [
-          {
-            "name": "bulkMailId",
-            "doc": "Legacy id of the bulk mail",
-            "type": "int"
-          },
           {
             "name": "maxToSend",
             "doc": "Maximum number of mails to send",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -12827,7 +12922,7 @@
           {
             "name": "isDelay",
             "doc": "True to delay sending",
-            "type": "bool"
+            "type": "bool?"
           }
         ]
       },
@@ -12889,7 +12984,7 @@
           {
             "name": "isDelay",
             "doc": "True to delay sending",
-            "type": "bool"
+            "type": "bool?"
           },
           {
             "name": "attachments",
@@ -13246,62 +13341,40 @@
     ],
     "sendTestBulkMail": [
       {
-        "doc": "Sends a test bulk mail asynchronously.",
+        "doc": "Sends the current bulk mail context as a test asynchronously.",
         "returnType": "int",
         "obsoleteDoc": "Use new BulkMail(resourceId).SendBulkMail(-1, true, false) instead",
-        "param": [
-          {
-            "name": "bulkMailId",
-            "doc": "Legacy id of the bulk mail",
-            "type": "int"
-          }
-        ]
+        "param": []
       },
       {
-        "doc": "Sends a test bulk mail asynchronously, limited to a maximum number of sends.",
+        "doc": "Sends the current bulk mail context as a test asynchronously, limited to a maximum number of sends.",
         "returnType": "int",
         "obsoleteDoc": "Use new BulkMail(resourceId).SendBulkMail(-1, true, false) instead",
         "param": [
-          {
-            "name": "bulkMailId",
-            "doc": "Legacy id of the bulk mail",
-            "type": "int"
-          },
           {
             "name": "maxToSend",
             "doc": "Maximum number of mails to send",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
     ],
     "sendTestBulkMailSyncronious": [
       {
-        "doc": "Sends a test bulk mail synchronously.",
+        "doc": "Sends the current bulk mail context as a test synchronously.",
         "returnType": "int",
         "obsoleteDoc": "Use new BulkMail(resourceId).SendWithCallback(null, -1, true) instead",
-        "param": [
-          {
-            "name": "bulkMailId",
-            "doc": "Legacy id of the bulk mail",
-            "type": "int"
-          }
-        ]
+        "param": []
       },
       {
-        "doc": "Sends a test bulk mail synchronously, limited to a maximum number of sends.",
+        "doc": "Sends the current bulk mail context as a test synchronously, limited to a maximum number of sends.",
         "returnType": "int",
         "obsoleteDoc": "Use new BulkMail(resourceId).SendWithCallback(null, -1, true) instead",
         "param": [
-          {
-            "name": "bulkMailId",
-            "doc": "Legacy id of the bulk mail",
-            "type": "int"
-          },
           {
             "name": "maxToSend",
             "doc": "Maximum number of mails to send",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -13463,7 +13536,7 @@
     ],
     "setAddress": [
       {
-        "doc": "Sets the street address of the current RPQ user",
+        "doc": "Sets the street address of the current QAS user",
         "returnType": "Empty",
         "param": [
           {
@@ -13696,7 +13769,7 @@
     ],
     "setCatiAppointmentTime": [
       {
-        "doc": "Sets the next CATI contact time for the current RPQ",
+        "doc": "Sets the next CATI contact time for the current QAS",
         "returnType": "Empty",
         "param": [
           {
@@ -13722,7 +13795,7 @@
     ],
     "setCity": [
       {
-        "doc": "Sets the city of the current RPQ user",
+        "doc": "Sets the city of the current QAS user",
         "returnType": "Empty",
         "param": [
           {
@@ -13748,7 +13821,7 @@
     ],
     "setCulture": [
       {
-        "doc": "Sets the culture of the current RPQ user",
+        "doc": "Sets the culture of the current QAS user",
         "returnType": "Empty",
         "param": [
           {
@@ -13834,7 +13907,7 @@
     ],
     "setEmail": [
       {
-        "doc": "Sets the email of the current RPQ user",
+        "doc": "Sets the email of the current QAS user",
         "returnType": "Empty",
         "param": [
           {
@@ -13847,7 +13920,7 @@
     ],
     "setFirstName": [
       {
-        "doc": "Sets the first name of the current RPQ user",
+        "doc": "Sets the first name of the current QAS user",
         "returnType": "Empty",
         "param": [
           {
@@ -13925,7 +13998,7 @@
     ],
     "setLanguage": [
       {
-        "doc": "Sets the language of the current RPQ user",
+        "doc": "Sets the language of the current QAS user",
         "returnType": "Empty",
         "param": [
           {
@@ -13938,7 +14011,7 @@
     ],
     "setLastName": [
       {
-        "doc": "Sets the last name of the current RPQ user",
+        "doc": "Sets the last name of the current QAS user",
         "returnType": "Empty",
         "param": [
           {
@@ -13964,7 +14037,7 @@
     ],
     "setMiddleName": [
       {
-        "doc": "Sets the middle name of the current RPQ user",
+        "doc": "Sets the middle name of the current QAS user",
         "returnType": "Empty",
         "param": [
           {
@@ -14176,7 +14249,7 @@
     ],
     "setPassword": [
       {
-        "doc": "Sets the password of the current RPQ user",
+        "doc": "Sets the password of the current QAS user",
         "returnType": "Empty",
         "param": [
           {
@@ -14243,13 +14316,13 @@
     ],
     "setProjectQuestionnaireStatus": [
       {
-        "doc": "Sets the status of the current project questionnaire (Closed/Paused/Open/OpenForTest).",
+        "doc": "Sets the status of the current Questionnaire (Closed/Paused/Open/OpenForTest).",
         "returnType": "Empty",
         "obsoleteDoc": "Use the questionnaire object methods instead.",
         "param": [
           {
             "name": "status",
-            "doc": "New PQ status; use ProjectQuestionnaire_Status constants",
+            "doc": "New Questionnaire status; use ProjectQuestionnaire_Status constants",
             "type": "int"
           }
         ]
@@ -14288,12 +14361,12 @@
     ],
     "setRPQId": [
       {
-        "doc": "Sets the current resource project questionnaire context by id",
+        "doc": "Sets the current answer sheet context by id",
         "returnType": "Empty",
         "param": [
           {
-            "name": "rpqId",
-            "doc": "The resource project questionnaire id",
+            "name": "qasId",
+            "doc": "The answer sheet id",
             "type": "int"
           }
         ]
@@ -14301,12 +14374,12 @@
     ],
     "setRPQStatus": [
       {
-        "doc": "Sets the status of the current resource project questionnaire",
+        "doc": "Sets the status of the current answer sheet",
         "returnType": "Empty",
         "param": [
           {
             "name": "status",
-            "doc": "The new RPQ status (use RPQ_Status constants)",
+            "doc": "The new QAS status (use RPQ_Status constants)",
             "type": "int"
           }
         ]
@@ -14314,12 +14387,12 @@
     ],
     "setRPQTest": [
       {
-        "doc": "Sets whether the current RPQ is a test",
+        "doc": "Sets whether the current QAS is a test",
         "returnType": "Empty",
         "param": [
           {
             "name": "test",
-            "doc": "Whether this is a test RPQ",
+            "doc": "Whether this is a test QAS",
             "type": "bool"
           }
         ]
@@ -14327,7 +14400,7 @@
     ],
     "setRPQUserId": [
       {
-        "doc": "Sets the current RPQ user by legacy id.",
+        "doc": "Sets the current QAS user by legacy id.",
         "returnType": "Empty",
         "obsoleteDoc": "Use QAS.UserResourceId instead.",
         "param": [
@@ -14341,7 +14414,7 @@
     ],
     "setRegion": [
       {
-        "doc": "Sets the region of the current RPQ user",
+        "doc": "Sets the region of the current QAS user",
         "returnType": "Empty",
         "param": [
           {
@@ -14441,6 +14514,18 @@
     ],
     "setResourceTemplateId": [
       {
+        "doc": "Sets the resource template (by legacy id) for a resource; clears the template when omitted.",
+        "returnType": "Empty",
+        "obsoleteDoc": "Use setResourceTemplateResourceId instead.",
+        "param": [
+          {
+            "name": "resource unique id",
+            "doc": "Unique id of the resource",
+            "type": "int"
+          }
+        ]
+      },
+      {
         "doc": "Sets the resource template (by legacy id) for a resource.",
         "returnType": "Empty",
         "obsoleteDoc": "Use setResourceTemplateResourceId instead.",
@@ -14453,12 +14538,23 @@
           {
             "name": "resource template id",
             "doc": "Legacy id of the resource template",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
     ],
     "setResourceTemplateResourceId": [
+      {
+        "doc": "Sets the resource template for a resource using the template's resource unique id; clears the template when omitted.",
+        "returnType": "Empty",
+        "param": [
+          {
+            "name": "resource unique id",
+            "doc": "Resource unique id",
+            "type": "int"
+          }
+        ]
+      },
       {
         "doc": "Sets the resource template for a resource using the template's resource unique id",
         "returnType": "Empty",
@@ -14471,7 +14567,7 @@
           {
             "name": "resource template id",
             "doc": "Resource template unique id",
-            "type": "int"
+            "type": "int?"
           }
         ]
       }
@@ -14752,12 +14848,12 @@
     ],
     "setUserProjectQuestionnaireId": [
       {
-        "doc": "Sets the current resource project questionnaire context by id",
+        "doc": "Sets the current answer sheet context by id",
         "returnType": "Empty",
         "param": [
           {
-            "name": "rpqId",
-            "doc": "The resource project questionnaire id",
+            "name": "qasId",
+            "doc": "The answer sheet id",
             "type": "int"
           }
         ]
@@ -14765,12 +14861,12 @@
     ],
     "setUserProjectQuestionnaireStatus": [
       {
-        "doc": "Sets the status of the current resource project questionnaire",
+        "doc": "Sets the status of the current answer sheet",
         "returnType": "Empty",
         "param": [
           {
             "name": "status",
-            "doc": "The new RPQ status (use RPQ_Status constants)",
+            "doc": "The new QAS status (use RPQ_Status constants)",
             "type": "int"
           }
         ]
@@ -14778,7 +14874,7 @@
     ],
     "setUserProjectQuestionnaireUserId": [
       {
-        "doc": "Sets the current RPQ user by legacy id.",
+        "doc": "Sets the current QAS user by legacy id.",
         "returnType": "Empty",
         "obsoleteDoc": "Use QAS.UserResourceId instead.",
         "param": [
@@ -14811,7 +14907,7 @@
     ],
     "setUsername": [
       {
-        "doc": "Sets the username of the current RPQ user",
+        "doc": "Sets the username of the current QAS user",
         "returnType": "Empty",
         "param": [
           {
@@ -14850,7 +14946,7 @@
     ],
     "setZipcode": [
       {
-        "doc": "Sets the zip code of the current RPQ user",
+        "doc": "Sets the zip code of the current QAS user",
         "returnType": "Empty",
         "param": [
           {
@@ -17899,7 +17995,7 @@
               {
                 "name": "maxToSend",
                 "doc": "Maximum number of recipients to include; -1 means no limit",
-                "type": "int"
+                "type": "int?"
               }
             ]
           }
@@ -22302,6 +22398,17 @@
       "staticMethods": {
         "DateTime_fromInvariant": [
           {
+            "doc": "Parses an invariant datetime string to a DateTime object, or Empty when the input is absent",
+            "returnType": "array",
+            "param": [
+              {
+                "name": "DateTime string",
+                "doc": "The invariant datetime string to parse",
+                "type": "string"
+              }
+            ]
+          },
+          {
             "doc": "Parses an invariant datetime string to a DateTime object, or Empty when both inputs are absent",
             "returnType": "array",
             "param": [
@@ -22319,6 +22426,17 @@
           }
         ],
         "DateTime_fromJson": [
+          {
+            "doc": "Deserialises a JSON datetime string to a DateTime array, or Empty when the input is absent",
+            "returnType": "array",
+            "param": [
+              {
+                "name": "DateTime string",
+                "doc": "The JSON datetime string to parse",
+                "type": "string"
+              }
+            ]
+          },
           {
             "doc": "Deserialises a JSON datetime string to a DateTime array, or Empty when both inputs are absent",
             "returnType": "array",
@@ -22433,15 +22551,15 @@
           "returnType": "number"
         },
         "Day": {
-          "doc": "The day-of-month component (1ΓÇô31)",
+          "doc": "The day-of-month component (1–31)",
           "returnType": "int"
         },
         "Hour": {
-          "doc": "The hour component (0ΓÇô23)",
+          "doc": "The hour component (0–23)",
           "returnType": "int"
         },
         "IsoWeek": {
-          "doc": "The ISO 8601 week number (1ΓÇô53)",
+          "doc": "The ISO 8601 week number (1–53)",
           "returnType": "int"
         },
         "IsoWeekYear": {
@@ -22453,7 +22571,7 @@
           "returnType": "number"
         },
         "Millisecond": {
-          "doc": "The millisecond component (0ΓÇô999)",
+          "doc": "The millisecond component (0–999)",
           "returnType": "int"
         },
         "Min": {
@@ -22461,11 +22579,11 @@
           "returnType": "number"
         },
         "Minute": {
-          "doc": "The minute component (0ΓÇô59)",
+          "doc": "The minute component (0–59)",
           "returnType": "int"
         },
         "Month": {
-          "doc": "The month component (1ΓÇô12)",
+          "doc": "The month component (1–12)",
           "returnType": "int"
         },
         "ObjectTypeName": {
@@ -22473,7 +22591,7 @@
           "returnType": "string"
         },
         "Second": {
-          "doc": "The second component (0ΓÇô59)",
+          "doc": "The second component (0–59)",
           "returnType": "int"
         },
         "Sum": {
@@ -31484,7 +31602,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -31542,7 +31660,7 @@
       }
     },
     "MultimediaQuestion": {
-      "doc": "Multimedia question. Read-only ΓÇö assignment is not supported.",
+      "doc": "Multimedia question. Read-only — assignment is not supported.",
       "methods": {
         "AsValue": [
           {
@@ -31553,7 +31671,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -31611,7 +31729,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -31944,7 +32062,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -32662,7 +32780,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -33356,7 +33474,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -38531,7 +38649,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -39150,17 +39268,17 @@
       "staticMethods": {
         "QuestionInfo_getAll": [
           {
-            "doc": "Returns all questions in the current PQ context",
+            "doc": "Returns all questions in the current Questionnaire context",
             "returnType": "array",
             "param": []
           },
           {
-            "doc": "Returns all questions for the given PQ resource id",
+            "doc": "Returns all questions for the given Questionnaire resource id",
             "returnType": "array",
             "param": [
               {
                 "name": "Questionnaire resource id",
-                "doc": "The PQ resource id",
+                "doc": "The Questionnaire resource id",
                 "type": "int"
               }
             ]
@@ -39197,7 +39315,7 @@
         ],
         "QuestionInfo_getQuestionByIndex": [
           {
-            "doc": "Returns the question at the given index in the current PQ context",
+            "doc": "Returns the question at the given index in the current Questionnaire context",
             "returnType": "QuestionInfo",
             "param": [
               {
@@ -39208,7 +39326,7 @@
             ]
           },
           {
-            "doc": "Returns the question at the given index for the specified PQ and language",
+            "doc": "Returns the question at the given index for the specified Questionnaire and language",
             "returnType": "QuestionInfo",
             "param": [
               {
@@ -39218,8 +39336,8 @@
               },
               {
                 "name": "Questionnaire resource id",
-                "doc": "The PQ resource id",
-                "type": "int"
+                "doc": "The Questionnaire resource id",
+                "type": "int?"
               },
               {
                 "name": "Iso-code",
@@ -39231,23 +39349,23 @@
         ],
         "QuestionInfo_getQuestions": [
           {
-            "doc": "Returns question objects for all given labels in a PQ",
+            "doc": "Returns question objects for all given labels in a Questionnaire",
             "returnType": "array",
             "param": [
               {
-                "name": "pqId",
-                "doc": "The project questionnaire resource id",
+                "name": "questionnaireId",
+                "doc": "The Questionnaire resource id",
                 "type": "int"
               }
             ]
           },
           {
-            "doc": "Returns question objects for the specified labels in a PQ",
+            "doc": "Returns question objects for the specified labels in a Questionnaire",
             "returnType": "array",
             "param": [
               {
-                "name": "pqId",
-                "doc": "The project questionnaire resource id",
+                "name": "questionnaireId",
+                "doc": "The Questionnaire resource id",
                 "type": "int"
               },
               {
@@ -39258,12 +39376,12 @@
             ]
           },
           {
-            "doc": "Returns question objects for the specified labels in a PQ, filtered to a given language",
+            "doc": "Returns question objects for the specified labels in a Questionnaire, filtered to a given language",
             "returnType": "array",
             "param": [
               {
-                "name": "pqId",
-                "doc": "The project questionnaire resource id",
+                "name": "questionnaireId",
+                "doc": "The Questionnaire resource id",
                 "type": "int"
               },
               {
@@ -39632,7 +39750,7 @@
       "staticMethods": {
         "Questionnaire_current": [
           {
-            "doc": "Get questionnaire in current QAS or PQ context",
+            "doc": "Get Questionnaire in current QAS or Questionnaire context",
             "returnType": "Questionnaire",
             "param": []
           }
@@ -40908,7 +41026,7 @@
       "staticMethods": {
         "QuestionnaireTemplate_current": [
           {
-            "doc": "Get questionnaire template in current QAS or PQ context",
+            "doc": "Get questionnaire template in current QAS or Questionnaire context",
             "returnType": "QuestionnaireTemplate",
             "param": []
           }
@@ -41434,25 +41552,25 @@
       "staticMethods": {
         "Quota_deleteAllQuotas": [
           {
-            "doc": "Deletes all quotas from the current PQ context",
+            "doc": "Deletes all quotas from the current Questionnaire context",
             "returnType": "Empty",
             "param": []
           },
           {
-            "doc": "Deletes all quotas from the specified PQ",
+            "doc": "Deletes all quotas from the specified Questionnaire",
             "returnType": "Empty",
             "param": [
               {
                 "name": "Quota questionnaire resource id",
-                "doc": "The PQ resource id",
-                "type": "int"
+                "doc": "The questionnaire resource id",
+                "type": "int?"
               }
             ]
           }
         ],
         "Quota_deleteQuota": [
           {
-            "doc": "Deletes the quota with the given name from the current PQ context",
+            "doc": "Deletes the quota with the given name from the current Questionnaire context",
             "returnType": "Empty",
             "param": [
               {
@@ -41463,7 +41581,7 @@
             ]
           },
           {
-            "doc": "Deletes the quota with the given name from the specified PQ",
+            "doc": "Deletes the quota with the given name from the specified Questionnaire",
             "returnType": "Empty",
             "param": [
               {
@@ -41473,33 +41591,33 @@
               },
               {
                 "name": "Quota questionnaire resource id",
-                "doc": "The PQ resource id",
-                "type": "int"
+                "doc": "The questionnaire resource id",
+                "type": "int?"
               }
             ]
           }
         ],
         "Quota_getAllQuotas": [
           {
-            "doc": "Returns all quotas for the current PQ context",
+            "doc": "Returns all quotas for the current Questionnaire context",
             "returnType": "Array of Quota",
             "param": []
           },
           {
-            "doc": "Returns all quotas for the specified PQ",
+            "doc": "Returns all quotas for the specified Questionnaire",
             "returnType": "Array of Quota",
             "param": [
               {
                 "name": "Quota questionnaire resource id",
-                "doc": "The PQ resource id",
-                "type": "int"
+                "doc": "The questionnaire resource id",
+                "type": "int?"
               }
             ]
           }
         ],
         "Quota_getQuotaByName": [
           {
-            "doc": "Returns the quota with the given name in the current PQ context",
+            "doc": "Returns the quota with the given name in the current Questionnaire context",
             "returnType": "Quota",
             "param": [
               {
@@ -41510,7 +41628,7 @@
             ]
           },
           {
-            "doc": "Returns the quota with the given name in the specified PQ",
+            "doc": "Returns the quota with the given name in the specified Questionnaire",
             "returnType": "Quota",
             "param": [
               {
@@ -41520,15 +41638,15 @@
               },
               {
                 "name": "Quota questionnaire resource id",
-                "doc": "The PQ resource id",
-                "type": "int"
+                "doc": "The questionnaire resource id",
+                "type": "int?"
               }
             ]
           }
         ],
         "Quota_getQuotasByNameLike": [
           {
-            "doc": "Returns quotas whose names contain the given string in the current PQ context",
+            "doc": "Returns quotas whose names contain the given string in the current Questionnaire context",
             "returnType": "Array of Quota",
             "param": [
               {
@@ -41539,7 +41657,7 @@
             ]
           },
           {
-            "doc": "Returns quotas whose names contain the given string in the specified PQ",
+            "doc": "Returns quotas whose names contain the given string in the specified Questionnaire",
             "returnType": "Array of Quota",
             "param": [
               {
@@ -41549,8 +41667,8 @@
               },
               {
                 "name": "Quota questionnaire resource id",
-                "doc": "The PQ resource id",
-                "type": "int"
+                "doc": "The questionnaire resource id",
+                "type": "int?"
               }
             ]
           }
@@ -41578,7 +41696,7 @@
             "param": [
               {
                 "name": "Quota questionnaire resource id",
-                "doc": "The PQ resource id",
+                "doc": "The questionnaire resource id",
                 "type": "int"
               }
             ]
@@ -41594,7 +41712,7 @@
               },
               {
                 "name": "Quota questionnaire resource id",
-                "doc": "The PQ resource id",
+                "doc": "The questionnaire resource id",
                 "type": "int"
               }
             ]
@@ -41602,25 +41720,25 @@
         ],
         "Quota_updateAllQuotas": [
           {
-            "doc": "Updates all quotas for the current PQ context",
+            "doc": "Updates all quotas for the current Questionnaire context",
             "returnType": "Empty",
             "param": []
           }
         ],
         "Quota_updateAllQuotasForAllQASs": [
           {
-            "doc": "Updates all quotas for all QASs in the current PQ context",
+            "doc": "Updates all quotas for all QASs in the current Questionnaire context",
             "returnType": "int",
             "param": []
           },
           {
-            "doc": "Updates all quotas for all QASs in the specified PQ",
+            "doc": "Updates all quotas for all QASs in the specified Questionnaire",
             "returnType": "int",
             "param": [
               {
                 "name": "Quota questionnaire resource id",
-                "doc": "The PQ resource id",
-                "type": "int"
+                "doc": "The questionnaire resource id",
+                "type": "int?"
               }
             ]
           }
@@ -41640,7 +41758,7 @@
         ],
         "Quota_updateQuotaForAllQASs": [
           {
-            "doc": "Updates the specified quota for all QASs in the current PQ context",
+            "doc": "Updates the specified quota for all QASs in the current Questionnaire context",
             "returnType": "int",
             "param": [
               {
@@ -41651,7 +41769,7 @@
             ]
           },
           {
-            "doc": "Updates the specified quota for all QASs in the specified PQ",
+            "doc": "Updates the specified quota for all QASs in the specified Questionnaire",
             "returnType": "int",
             "param": [
               {
@@ -41661,8 +41779,8 @@
               },
               {
                 "name": "Quota questionnaire resource id",
-                "doc": "The PQ resource id",
-                "type": "int"
+                "doc": "The questionnaire resource id",
+                "type": "int?"
               }
             ]
           }
@@ -42690,7 +42808,7 @@
               {
                 "name": "maxCount",
                 "doc": "Maximum number of results to return",
-                "type": "int"
+                "type": "int?"
               }
             ]
           },
@@ -42721,12 +42839,12 @@
               {
                 "name": "maxCount",
                 "doc": "Maximum number of results to return",
-                "type": "int"
+                "type": "int?"
               },
               {
                 "name": "parentResourceId",
                 "doc": "Parent resource id to restrict search under (0 for all)",
-                "type": "int"
+                "type": "int?"
               }
             ]
           },
@@ -42757,17 +42875,17 @@
               {
                 "name": "maxCount",
                 "doc": "Maximum number of results to return",
-                "type": "int"
+                "type": "int?"
               },
               {
                 "name": "parentResourceId",
                 "doc": "Parent resource id to restrict search under (0 for all)",
-                "type": "int"
+                "type": "int?"
               },
               {
                 "name": "includeSubChildren",
                 "doc": "Whether to include all descendants rather than direct children only",
-                "type": "bool"
+                "type": "bool?"
               }
             ]
           }
@@ -46828,7 +46946,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -46890,7 +47008,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -47572,7 +47690,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -47634,7 +47752,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -49413,7 +49531,7 @@
           "returnType": "bool"
         },
         "Variance": {
-          "doc": "Estimates variance based on a data cache columnΓÇÖs values.",
+          "doc": "Estimates variance based on a data cache column’s values.",
           "hasSetter": true,
           "returnType": "bool"
         },
@@ -49892,7 +50010,7 @@
             {
               "name": "Task template",
               "doc": "Resource id of the task template (0 for default)",
-              "type": "int"
+              "type": "int?"
             }
           ]
         },
@@ -49939,7 +50057,7 @@
             {
               "name": "Task template",
               "doc": "Resource id of the task template (0 for default)",
-              "type": "int"
+              "type": "int?"
             }
           ]
         }
@@ -50318,7 +50436,7 @@
               {
                 "name": "User resource id",
                 "doc": "The user resource id",
-                "type": "int"
+                "type": "int?"
               }
             ]
           }
@@ -50347,7 +50465,7 @@
               {
                 "name": "User resource id",
                 "doc": "The user resource id",
-                "type": "int"
+                "type": "int?"
               }
             ]
           }
@@ -50386,7 +50504,7 @@
               {
                 "name": "User resource id",
                 "doc": "The user resource id",
-                "type": "int"
+                "type": "int?"
               }
             ]
           }
@@ -50425,7 +50543,7 @@
               {
                 "name": "User resource id",
                 "doc": "The user resource id",
-                "type": "int"
+                "type": "int?"
               }
             ]
           }
@@ -50591,7 +50709,7 @@
               {
                 "name": "User resource id",
                 "doc": "The acting user resource id",
-                "type": "int"
+                "type": "int?"
               }
             ]
           }
@@ -50630,7 +50748,7 @@
               {
                 "name": "User resource id",
                 "doc": "The user resource id",
-                "type": "int"
+                "type": "int?"
               }
             ]
           }
@@ -50727,7 +50845,7 @@
               {
                 "name": "User resource id",
                 "doc": "The user resource id",
-                "type": "int"
+                "type": "int?"
               }
             ]
           }
@@ -51746,7 +51864,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -51808,7 +51926,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -53527,7 +53645,7 @@
       "doc": "Pre-parsed expression fragment for use with DataCacheSpecification.EvalWhereExps. Build static sub-expressions once outside loops, then combine with operators and substitute per-iteration values using the replacement constructor to avoid repeated parsing overhead.",
       "constructors": [
         {
-          "doc": "Parse an expression string into a reusable fragment. Expensive ΓÇö avoid calling inside loops. Build static sub-expressions once and reuse them via the replacement or operator constructors.",
+          "doc": "Parse an expression string into a reusable fragment. Expensive — avoid calling inside loops. Build static sub-expressions once and reuse them via the replacement or operator constructors.",
           "returnType": "",
           "param": [
             {
@@ -53575,7 +53693,7 @@
           "param": [
             {
               "name": "operation",
-              "doc": "Operator constant ΓÇö one of WHEREEXPFRAGMENT_AND / OR / PLUS / MINUS / MULT / DIV.",
+              "doc": "Operator constant — one of WHEREEXPFRAGMENT_AND / OR / PLUS / MINUS / MULT / DIV.",
               "type": "int"
             },
             {
@@ -54222,7 +54340,7 @@
     },
     "mathPi": {
       "typeName": "number",
-      "doc": "╧Ç = 3,141592653589793"
+      "doc": "π = 3,141592653589793"
     },
     "Resource_Permission_None": {
       "typeName": "string",
@@ -56674,7 +56792,7 @@
     },
     "ProjectQuestionnaire_Status": {
       "prefix": "ProjectQuestionnaire_Status_",
-      "doc": "PQ status constants",
+      "doc": "Questionnaire status constants",
       "values": [
         {
           "name": "ProjectQuestionnaire_Status_Closed",
@@ -58027,7 +58145,7 @@
     },
     "RPQ_Status": {
       "prefix": "RPQ_Status_",
-      "doc": "RPQ status constants",
+      "doc": "QAS status constants",
       "values": [
         {
           "name": "RPQ_Status_Normal",
@@ -58614,7 +58732,7 @@
     },
     "TASKPARTICIPANT": {
       "prefix": "TASKPARTICIPANT_",
-      "doc": "Index constants for TaskParticipant ΓÇö use named properties instead",
+      "doc": "Index constants for TaskParticipant — use named properties instead",
       "values": [
         {
           "name": "TASKPARTICIPANT_RESOURCE_ID",
@@ -58635,7 +58753,7 @@
     },
     "TASKTESTCASE": {
       "prefix": "TASKTESTCASE_",
-      "doc": "Index constants for TaskTestcase ΓÇö use named properties instead",
+      "doc": "Index constants for TaskTestcase — use named properties instead",
       "values": [
         {
           "name": "TASKTESTCASE_TESTCASE_ID",
