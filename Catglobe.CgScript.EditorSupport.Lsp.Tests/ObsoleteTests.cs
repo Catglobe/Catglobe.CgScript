@@ -15,11 +15,11 @@ public class ObsoleteTests
 
    private static CgScriptDefinitions BuildDefinitions(
       Dictionary<string, ObjectDefinition>?  objects   = null,
-      Dictionary<string, FunctionDefinition>? functions = null,
+      Dictionary<string, MethodOverload[]>?  functions = null,
       Dictionary<string, EnumDefinition>?    enums     = null)
    {
       return new TestCgScriptDefinitions(
-         functions ?? new Dictionary<string, FunctionDefinition>(),
+         functions ?? new Dictionary<string, MethodOverload[]>(),
          objects   ?? new Dictionary<string, ObjectDefinition>(),
          constants:  enums?.Values
             .SelectMany(e => e.Values.Select(v => v.Name))
@@ -75,19 +75,18 @@ public class ObsoleteTests
    {
       var result = CgScriptParseService.Parse(source);
 
-      // Build FunctionDefinitions (obsolete functions get a single obsolete variant)
-      var funcDefs = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
+      // Build MethodOverload[] arrays (obsolete functions get a single obsolete overload)
+      var funcDefs = new Dictionary<string, MethodOverload[]>(StringComparer.Ordinal);
       foreach (var fn in functions ?? [])
       {
          if (obsoleteFunctions?.ContainsKey(fn) == true)
          {
             obsoleteFunctions.TryGetValue(fn, out var obsDoc);
-            funcDefs[fn] = new FunctionDefinition(
-               [new FunctionVariant("", [], "", IsObsolete: true, ObsoleteDoc: obsDoc)]);
+            funcDefs[fn] = [new MethodOverload("", [], "", ObsoleteDoc: obsDoc ?? "")];
          }
          else
          {
-            funcDefs[fn] = new FunctionDefinition(null!);
+            funcDefs[fn] = [];
          }
       }
 
@@ -97,55 +96,52 @@ public class ObsoleteTests
       {
          if (objectDefinitions?.TryGetValue(obj, out var info) == true)
          {
-            var props = info.Properties
-               .Select(kvp =>
-               {
-                  info.ObsoletePropertyNames.TryGetValue(kvp.Key, out var obsMsg);
-                  bool isObs = info.ObsoletePropertyNames.ContainsKey(kvp.Key);
-                  return new PropertyDefinition(kvp.Key, "", true, kvp.Value, "",
-                     IsObsolete: isObs, ObsoleteDoc: obsMsg);
-               }).ToArray();
+            var propDict = new Dictionary<string, PropertyDefinition>(StringComparer.Ordinal);
+            foreach (var kvp in info.Properties)
+            {
+               info.ObsoletePropertyNames.TryGetValue(kvp.Key, out var obsMsg);
+               bool isObs = info.ObsoletePropertyNames.ContainsKey(kvp.Key);
+               propDict[kvp.Key] = new PropertyDefinition("", kvp.Value, "",
+                  ObsoleteDoc: isObs ? (obsMsg ?? "") : null);
+            }
 
-            var methodList = new List<MethodDefinition>();
-            // Methods in MethodOverloads
+            var methodDict = new Dictionary<string, MethodOverload[]>(StringComparer.Ordinal);
             if (info.MethodOverloads != null)
                foreach (var (methodName, overloads) in info.MethodOverloads)
                {
                   bool isObs = info.ObsoleteMethodNames.ContainsKey(methodName);
                   info.ObsoleteMethodNames.TryGetValue(methodName, out var obsMsg);
-                  foreach (var overload in overloads)
-                     methodList.Add(new MethodDefinition(methodName, "",
+                  methodDict[methodName] = overloads.Select(overload =>
+                     new MethodOverload("",
                         overload.Select((t, i) => new MethodParam($"p{i}", "", t)).ToArray(),
-                        "", IsObsolete: isObs, ObsoleteDoc: obsMsg));
+                        "", ObsoleteDoc: isObs ? (obsMsg ?? "") : null)).ToArray();
                }
-            // Methods only in ObsoleteMethodNames (no overload info)
             foreach (var (methodName, obsMsg) in info.ObsoleteMethodNames)
                if (info.MethodOverloads?.ContainsKey(methodName) != true)
-                  methodList.Add(new MethodDefinition(methodName, "", [], "",
-                     IsObsolete: true, ObsoleteDoc: obsMsg));
+                  methodDict[methodName] = [new MethodOverload("", [], "", ObsoleteDoc: obsMsg ?? "")];
 
-            objDefs[obj] = new ObjectDefinition("", [], methodList.ToArray(), [], props);
+            objDefs[obj] = new ObjectDefinition("",
+               Methods: methodDict.Count > 0 ? methodDict : null,
+               Properties: propDict.Count > 0 ? propDict : null);
          }
          else
          {
-            objDefs[obj] = new ObjectDefinition("", [], [], [], []);
+            objDefs[obj] = new ObjectDefinition("");
          }
       }
 
-      // Build enums from obsolete constants; plain constants go in the flat list
-      var enums      = new Dictionary<string, EnumDefinition>(StringComparer.Ordinal);
-      var plainConsts = new List<string>();
+      // Build enums from constants; obsolete constants get ObsoleteDoc set
+      var enums = new Dictionary<string, EnumDefinition>(StringComparer.Ordinal);
       foreach (var c in constants ?? [])
       {
          if (obsoleteConstants?.TryGetValue(c, out var obsMsg) == true)
             enums["_" + c] = new EnumDefinition("", "",
-               [new EnumValueDefinition(c, "", 0, IsObsolete: true, ObsoleteDoc: obsMsg)]);
+               [new EnumValueDefinition(c, "", 0, ObsoleteDoc: obsMsg ?? "")]);
          else
-            plainConsts.Add(c);
+            enums["_plain_" + c] = new EnumDefinition("", "",
+               [new EnumValueDefinition(c, "", 0)]);
       }
-      var allConstants = plainConsts
-         .Concat(enums.Values.SelectMany(e => e.Values.Select(v => v.Name)))
-         .ToList();
+      var allConstants = enums.Values.SelectMany(e => e.Values.Select(v => v.Name)).ToList();
 
       var defs = new TestCgScriptDefinitions(
          funcDefs, objDefs, allConstants,
@@ -158,7 +154,7 @@ public class ObsoleteTests
    private sealed class TestCgScriptDefinitions : CgScriptDefinitions
    {
       public TestCgScriptDefinitions(
-         Dictionary<string, FunctionDefinition>          functions,
+         Dictionary<string, MethodOverload[]>            functions,
          Dictionary<string, ObjectDefinition>            objects,
          IReadOnlyCollection<string>                     constants,
          IReadOnlyDictionary<string, GlobalVariableDefinition> globalVariables,
@@ -175,10 +171,10 @@ public class ObsoleteTests
    {
       var objDef = new ObjectDefinition(
          "",
-         Constructors: [],
-         Methods: [new MethodDefinition("OldMethod", "Old doc", [], "void", IsObsolete: true)],
-         StaticMethods: [],
-         Properties: []);
+         Methods: new Dictionary<string, MethodOverload[]>
+         {
+            ["OldMethod"] = [new MethodOverload("Old doc", [], "void", ObsoleteDoc: "")]
+         });
 
       var defs = BuildDefinitions(objects: new Dictionary<string, ObjectDefinition>
       {
@@ -201,10 +197,10 @@ public class ObsoleteTests
    {
       var objDef = new ObjectDefinition(
          "",
-         Constructors: [],
-         Methods: [new MethodDefinition("NewMethod", "New doc", [], "void", IsObsolete: false)],
-         StaticMethods: [],
-         Properties: []);
+         Methods: new Dictionary<string, MethodOverload[]>
+         {
+            ["NewMethod"] = [new MethodOverload("New doc", [], "void")]
+         });
 
       var defs = BuildDefinitions(objects: new Dictionary<string, ObjectDefinition>
       {
@@ -227,10 +223,10 @@ public class ObsoleteTests
    {
       var objDef = new ObjectDefinition(
          "",
-         Constructors: [],
-         Methods: [],
-         StaticMethods: [],
-         Properties: [new PropertyDefinition("OldProp", "Old prop doc", true, false, "string", IsObsolete: true)]);
+         Properties: new Dictionary<string, PropertyDefinition>
+         {
+            ["OldProp"] = new PropertyDefinition("Old prop doc", false, "string", ObsoleteDoc: "")
+         });
 
       var defs = BuildDefinitions(objects: new Dictionary<string, ObjectDefinition>
       {
@@ -253,10 +249,10 @@ public class ObsoleteTests
    {
       var objDef = new ObjectDefinition(
          "",
-         Constructors: [],
-         Methods: [],
-         StaticMethods: [],
-         Properties: [new PropertyDefinition("OldProp", "Old prop", true, false, "string", IsObsolete: true)]);
+         Properties: new Dictionary<string, PropertyDefinition>
+         {
+            ["OldProp"] = new PropertyDefinition("Old prop", false, "string", ObsoleteDoc: "")
+         });
 
       var defs = BuildDefinitions(objects: new Dictionary<string, ObjectDefinition>
       {
@@ -278,10 +274,10 @@ public class ObsoleteTests
    {
       var objDef = new ObjectDefinition(
          "",
-         Constructors: [],
-         Methods: [new MethodDefinition("OldMethod", "Old method", [], "void", IsObsolete: true)],
-         StaticMethods: [],
-         Properties: []);
+         Methods: new Dictionary<string, MethodOverload[]>
+         {
+            ["OldMethod"] = [new MethodOverload("Old method", [], "void", ObsoleteDoc: "")]
+         });
 
       var defs = BuildDefinitions(objects: new Dictionary<string, ObjectDefinition>
       {
@@ -388,7 +384,7 @@ public class ObsoleteTests
    {
       var enumDef = new EnumDefinition(
          "TEST_", "",
-         Values: [new EnumValueDefinition("TEST_OLD", "old value", 1, IsObsolete: true)]);
+         Values: [new EnumValueDefinition("TEST_OLD", "old value", 1, ObsoleteDoc: "")]);
 
       var defs = BuildDefinitions(enums: new Dictionary<string, EnumDefinition>
       {
@@ -410,7 +406,7 @@ public class ObsoleteTests
    {
       var enumDef = new EnumDefinition(
          "TEST_", "",
-         Values: [new EnumValueDefinition("TEST_OLD", "old value", 1, IsObsolete: true)]);
+         Values: [new EnumValueDefinition("TEST_OLD", "old value", 1, ObsoleteDoc: "")]);
 
       var defs = BuildDefinitions(enums: new Dictionary<string, EnumDefinition>
       {

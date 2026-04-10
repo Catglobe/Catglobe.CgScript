@@ -78,58 +78,56 @@ public partial class CgScriptLanguageTarget
       {
          var obj = exact;
          // Instance access → instance methods only; type-name access → static methods only
-         var methods = isStaticAccess
-            ? (obj.StaticMethods ?? [])
-            : (obj.Methods ?? []);
-
-         var groups = methods
-            .Where(m => m.Name != "[]")
-            .Where(m => prefix.Length == 0 || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            .GroupBy(m => m.Name);
-
-         foreach (var group in groups)
+         var methodsDict = isStaticAccess ? obj.StaticMethods : obj.Methods;
+         if (methodsDict != null)
          {
-            var overloads   = group.ToList();
-            var first       = overloads[0];
-            bool allObsolete = overloads.All(m => m.IsObsolete);
-            items.Add(new CompletionItem
+            foreach (var (methodName, overloads) in methodsDict)
             {
-               Label         = overloads.Count == 1
-                                  ? $"{first.Name}({BuildMethodParamList(first.Param)})"
-                                  : $"{first.Name}(+{overloads.Count} overloads)",
-               FilterText    = first.Name,
-               InsertText    = first.Name,
-               Kind          = CompletionItemKind.Method,
-               Detail        = allObsolete ? $"{first.ReturnType} (deprecated)" : first.ReturnType,
-               Documentation = new SumType<string, MarkupContent>(new MarkupContent
+               if (methodName == "[]") continue;
+               if (prefix.Length > 0 && !methodName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+               var first       = overloads[0];
+               bool allObsolete = overloads.All(m => m.IsObsolete);
+               items.Add(new CompletionItem
                {
-                  Kind  = MarkupKind.Markdown,
-                  Value = (allObsolete ? DeprecatedPrefix(first.ObsoleteDoc) : "") + string.Join("\n\n---\n\n", overloads.Select(m =>
-                     (m.IsObsolete && !allObsolete ? DeprecatedPrefix(m.ObsoleteDoc) : "")
-                     + (string.IsNullOrWhiteSpace(m.Doc) ? "" : $"{m.Doc}\n\n") + $"`{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param)})`")),
-               }),
-            });
+                  Label         = overloads.Length == 1
+                                     ? $"{methodName}({BuildMethodParamList(first.Param)})"
+                                     : $"{methodName}(+{overloads.Length} overloads)",
+                  FilterText    = methodName,
+                  InsertText    = methodName,
+                  Kind          = CompletionItemKind.Method,
+                  Detail        = allObsolete ? $"{first.ReturnType} (deprecated)" : first.ReturnType,
+                  Documentation = new SumType<string, MarkupContent>(new MarkupContent
+                  {
+                     Kind  = MarkupKind.Markdown,
+                     Value = (allObsolete ? DeprecatedPrefix(first.ObsoleteDoc) : "") + string.Join("\n\n---\n\n", overloads.Select(m =>
+                        (m.IsObsolete && !allObsolete ? DeprecatedPrefix(m.ObsoleteDoc) : "")
+                        + (string.IsNullOrWhiteSpace(m.Doc) ? "" : $"{m.Doc}\n\n") + $"`{m.ReturnType} {methodName}({BuildMethodParamList(m.Param)})`")),
+                  }),
+               });
+            }
          }
 
-         foreach (var prop in obj.Properties ?? [])
+         if (obj.Properties != null)
          {
-            if (prefix.Length > 0 && !prop.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-               continue;
-            items.Add(new CompletionItem
+            foreach (var (propName, prop) in obj.Properties)
             {
-               Label         = prop.Name,
-               FilterText    = prop.Name,
-               InsertText    = prop.Name,
-               Kind          = CompletionItemKind.Property,
-               Detail        = prop.IsObsolete ? $"{prop.ReturnType} (deprecated)" : prop.ReturnType,
-               Documentation = new SumType<string, MarkupContent>(new MarkupContent
+               if (prefix.Length > 0 && !propName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+               items.Add(new CompletionItem
                {
-                  Kind  = MarkupKind.Markdown,
-                  Value = (prop.IsObsolete ? DeprecatedPrefix(prop.ObsoleteDoc) : "")
-                          + (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n")
-                          + $"`{prop.ReturnType} {prop.Name}`",
-               }),
-            });
+                  Label         = propName,
+                  FilterText    = propName,
+                  InsertText    = propName,
+                  Kind          = CompletionItemKind.Property,
+                  Detail        = prop.IsObsolete ? $"{prop.ReturnType} (deprecated)" : prop.ReturnType,
+                  Documentation = new SumType<string, MarkupContent>(new MarkupContent
+                  {
+                     Kind  = MarkupKind.Markdown,
+                     Value = (prop.IsObsolete ? DeprecatedPrefix(prop.ObsoleteDoc) : "")
+                             + (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n")
+                             + $"`{prop.ReturnType} {propName}`",
+                  }),
+               });
+            }
          }
       }
       return new CompletionList { IsIncomplete = false, Items = items.ToArray() };
@@ -166,10 +164,10 @@ public partial class CgScriptLanguageTarget
          var innerObj = ResolveReceiverObjectAtDot(text, idStart - 1, tree, cursorOffset);
          if (innerObj != null)
          {
-            var prop = (innerObj.Properties ?? [])
-               .FirstOrDefault(p => string.Equals(p.Name, receiverName, StringComparison.Ordinal));
-            if (prop?.ReturnType != null
-                && TryGetObjectDefinition(prop.ReturnType, out var propType))
+            if (innerObj.Properties != null
+                && innerObj.Properties.TryGetValue(receiverName, out var propDef)
+                && propDef?.ReturnType != null
+                && TryGetObjectDefinition(propDef.ReturnType, out var propType))
                return propType;
          }
       }
@@ -261,20 +259,20 @@ public partial class CgScriptLanguageTarget
          });
       }
 
-      foreach (var (name, fn) in _definitions.FunctionsStartingWith(all ? "" : prefix))
+      foreach (var (name, overloads) in _definitions.FunctionsStartingWith(all ? "" : prefix))
       {
-         bool fnObsolete = fn.Variants?.Length > 0 && fn.Variants.All(v => v.IsObsolete);
+         bool fnObsolete = overloads.Length > 0 && overloads.All(v => v.IsObsolete);
          items.Add(new CompletionItem
          {
-            Label         = BuildFunctionLabel(name, fn),
+            Label         = BuildFunctionLabel(name, overloads),
             FilterText    = name,
             InsertText    = name,
             Kind          = CompletionItemKind.Function,
-            Detail        = fnObsolete ? $"{GetFunctionReturnType(fn)} (deprecated)" : GetFunctionReturnType(fn),
+            Detail        = fnObsolete ? $"{GetFunctionReturnType(overloads)} (deprecated)" : GetFunctionReturnType(overloads),
             Documentation = new SumType<string, MarkupContent>(new MarkupContent
             {
                Kind  = MarkupKind.Markdown,
-               Value = BuildFunctionHover(name, fn),
+               Value = BuildFunctionHover(name, overloads),
             }),
          });
       }
@@ -297,7 +295,7 @@ public partial class CgScriptLanguageTarget
             Kind   = CompletionItemKind.Constant,
             Detail = constObsolete ? "(deprecated)" : null,
          };
-         if (inEnum)
+         if (inEnum && (!string.IsNullOrWhiteSpace(entry.Enum.Doc) || !string.IsNullOrWhiteSpace(entry.Value.Doc) || entry.Value.IsObsolete))
             item.Documentation = new MarkupContent
             {
                Kind  = MarkupKind.Markdown,

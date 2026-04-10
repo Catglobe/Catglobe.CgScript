@@ -436,7 +436,7 @@ public partial class CgScriptLanguageTarget
 
       if (!string.IsNullOrEmpty(leadId) && _definitions.Functions.TryGetValue(leadId, out var fn))
       {
-         var returnType = fn.Variants?.Length > 0 ? fn.Variants[0].ReturnType : null;
+         var returnType = fn?.Length > 0 ? fn[0].ReturnType : null;
 
          if (!string.IsNullOrWhiteSpace(returnType))
          {

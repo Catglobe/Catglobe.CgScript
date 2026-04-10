@@ -15,7 +15,7 @@ public class SemanticAnalyzerDiagnosticsTests
    private sealed class TestCgScriptDefinitions : CgScriptDefinitions
    {
       public TestCgScriptDefinitions(
-         Dictionary<string, FunctionDefinition>                functions,
+         Dictionary<string, MethodOverload[]>                  functions,
          Dictionary<string, ObjectDefinition>                  objects,
          IReadOnlyCollection<string>                           constants,
          IReadOnlyDictionary<string, GlobalVariableDefinition>? globalVariables = null,
@@ -35,26 +35,29 @@ public class SemanticAnalyzerDiagnosticsTests
       IReadOnlyDictionary<string, FunctionInfo>? functionDefinitions = null)
    {
       var result   = CgScriptParseService.Parse(source);
-      var funcDefs = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
+      var funcDefs = new Dictionary<string, MethodOverload[]>(StringComparer.Ordinal);
       foreach (var fn in functions ?? [])
       {
          if (functionDefinitions?.TryGetValue(fn, out var info) == true)
-            funcDefs[fn] = new FunctionDefinition(
-               info.Variants.Select(overload =>
-                  new FunctionVariant("",
-                     overload.Select((t, i) => new FunctionVariantParam($"p{i}", "", t)).ToArray(),
-                     "")).ToArray());
+            funcDefs[fn] = info.Variants.Select(overload =>
+               new MethodOverload("",
+                  overload.Select((t, i) => new MethodParam($"p{i}", "", t)).ToArray(),
+                  "")).ToArray();
          else
-            funcDefs[fn] = new FunctionDefinition(null!);
+            funcDefs[fn] = [];
       }
       var objDefs = new Dictionary<string, ObjectDefinition>(StringComparer.Ordinal);
       foreach (var obj in objects ?? [])
-         objDefs[obj] = new ObjectDefinition("", [], [], [], []);
+         objDefs[obj] = new ObjectDefinition("");
       var globalVarDefs = globalVariables is null
          ? new Dictionary<string, GlobalVariableDefinition>()
          : globalVariables.ToDictionary(v => v, _ => new GlobalVariableDefinition(""), StringComparer.Ordinal);
+      // Put constants into enums so ConstantsSet is populated correctly
+      var enumDefs = new Dictionary<string, EnumDefinition>(StringComparer.Ordinal);
+      foreach (var c in constants ?? [])
+         enumDefs["_plain_" + c] = new EnumDefinition("", "", [new EnumValueDefinition(c, "", 0)]);
       return SemanticAnalyzer.Analyze(result.Tree,
-         new TestCgScriptDefinitions(funcDefs, objDefs, (constants ?? []).ToList(), globalVarDefs));
+         new TestCgScriptDefinitions(funcDefs, objDefs, [], globalVarDefs, enumDefs));
    }
 
    private static IReadOnlyList<Diagnostic> AnalyzeWithObjects(
@@ -63,9 +66,9 @@ public class SemanticAnalyzerDiagnosticsTests
       IEnumerable<string>? functions = null)
    {
       var result   = CgScriptParseService.Parse(source);
-      var funcDefs = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
+      var funcDefs = new Dictionary<string, MethodOverload[]>(StringComparer.Ordinal);
       foreach (var fn in functions ?? [])
-         funcDefs[fn] = new FunctionDefinition(null!);
+         funcDefs[fn] = [];
       return SemanticAnalyzer.Analyze(result.Tree,
          new TestCgScriptDefinitions(funcDefs,
             objectDefinitions.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal),
@@ -502,8 +505,7 @@ public class SemanticAnalyzerDiagnosticsTests
 
    private static ObjectDefinition MakeStringDef()
       => new ObjectDefinition("",
-         Constructors: [new MethodDefinition("", "", [new MethodParam("p0", "", "string")], "")],
-         Methods: [], StaticMethods: [], Properties: []);
+         Constructors: [new MethodOverload("", [new MethodParam("p0", "", "string")], "")]);
 
    [Fact]
    public void Constructor_TooManyArgs_ReportsCGS023()
@@ -606,9 +608,10 @@ public class SemanticAnalyzerDiagnosticsTests
 
    private static ObjectDefinition MakeStringWithCompareDef()
       => new ObjectDefinition("",
-         Constructors: [],
-         Methods: [new MethodDefinition("CompareTo", "", [new MethodParam("p0", "", "string")], "")],
-         StaticMethods: [], Properties: []);
+         Methods: new Dictionary<string, MethodOverload[]>
+         {
+            ["CompareTo"] = [new MethodOverload("", [new MethodParam("p0", "", "string")], "")]
+         });
 
    [Fact]
    public void MethodCall_WrongArgType_ReportsCGS024()
@@ -683,14 +686,15 @@ public class SemanticAnalyzerDiagnosticsTests
 
    private static ObjectDefinition MakeDictionaryDef()
       => new ObjectDefinition("",
-         Constructors: [],
-         Methods: [
-            new MethodDefinition("[]", "", [new MethodParam("k", "", "string")], ""),
-            new MethodDefinition("[]", "", [new MethodParam("k", "", "int")], ""),
-            new MethodDefinition("[]", "", [new MethodParam("k", "", "string"), new MethodParam("v", "", "object")], ""),
-            new MethodDefinition("[]", "", [new MethodParam("k", "", "int"),    new MethodParam("v", "", "object")], ""),
-         ],
-         StaticMethods: [], Properties: []);
+         Methods: new Dictionary<string, MethodOverload[]>
+         {
+            ["[]"] = [
+               new MethodOverload("", [new MethodParam("k", "", "string")], ""),
+               new MethodOverload("", [new MethodParam("k", "", "int")], ""),
+               new MethodOverload("", [new MethodParam("k", "", "string"), new MethodParam("v", "", "object")], ""),
+               new MethodOverload("", [new MethodParam("k", "", "int"), new MethodParam("v", "", "object")], ""),
+            ]
+         });
 
    [Fact]
    public void Indexer_ValidStringKey_NoCGS025()

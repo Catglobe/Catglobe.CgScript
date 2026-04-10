@@ -27,49 +27,72 @@ file sealed class ReadOnlySet<T>(HashSet<T> inner) : IReadOnlySet<T>
 
 // ── JSON models ───────────────────────────────────────────────────────────────
 
-/// <summary>A parameter in a function variant.</summary>
-public sealed record FunctionVariantParam(string Name, string Doc, string Type);
-
-/// <summary>One overload variant of a function.</summary>
-public sealed record FunctionVariant(
-   string                Doc,
-   FunctionVariantParam[] Param,
-   string                ReturnType,
-   bool                  IsObsolete  = false,
-   string?               ObsoleteDoc = null);
-
-/// <summary>A built-in CgScript function with one or more overload variants.</summary>
-public sealed record FunctionDefinition(FunctionVariant[] Variants);
-
-/// <summary>A global variable pre-declared by the runtime.</summary>
-public sealed record GlobalVariableDefinition(string TypeName, string Doc = "", bool IsObsolete = false, string? ObsoleteDoc = null);
-
-/// <summary>A parameter in a method or constructor.</summary>
+/// <summary>A parameter in a method, constructor, or built-in function.</summary>
 public sealed record MethodParam(string Name, string Doc, string Type);
 
-/// <summary>A method or constructor on a CgScript object type.</summary>
-public sealed record MethodDefinition(string Name, string Doc, MethodParam[] Param, string ReturnType, bool IsObsolete = false, string? ObsoleteDoc = null);
+/// <summary>One overload of a method, constructor, or built-in function.</summary>
+public sealed record MethodOverload(
+   string       Doc,
+   MethodParam[] Param,
+   string       ReturnType,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   string?      ObsoleteDoc = null)
+{
+   /// <summary>Returns <c>true</c> when <see cref="ObsoleteDoc"/> is non-null.</summary>
+   [System.Text.Json.Serialization.JsonIgnore]
+   public bool IsObsolete => ObsoleteDoc != null;
+}
+
+/// <summary>A global variable pre-declared by the runtime.</summary>
+public sealed record GlobalVariableDefinition(
+   string  TypeName,
+   string  Doc         = "",
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   string? ObsoleteDoc = null)
+{
+   /// <summary>Returns <c>true</c> when <see cref="ObsoleteDoc"/> is non-null.</summary>
+   [System.Text.Json.Serialization.JsonIgnore]
+   public bool IsObsolete => ObsoleteDoc != null;
+}
 
 /// <summary>A property on a CgScript object type.</summary>
 public sealed record PropertyDefinition(
-   string  Name,
    string  Doc,
-   bool    HasGetter,
-   bool    HasSetter,
-   string  ReturnType,
-   bool    IsObsolete  = false,
-   string? ObsoleteDoc = null);
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   bool    HasSetter   = false,
+   string  ReturnType  = "",
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   string? ObsoleteDoc = null)
+{
+   /// <summary>Returns <c>true</c> when <see cref="ObsoleteDoc"/> is non-null.</summary>
+   [System.Text.Json.Serialization.JsonIgnore]
+   public bool IsObsolete => ObsoleteDoc != null;
+}
 
 /// <summary>A CgScript object type with constructors, methods, static methods, and properties.</summary>
 public sealed record ObjectDefinition(
-   string               Doc,
-   MethodDefinition[]   Constructors,
-   MethodDefinition[]   Methods,
-   MethodDefinition[]   StaticMethods,
-   PropertyDefinition[] Properties);
+   string                                  Doc,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   MethodOverload[]?                       Constructors  = null,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   Dictionary<string, MethodOverload[]>?   Methods       = null,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   Dictionary<string, MethodOverload[]>?   StaticMethods = null,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   Dictionary<string, PropertyDefinition>? Properties    = null);
 
-/// <summary>One value within a CgScript enum (e.g. <c>COLOR_RED = 1</c>).</summary>
-public sealed record EnumValueDefinition(string Name, string Doc, int Value, bool IsObsolete, string? ObsoleteDoc = null);
+/// <summary>One value within a CgScript enum.</summary>
+public sealed record EnumValueDefinition(
+   string  Name,
+   string  Doc,
+   int     Value,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   string? ObsoleteDoc = null)
+{
+   /// <summary>Returns <c>true</c> when <see cref="ObsoleteDoc"/> is non-null.</summary>
+   [System.Text.Json.Serialization.JsonIgnore]
+   public bool IsObsolete => ObsoleteDoc != null;
+}
 
 /// <summary>
 /// A CgScript enum type (e.g. <c>[Cg("COLOR",…)]</c>).
@@ -79,19 +102,23 @@ public sealed record EnumDefinition(string Prefix, string Doc, EnumValueDefiniti
 
 /// <summary>
 /// The raw payload record that maps 1:1 to the JSON produced by the definitions API endpoint.
-/// Used for serialization/deserialization of the CgScript definitions JSON.
 /// </summary>
-/// <param name="Functions">Known built-in functions keyed by name.</param>
+/// <param name="Functions">Standalone global functions (NOT also exposed as static methods) keyed by name.</param>
+/// <param name="GlobalFunctions">Names of functions that are globally callable but defined as object static methods.</param>
 /// <param name="Objects">Known built-in object types keyed by type name.</param>
-/// <param name="Constants">Known constant names (enum values).</param>
 /// <param name="GlobalVariables">Global variables pre-declared by the runtime.</param>
 /// <param name="Enums">Enum types with their prefixed constant values.</param>
 public sealed record CgScriptDefinitionsPayload(
-   Dictionary<string, FunctionDefinition>?                Functions,
-   Dictionary<string, ObjectDefinition>?                  Objects,
-   IReadOnlyList<string>?                                 Constants,
-   Dictionary<string, GlobalVariableDefinition>?          GlobalVariables,
-   Dictionary<string, EnumDefinition>?                    Enums);
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   Dictionary<string, MethodOverload[]>?         Functions,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   IReadOnlyList<string>?                        GlobalFunctions,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   Dictionary<string, ObjectDefinition>?         Objects,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   Dictionary<string, GlobalVariableDefinition>? GlobalVariables,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   Dictionary<string, EnumDefinition>?           Enums);
 
 // ── Loader ────────────────────────────────────────────────────────────────────
 
@@ -109,22 +136,23 @@ public class CgScriptDefinitions
 
    /// <summary>
    /// Set when definitions were fetched from a URL but the response could not be parsed.
-   /// The LSP surfaces this as a persistent CGS001 error diagnostic on every open document.
    /// </summary>
    public string? LoadError { get; protected init; }
 
-   /// <summary>Known built-in functions keyed by name.</summary>
-   public IReadOnlyDictionary<string, FunctionDefinition>   Functions       { get; protected init; }
+   /// <summary>All globally callable functions (standalone + globally-accessible static methods), keyed by name.</summary>
+   public IReadOnlyDictionary<string, MethodOverload[]>      Functions       { get; protected init; }
+   /// <summary>Names of functions that are globally callable but defined as object static methods.</summary>
+   public IReadOnlyList<string>                              GlobalFunctions  { get; protected init; }
    /// <summary>Known built-in object types keyed by type name.</summary>
-   public IReadOnlyDictionary<string, ObjectDefinition>     Objects         { get; protected init; }
-   /// <summary>Known constant names (enum values), sorted case-insensitively for binary-search prefix lookup. Rich metadata is in <see cref="Enums"/>.</summary>
-   public IReadOnlyList<string>                              Constants       { get; protected init; }
+   public IReadOnlyDictionary<string, ObjectDefinition>      Objects          { get; protected init; }
+   /// <summary>Known constant names (enum values), sorted case-insensitively for binary-search prefix lookup.</summary>
+   public IReadOnlyList<string>                              Constants        { get; protected init; }
    /// <summary>Global variables pre-declared by the runtime.</summary>
    public IReadOnlyDictionary<string, GlobalVariableDefinition> GlobalVariables { get; protected init; }
    /// <summary>Enum types with their prefixed constant values.</summary>
-   public IReadOnlyDictionary<string, EnumDefinition>        Enums           { get; protected init; }
+   public IReadOnlyDictionary<string, EnumDefinition>        Enums            { get; protected init; }
 
-   // ── Derived / computed (built once, consistent with raw data) ─────────────
+   // ── Derived / computed ─────────────────────────────────────────────────────
    /// <summary>Pre-built member info per object type, ready for the semantic analyzer.</summary>
    public IReadOnlyDictionary<string, ObjectMemberInfo> ObjectMemberInfos { get; init; }
    /// <summary>Pre-built function signature info, ready for the semantic analyzer.</summary>
@@ -134,21 +162,17 @@ public class CgScriptDefinitions
    /// <summary>Obsolete constant names (enum values) mapped to their optional deprecation message.</summary>
    public IReadOnlyDictionary<string, string?>          ObsoleteConstants { get; init; }
    /// <summary>All constant names as a case-insensitive set for O(1) membership tests.</summary>
-   public IReadOnlySet<string>                               ConstantsSet      { get; init; }
+   public IReadOnlySet<string>                          ConstantsSet      { get; init; }
    /// <summary>Enum value name → (parent enum, value definition) for O(1) constant detail lookup.</summary>
    public IReadOnlyDictionary<string, (EnumDefinition Enum, EnumValueDefinition Value)> EnumByConstant { get; init; }
    /// <summary>Function names sorted case-insensitively for binary-search prefix lookup.</summary>
-   public IReadOnlyList<string>                          FunctionKeys      { get; init; }
+   public IReadOnlyList<string>                         FunctionKeys      { get; init; }
    /// <summary>Object type names sorted case-insensitively for binary-search prefix lookup.</summary>
-   public IReadOnlyList<string>                          ObjectKeys        { get; init; }
+   public IReadOnlyList<string>                         ObjectKeys        { get; init; }
    /// <summary>Global variable names sorted case-insensitively for binary-search prefix lookup.</summary>
-   public IReadOnlyList<string>                          GlobalVariableKeys { get; init; }
+   public IReadOnlyList<string>                         GlobalVariableKeys { get; init; }
 
-   // ── Shared binary-search helper ───────────────────────────────────────────
-   /// <summary>
-   /// Returns the index of the first element in <paramref name="sorted"/> that is ≥
-   /// <paramref name="prefix"/> (case-insensitive).  Used as the start of a prefix scan.
-   /// </summary>
+   // ── Binary-search helpers ─────────────────────────────────────────────────
    private static int FindPrefixStart(IReadOnlyList<string> sorted, string prefix)
    {
       int lo = 0, hi = sorted.Count - 1;
@@ -161,38 +185,25 @@ public class CgScriptDefinitions
       return lo;
    }
 
-   /// <summary>
-   /// Returns all constants whose name starts with <paramref name="prefix"/> (case-insensitive),
-   /// using binary search on the sorted <see cref="Constants"/> list — O(log n + k).
-   /// Pass an empty string (or call with no argument) to enumerate all constants.
-   /// </summary>
+   /// <summary>Returns constant names starting with <paramref name="prefix"/>.</summary>
    public IEnumerable<string> ConstantsStartingWith(string prefix = "")
       => ScanKeys(Constants, prefix);
 
-   /// <summary>
-   /// Returns all functions whose name starts with <paramref name="prefix"/> (case-insensitive),
-   /// using binary search on the sorted <see cref="FunctionKeys"/> list — O(log n + k).
-   /// </summary>
-   public IEnumerable<KeyValuePair<string, FunctionDefinition>> FunctionsStartingWith(string prefix = "")
+   /// <summary>Returns function entries starting with <paramref name="prefix"/>.</summary>
+   public IEnumerable<KeyValuePair<string, MethodOverload[]>> FunctionsStartingWith(string prefix = "")
    {
       foreach (var k in ScanKeys(FunctionKeys, prefix))
-         yield return new KeyValuePair<string, FunctionDefinition>(k, Functions[k]);
+         yield return new KeyValuePair<string, MethodOverload[]>(k, Functions[k]);
    }
 
-   /// <summary>
-   /// Returns all object types whose name starts with <paramref name="prefix"/> (case-insensitive),
-   /// using binary search on the sorted <see cref="ObjectKeys"/> list — O(log n + k).
-   /// </summary>
+   /// <summary>Returns object entries starting with <paramref name="prefix"/>.</summary>
    public IEnumerable<KeyValuePair<string, ObjectDefinition>> ObjectsStartingWith(string prefix = "")
    {
       foreach (var k in ScanKeys(ObjectKeys, prefix))
          yield return new KeyValuePair<string, ObjectDefinition>(k, Objects[k]);
    }
 
-   /// <summary>
-   /// Returns all global variables whose name starts with <paramref name="prefix"/> (case-insensitive),
-   /// using binary search on the sorted <see cref="GlobalVariableKeys"/> list — O(log n + k).
-   /// </summary>
+   /// <summary>Returns global variable entries starting with <paramref name="prefix"/>.</summary>
    public IEnumerable<KeyValuePair<string, GlobalVariableDefinition>> GlobalVariablesStartingWith(string prefix = "")
    {
       foreach (var k in ScanKeys(GlobalVariableKeys, prefix))
@@ -213,15 +224,17 @@ public class CgScriptDefinitions
    public CgScriptDefinitions()
    {
       var payload  = Load();
-      Functions       = payload?.Functions       ?? new Dictionary<string, FunctionDefinition>();
-      Objects         = payload?.Objects         ?? new Dictionary<string, ObjectDefinition>();
-      Constants       = Sort(payload?.Constants);
-      GlobalVariables = payload?.GlobalVariables ?? new Dictionary<string, GlobalVariableDefinition>();
-      Enums           = payload?.Enums           ?? new Dictionary<string, EnumDefinition>();
+      var (functions, globalFunctions) = ExtractFunctions(payload);
+      Functions        = functions;
+      GlobalFunctions  = globalFunctions;
+      Objects          = payload?.Objects         ?? new Dictionary<string, ObjectDefinition>();
+      Constants        = DeriveConstants(payload?.Enums);
+      GlobalVariables  = payload?.GlobalVariables ?? new Dictionary<string, GlobalVariableDefinition>();
+      Enums            = payload?.Enums           ?? new Dictionary<string, EnumDefinition>();
       FunctionKeys       = Sort(Functions.Keys);
       ObjectKeys         = Sort(Objects.Keys);
       GlobalVariableKeys = Sort(GlobalVariables.Keys);
-      (ObjectMemberInfos, FunctionInfos, ObsoleteFunctions, ObsoleteConstants, ConstantsSet, EnumByConstant) = BuildDerived(Objects, Functions, Enums, Constants);
+      (ObjectMemberInfos, FunctionInfos, ObsoleteFunctions, ObsoleteConstants, ConstantsSet, EnumByConstant) = BuildDerived(Objects, Functions, Enums);
    }
 
    private static string[] Sort(IEnumerable<string>? list)
@@ -233,7 +246,42 @@ public class CgScriptDefinitions
       return arr;
    }
 
-   /// <summary>Creates a loader with no definitions and a load error message (e.g. after a failed HTTP parse).</summary>
+   /// <summary>Derives the sorted constant list from enum values.</summary>
+   private static string[] DeriveConstants(IReadOnlyDictionary<string, EnumDefinition>? enums)
+   {
+      if (enums is null) return [];
+      var names = enums.Values.SelectMany(e => e.Values.Select(v => v.Name)).ToArray();
+      Array.Sort(names, StringComparer.OrdinalIgnoreCase);
+      return names;
+   }
+
+   /// <summary>
+   /// Builds the full functions dict by merging standalone Functions with globally-accessible
+   /// static methods referenced in GlobalFunctions.
+   /// </summary>
+   private static (Dictionary<string, MethodOverload[]>, IReadOnlyList<string>) ExtractFunctions(CgScriptDefinitionsPayload? payload)
+   {
+      var functions = new Dictionary<string, MethodOverload[]>(
+         payload?.Functions ?? new Dictionary<string, MethodOverload[]>(),
+         StringComparer.OrdinalIgnoreCase);
+      var globalFunctionsList = payload?.GlobalFunctions ?? [];
+      if (globalFunctionsList.Count > 0 && payload?.Objects != null)
+      {
+         foreach (var funcName in globalFunctionsList)
+         {
+            if (functions.ContainsKey(funcName)) continue;
+            foreach (var obj in payload.Objects.Values)
+               if (obj.StaticMethods?.TryGetValue(funcName, out var overloads) == true)
+               {
+                  functions[funcName] = overloads;
+                  break;
+               }
+         }
+      }
+      return (functions, globalFunctionsList);
+   }
+
+   /// <summary>Loads definitions from the embedded JSON resource, setting <see cref="LoadError"/> to <paramref name="loadError"/>.</summary>
 #if NET5_0_OR_GREATER
    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("JSON deserialization of CgScriptDefinitionsPayload.")]
 #endif
@@ -241,21 +289,23 @@ public class CgScriptDefinitions
 
    /// <summary>Constructor for subclasses that supply their own definitions.</summary>
    protected CgScriptDefinitions(
-      Dictionary<string, FunctionDefinition>                functions,
+      Dictionary<string, MethodOverload[]>                  functions,
       Dictionary<string, ObjectDefinition>                  objects,
       IReadOnlyCollection<string>                           constants,
       IReadOnlyDictionary<string, GlobalVariableDefinition> globalVariables,
-      Dictionary<string, EnumDefinition>                    enums)
+      Dictionary<string, EnumDefinition>                    enums,
+      IReadOnlyList<string>?                                globalFunctions = null)
    {
-      Functions       = functions;
-      Objects         = objects;
-      Constants       = Sort(constants);
-      GlobalVariables = globalVariables;
-      Enums           = enums;
+      Functions        = functions;
+      GlobalFunctions  = globalFunctions ?? [];
+      Objects          = objects;
+      Constants        = Sort(constants);
+      GlobalVariables  = globalVariables;
+      Enums            = enums;
       FunctionKeys       = Sort(Functions.Keys);
       ObjectKeys         = Sort(Objects.Keys);
       GlobalVariableKeys = Sort(GlobalVariables.Keys);
-      (ObjectMemberInfos, FunctionInfos, ObsoleteFunctions, ObsoleteConstants, ConstantsSet, EnumByConstant) = BuildDerived(Objects, Functions, Enums, Constants);
+      (ObjectMemberInfos, FunctionInfos, ObsoleteFunctions, ObsoleteConstants, ConstantsSet, EnumByConstant) = BuildDerived(Objects, Functions, Enums);
    }
 
    private static (
@@ -266,12 +316,12 @@ public class CgScriptDefinitions
       IReadOnlySet<string>,
       IReadOnlyDictionary<string, (EnumDefinition Enum, EnumValueDefinition Value)>)
       BuildDerived(
-         IReadOnlyDictionary<string, ObjectDefinition>     objects,
-         IReadOnlyDictionary<string, FunctionDefinition>   functions,
-         IReadOnlyDictionary<string, EnumDefinition>       enums,
-         IReadOnlyList<string>                             constants)
+         IReadOnlyDictionary<string, ObjectDefinition>    objects,
+         IReadOnlyDictionary<string, MethodOverload[]>    functions,
+         IReadOnlyDictionary<string, EnumDefinition>      enums)
    {
-      var hs = new HashSet<string>(constants, StringComparer.OrdinalIgnoreCase);
+      var constantNames = enums.Values.SelectMany(e => e.Values.Select(v => v.Name));
+      var hs = new HashSet<string>(constantNames, StringComparer.OrdinalIgnoreCase);
 #if NET5_0_OR_GREATER
       IReadOnlySet<string> constantsSet = hs;
 #else
@@ -297,35 +347,40 @@ public class CgScriptDefinitions
          var propertyRetTypes = new Dictionary<string, string>(StringComparer.Ordinal);
          var obsoleteProps    = new Dictionary<string, string?>(StringComparer.Ordinal);
          if (def.Properties != null)
-            foreach (var p in def.Properties)
+            foreach (var propKvp in def.Properties)
             {
-               properties[p.Name] = p.HasSetter;
+               var propName = propKvp.Key;
+               var p        = propKvp.Value;
+               properties[propName] = p.HasSetter;
                if (!string.IsNullOrEmpty(p.ReturnType))
-                  propertyRetTypes[p.Name] = p.ReturnType;
+                  propertyRetTypes[propName] = p.ReturnType;
                if (p.IsObsolete)
-                  obsoleteProps[p.Name] = p.ObsoleteDoc;
+                  obsoleteProps[propName] = p.ObsoleteDoc;
             }
          var methods                = new List<string>();
          var obsoleteMethods        = new Dictionary<string, string?>(StringComparer.Ordinal);
          var methodOverloadsDict    = new Dictionary<string, List<IReadOnlyList<string>>>(StringComparer.Ordinal);
          if (def.Methods != null)
-            foreach (var m in def.Methods)
-               if (!string.IsNullOrEmpty(m.Name))
+            foreach (var methodKvp in def.Methods)
+            {
+               var methodName = methodKvp.Key;
+               var overloads  = methodKvp.Value;
+               methods.Add(methodName);
+               var overloadList = new List<IReadOnlyList<string>>();
+               bool anyObsolete = false;
+               string? obsoleteDoc = null;
+               foreach (var m in overloads)
                {
-                  methods.Add(m.Name);
-                  if (m.IsObsolete)
-                     obsoleteMethods[m.Name] = m.ObsoleteDoc;
-                  if (!methodOverloadsDict.TryGetValue(m.Name, out var overloadList))
-                  {
-                     overloadList = new List<IReadOnlyList<string>>();
-                     methodOverloadsDict[m.Name] = overloadList;
-                  }
+                  if (m.IsObsolete) { anyObsolete = true; obsoleteDoc ??= m.ObsoleteDoc; }
                   var paramTypes = new List<string>(m.Param?.Length ?? 0);
                   if (m.Param != null)
                      foreach (var p in m.Param)
                         paramTypes.Add(p.Type ?? "");
                   overloadList.Add(paramTypes);
                }
+               if (anyObsolete) obsoleteMethods[methodName] = obsoleteDoc;
+               methodOverloadsDict[methodName] = overloadList;
+            }
 
          List<IReadOnlyList<string>>? constructorOverloads = null;
          if (def.Constructors != null && def.Constructors.Length > 0)
@@ -359,17 +414,15 @@ public class CgScriptDefinitions
    }
 
    private static IReadOnlyDictionary<string, FunctionInfo> BuildFunctionInfos(
-      IReadOnlyDictionary<string, FunctionDefinition> functions)
+      IReadOnlyDictionary<string, MethodOverload[]> functions)
    {
       var result = new Dictionary<string, FunctionInfo>(StringComparer.Ordinal);
       foreach (var kvp in functions)
       {
-         var def = kvp.Value;
-         if (def.Variants == null) continue;
-         var overloads    = new List<IReadOnlyList<string>>(def.Variants.Length);
-         bool allObsolete = def.Variants.Length > 0;
+         var overloads    = new List<IReadOnlyList<string>>(kvp.Value.Length);
+         bool allObsolete = kvp.Value.Length > 0;
          string? obsoleteDoc = null;
-         foreach (var variant in def.Variants)
+         foreach (var variant in kvp.Value)
          {
             var paramTypes = new List<string>(variant.Param?.Length ?? 0);
             if (variant.Param != null)
@@ -387,15 +440,12 @@ public class CgScriptDefinitions
    }
 
    private static IReadOnlyDictionary<string, string?> BuildObsoleteFunctions(
-      IReadOnlyDictionary<string, FunctionDefinition> functions)
+      IReadOnlyDictionary<string, MethodOverload[]> functions)
    {
       var result = new Dictionary<string, string?>(StringComparer.Ordinal);
       foreach (var kvp in functions)
-      {
-         var def = kvp.Value;
-         if (def.Variants != null && def.Variants.Length > 0 && def.Variants.All(v => v.IsObsolete))
-            result[kvp.Key] = def.Variants.Select(v => v.ObsoleteDoc).FirstOrDefault(d => d != null);
-      }
+         if (kvp.Value.Length > 0 && kvp.Value.All(v => v.IsObsolete))
+            result[kvp.Key] = kvp.Value.Select(v => v.ObsoleteDoc).FirstOrDefault(d => d != null);
       return result;
    }
 
@@ -412,8 +462,7 @@ public class CgScriptDefinitions
 
    /// <summary>
    /// Returns a new <see cref="CgScriptDefinitions"/> identical to this one but with
-   /// <paramref name="extras"/> merged into <see cref="GlobalVariables"/> (extras win on collision).
-   /// Returns <c>this</c> unchanged when <paramref name="extras"/> is empty.
+   /// <paramref name="extras"/> merged into <see cref="GlobalVariables"/>.
    /// </summary>
    public CgScriptDefinitions WithExtraGlobalVariables(IReadOnlyDictionary<string, GlobalVariableDefinition> extras)
    {
@@ -421,19 +470,17 @@ public class CgScriptDefinitions
       var merged = GlobalVariables.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
       foreach (var kv in extras) merged[kv.Key] = kv.Value;
       return new CgScriptDefinitions(
-         Functions is Dictionary<string, FunctionDefinition> fd ? fd : Functions.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
-         Objects   is Dictionary<string, ObjectDefinition>   od ? od : Objects.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
+         Functions   is Dictionary<string, MethodOverload[]>    fd ? fd : Functions.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
+         Objects     is Dictionary<string, ObjectDefinition>    od ? od : Objects.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
          Constants,
          merged,
-         Enums     is Dictionary<string, EnumDefinition>     ed ? ed : Enums.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase));
+         Enums       is Dictionary<string, EnumDefinition>      ed ? ed : Enums.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
+         GlobalFunctions);
    }
 
    /// <summary>
-   /// Returns a new <see cref="CgScriptDefinitions"/> with extra constructor overloads that are
-   /// only valid when editing CgScript files processed by the source generator or deployed through
-   /// VS / VS Code (e.g., <c>new WorkflowScript("filename.cgs")</c> which the source generator
-   /// rewrites to <c>new WorkflowScript(resourceId)</c>).
-   /// Do NOT call this from the web runtime context where definitions come from a live server.
+   /// Returns a new <see cref="CgScriptDefinitions"/> with extra constructor overloads only valid
+   /// in preprocessor/source-generator context (e.g., <c>new WorkflowScript("filename.cgs")</c>).
    /// </summary>
    public CgScriptDefinitions WithPreprocessorExtensions()
    {
@@ -441,25 +488,23 @@ public class CgScriptDefinitions
       var modified = ObjectMemberInfos.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
       modified["WorkflowScript"] = wsMemberInfo.WithExtraConstructorOverload(new[] { "string" });
       return new CgScriptDefinitions(
-         Functions is Dictionary<string, FunctionDefinition> fd ? fd : Functions.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
-         Objects   is Dictionary<string, ObjectDefinition>   od ? od : Objects.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
+         Functions   is Dictionary<string, MethodOverload[]>    fd ? fd : Functions.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
+         Objects     is Dictionary<string, ObjectDefinition>    od ? od : Objects.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
          Constants,
          GlobalVariables,
-         Enums     is Dictionary<string, EnumDefinition>     ed ? ed : Enums.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase))
+         Enums       is Dictionary<string, EnumDefinition>      ed ? ed : Enums.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
+         GlobalFunctions)
       { ObjectMemberInfos = modified };
    }
 
-   /// <summary>
-   /// Creates a <see cref="CgScriptDefinitions"/> by deserializing JSON from <paramref name="stream"/>.
-   /// Used by the Lsp layer to load definitions fetched over HTTP.
-   /// </summary>
+   /// <summary>Creates a <see cref="CgScriptDefinitions"/> by deserializing JSON from <paramref name="stream"/>.</summary>
 #if NET5_0_OR_GREATER
    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("JSON deserialization of CgScriptDefinitionsPayload.")]
 #endif
    public static CgScriptDefinitions FromJsonStream(System.IO.Stream stream)
    {
-      var payload = JsonSerializer.Deserialize<CgScriptDefinitionsPayload>(stream,
-         new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+      var payload = System.Text.Json.JsonSerializer.Deserialize<CgScriptDefinitionsPayload>(stream,
+         new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
       return FromPayload(payload);
    }
 
@@ -468,12 +513,16 @@ public class CgScriptDefinitions
 #endif
    internal static CgScriptDefinitions FromPayload(CgScriptDefinitionsPayload? payload)
    {
+      var (functions, globalFunctions) = ExtractFunctions(payload);
+      var enums     = payload?.Enums           ?? new Dictionary<string, EnumDefinition>();
+      var constants = DeriveConstants(enums);
       return new CgScriptDefinitions(
-         payload?.Functions       ?? new Dictionary<string, FunctionDefinition>(),
+         functions,
          payload?.Objects         ?? new Dictionary<string, ObjectDefinition>(),
-         payload?.Constants       ?? [],
+         constants,
          payload?.GlobalVariables ?? new Dictionary<string, GlobalVariableDefinition>(),
-         payload?.Enums           ?? new Dictionary<string, EnumDefinition>());
+         enums,
+         globalFunctions);
    }
 
 #if NET5_0_OR_GREATER
@@ -485,7 +534,7 @@ public class CgScriptDefinitions
                              .FirstOrDefault(n => n.EndsWith("CgScriptDefinitions.json", System.StringComparison.Ordinal));
       if (resourceName is null) return null;
       using var stream = _asm.GetManifestResourceStream(resourceName)!;
-      return JsonSerializer.Deserialize<CgScriptDefinitionsPayload>(stream,
-         new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+      return System.Text.Json.JsonSerializer.Deserialize<CgScriptDefinitionsPayload>(stream,
+         new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
    }
 }

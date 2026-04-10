@@ -134,21 +134,18 @@ public partial class CgScriptLanguageTarget
             var receiverObj = ResolveReceiverObjectAtDot(text, pos - 1, tree);
             if (receiverObj != null)
             {
-               var prop = (receiverObj.Properties ?? [])
-                  .FirstOrDefault(p => string.Equals(p.Name, receiverName, StringComparison.Ordinal));
-               if (prop?.ReturnType != null)
-                  TryGetObjectDefinition(prop.ReturnType, out objDef);
+               if (receiverObj.Properties != null
+                   && receiverObj.Properties.TryGetValue(receiverName, out var propDef)
+                   && propDef?.ReturnType != null)
+                  TryGetObjectDefinition(propDef.ReturnType, out objDef);
             }
          }
       }
 
       if (objDef is null) return null;
 
-      var indexerMethods = (objDef.Methods ?? [])
-         .Where(m => m.Name == "[]")
-         .ToArray();
-
-      if (indexerMethods.Length == 0) return null;
+      if (objDef.Methods == null || !objDef.Methods.TryGetValue("[]", out var indexerMethods) || indexerMethods.Length == 0)
+         return null;
 
       return indexerMethods.Select(m => new SignatureInformation
       {

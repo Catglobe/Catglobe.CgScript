@@ -15,8 +15,8 @@ public class DefinitionContractTests
    {
       Assert.All(_defs.Functions, kvp =>
       {
-         Assert.NotNull(kvp.Value.Variants);
-         Assert.All(kvp.Value.Variants, v =>
+         Assert.NotEmpty(kvp.Value);
+         Assert.All(kvp.Value, v =>
          {
             Assert.NotNull(v.Doc);
             Assert.NotNull(v.Param);
@@ -32,17 +32,17 @@ public class DefinitionContractTests
       {
          var obj = kvp.Value;
          Assert.NotNull(obj.Doc);
-         Assert.NotNull(obj.Constructors);
-         Assert.NotNull(obj.Methods);
-         Assert.NotNull(obj.StaticMethods);
-         Assert.NotNull(obj.Properties);
-         Assert.All(obj.Constructors.Concat(obj.Methods).Concat(obj.StaticMethods), m =>
+         var allMethods = (obj.Constructors ?? [])
+            .Concat((obj.Methods == null ? [] : (IEnumerable<MethodOverload[]>)obj.Methods.Values).SelectMany(v => v))
+            .Concat((obj.StaticMethods == null ? [] : (IEnumerable<MethodOverload[]>)obj.StaticMethods.Values).SelectMany(v => v));
+         Assert.All(allMethods, m =>
          {
             Assert.NotNull(m.Doc);
             Assert.NotNull(m.Param);
             Assert.NotNull(m.ReturnType);
          });
-         Assert.All(obj.Properties, p =>
+         var allProps = obj.Properties?.Values ?? (IEnumerable<PropertyDefinition>)[];
+         Assert.All(allProps, p =>
          {
             Assert.NotNull(p.Doc);
             Assert.NotNull(p.ReturnType);

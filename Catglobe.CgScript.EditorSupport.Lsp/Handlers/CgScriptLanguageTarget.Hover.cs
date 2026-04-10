@@ -54,22 +54,17 @@ public partial class CgScriptLanguageTarget
          foreach (var candidate in candidates)
          {
             // Properties shown for both instance and static access
-            var prop = (candidate.Properties ?? []).FirstOrDefault(
-               pr => string.Equals(pr.Name, word, StringComparison.OrdinalIgnoreCase));
-            if (prop != null)
+            if (candidate.Properties != null && candidate.Properties.TryGetValue(word, out var prop))
                return new Hover
                {
                   Contents = HoverContent(
                      (prop.IsObsolete ? DeprecatedPrefix(prop.ObsoleteDoc) : "")
                      + (string.IsNullOrWhiteSpace(prop.Doc) ? "" : $"{prop.Doc}\n\n")
-                     + $"`{prop.ReturnType} {prop.Name}`"),
+                     + $"`{prop.ReturnType} {word}`"),
                };
 
-            var methodSource = isStaticAccess ? (candidate.StaticMethods ?? []) : (candidate.Methods ?? []);
-            var methods = methodSource
-               .Where(m => string.Equals(m.Name, word, StringComparison.OrdinalIgnoreCase))
-               .ToList();
-            if (methods.Count == 0) continue;
+            var methodSource = isStaticAccess ? candidate.StaticMethods : candidate.Methods;
+            if (methodSource == null || !methodSource.TryGetValue(word, out var methods) || methods.Length == 0) continue;
 
             bool allMethodsObsolete = methods.All(m => m.IsObsolete);
             var sb = new System.Text.StringBuilder();
@@ -82,7 +77,7 @@ public partial class CgScriptLanguageTarget
                if (m.IsObsolete && !allMethodsObsolete) sb.Append(DeprecatedPrefix(m.ObsoleteDoc));
                else if (m.IsObsolete && m.ObsoleteDoc is not null) sb.Append($"{m.ObsoleteDoc}\n\n");
                if (!string.IsNullOrWhiteSpace(m.Doc)) sb.Append($"{m.Doc}\n\n");
-               sb.Append($"`{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param ?? [])})`");
+               sb.Append($"`{m.ReturnType} {word}({BuildMethodParamList(m.Param ?? [])})`");
                if (m.Param?.Length > 0)
                {
                   sb.Append("\n\n**Parameters:**");
@@ -177,11 +172,6 @@ public partial class CgScriptLanguageTarget
 
          if (decl is not null)
          {
-            // Use the declaration's source position to pick the exact typed symbol
-            // so that a function parameter of a different type shadows a same-named
-            // global (e.g. 'User u' global vs 'Dictionary u' parameter).
-            // CollectAll is a single parse-tree walk; the linear search is proportional
-            // to the number of declarations in the file, which is acceptable for hover.
             var allSymbols = DocumentSymbolCollector.CollectAll(result.Tree);
             var exactSym   = allSymbols.FirstOrDefault(
                s => s.Name == word && s.NameLine == decl.Line && s.NameColumn == decl.Column);
@@ -216,10 +206,6 @@ public partial class CgScriptLanguageTarget
       return new MarkupContent { Kind = MarkupKind.PlainText, Value = plain };
    }
 
-   private static string BuildVariantParamList(FunctionVariantParam[]? parameters)
-      => parameters is null ? string.Empty
-         : string.Join(", ", parameters.Select(p => $"{p.Type} {p.Name}"));
-
    private static string BuildMethodParamList(MethodParam[]? parameters)
       => parameters is null ? string.Empty
          : string.Join(", ", parameters.Select(p => $"{p.Type} {p.Name}"));
@@ -231,38 +217,37 @@ public partial class CgScriptLanguageTarget
    private static string DeprecatedPrefix(string? obsoleteDoc)
       => "**⚠ Deprecated**" + (obsoleteDoc is null ? "" : $"\n\n{obsoleteDoc}") + "\n\n";
 
-   private static string GetFunctionReturnType(FunctionDefinition fn)
-      => fn.Variants?.Length > 0 ? fn.Variants[0].ReturnType : string.Empty;
+   private static string GetFunctionReturnType(MethodOverload[] fn)
+      => fn.Length > 0 ? fn[0].ReturnType : string.Empty;
 
-   private static string BuildFunctionLabel(string name, FunctionDefinition fn)
+   private static string BuildFunctionLabel(string name, MethodOverload[] fn)
    {
-      if (fn.Variants?.Length > 0)
+      if (fn.Length > 0)
       {
-         var first = fn.Variants[0];
-         return fn.Variants.Length == 1
-            ? $"{name}({BuildVariantParamList(first.Param)})"
-            : $"{name}(+{fn.Variants.Length} overloads)";
+         var first = fn[0];
+         return fn.Length == 1
+            ? $"{name}({BuildMethodParamList(first.Param)})"
+            : $"{name}(+{fn.Length} overloads)";
       }
       return $"{name}()";
    }
 
    /// <summary>Builds the markdown hover text for a built-in function.</summary>
-   private static string BuildFunctionHover(string name, FunctionDefinition fn)
+   private static string BuildFunctionHover(string name, MethodOverload[] fn)
    {
-      if (fn.Variants is not { Length: > 0 })
-         return name;
-      bool allObsolete = fn.Variants.All(v => v.IsObsolete);
+      if (fn.Length == 0) return name;
+      bool allObsolete = fn.All(v => v.IsObsolete);
       var sb = new System.Text.StringBuilder();
       if (allObsolete) sb.Append("**⚠ Deprecated**\n\n");
       bool firstEntry = true;
-      foreach (var v in fn.Variants)
+      foreach (var v in fn)
       {
          if (!firstEntry) sb.Append("\n\n---\n\n");
          firstEntry = false;
          if (v.IsObsolete && !allObsolete) sb.Append(DeprecatedPrefix(v.ObsoleteDoc));
          else if (v.IsObsolete && v.ObsoleteDoc is not null) sb.Append($"{v.ObsoleteDoc}\n\n");
          if (!string.IsNullOrWhiteSpace(v.Doc)) sb.Append($"{v.Doc}\n\n");
-         sb.Append($"`{v.ReturnType} {name}({BuildVariantParamList(v.Param)})`");
+         sb.Append($"`{v.ReturnType} {name}({BuildMethodParamList(v.Param)})`");
          if (v.Param?.Length > 0)
          {
             sb.Append("\n\n**Parameters:**");
@@ -273,13 +258,12 @@ public partial class CgScriptLanguageTarget
       return sb.ToString();
    }
 
-   private static SignatureInformation[] BuildSignatureInfoList(string funcName, FunctionDefinition fn)
+   private static SignatureInformation[] BuildSignatureInfoList(string funcName, MethodOverload[] fn)
    {
-      if (fn.Variants is not { Length: > 0 })
-         return [];
-      return fn.Variants.Select(v => new SignatureInformation
+      if (fn.Length == 0) return [];
+      return fn.Select(v => new SignatureInformation
       {
-         Label         = $"{v.ReturnType} {funcName}({BuildVariantParamList(v.Param)})",
+         Label         = $"{v.ReturnType} {funcName}({BuildMethodParamList(v.Param)})",
          Documentation = new SumType<string, MarkupContent>(
             new MarkupContent { Kind = MarkupKind.Markdown, Value = v.Doc ?? string.Empty }),
          Parameters    = (v.Param ?? []).Select(p =>
@@ -291,16 +275,13 @@ public partial class CgScriptLanguageTarget
       }).ToArray();
    }
 
-   private static string BuildFunctionDoc(FunctionDefinition fn)
-      => fn.Variants?.Length > 0
-         ? string.Join("\n\n---\n\n", fn.Variants.Select(v => v.Doc ?? string.Empty))
+   private static string BuildFunctionDoc(MethodOverload[] fn)
+      => fn.Length > 0
+         ? string.Join("\n\n---\n\n", fn.Select(v => v.Doc ?? string.Empty))
          : string.Empty;
 
    /// <summary>
    /// Builds the markdown hover text for an enum-derived constant.
-   /// Shows the enum generic documentation (if any), the per-value documentation
-   /// (if any), and the numeric value of the constant.
-   /// Falls back to <c>"constant: {name}"</c> when the constant is not part of any enum.
    /// </summary>
    private string BuildEnumConstantDoc(string name)
    {
@@ -323,9 +304,6 @@ public partial class CgScriptLanguageTarget
 
    /// <summary>
    /// Builds signature info for a method call on an instance or type: <c>receiver.Method(</c>.
-   /// Locates the dot before <paramref name="parenPos"/>, resolves the receiver's declared
-   /// type, then looks up matching methods (instance or static) on that type.
-   /// Returns <c>null</c> if the type or method cannot be resolved.
    /// </summary>
    private SignatureInformation[]? TryBuildMethodSignatures(
       string methodName, string text, int parenPos, Antlr4.Runtime.Tree.IParseTree? tree)
@@ -352,15 +330,12 @@ public partial class CgScriptLanguageTarget
 
       if (objDef is null) return null;
 
-      var methods = (isStatic ? (objDef.StaticMethods ?? []) : (objDef.Methods ?? []))
-         .Where(m => string.Equals(m.Name, methodName, StringComparison.OrdinalIgnoreCase))
-         .ToArray();
-
-      if (methods.Length == 0) return null;
+      var methodSource = isStatic ? objDef.StaticMethods : objDef.Methods;
+      if (methodSource == null || !methodSource.TryGetValue(methodName, out var methods) || methods.Length == 0) return null;
 
       return methods.Select(m => new SignatureInformation
       {
-         Label         = $"{m.ReturnType} {m.Name}({BuildMethodParamList(m.Param)})",
+         Label         = $"{m.ReturnType} {methodName}({BuildMethodParamList(m.Param)})",
          Documentation = new SumType<string, MarkupContent>(
             new MarkupContent { Kind = MarkupKind.Markdown, Value = m.Doc ?? string.Empty }),
          Parameters    = (m.Param ?? []).Select(p =>
@@ -374,8 +349,7 @@ public partial class CgScriptLanguageTarget
 
    /// <summary>
    /// Returns <c>true</c> when the <c>(</c> at <paramref name="parenPos"/> belongs to a
-   /// <c>new TypeName(</c> expression, i.e. the keyword immediately preceding the type
-   /// name is <c>new</c>.
+   /// <c>new TypeName(</c> expression.
    /// </summary>
    private static bool IsConstructorCall(string text, int parenPos, string typeName)
    {
@@ -389,7 +363,7 @@ public partial class CgScriptLanguageTarget
    }
 
    /// <summary>Builds one <see cref="SignatureInformation"/> per constructor overload.</summary>
-   private static SignatureInformation[] BuildConstructorSignatureInfoList(string typeName, MethodDefinition[] ctors)
+   private static SignatureInformation[] BuildConstructorSignatureInfoList(string typeName, MethodOverload[] ctors)
       => ctors.Select(c => new SignatureInformation
       {
          Label         = $"new {typeName}({BuildMethodParamList(c.Param)})",

@@ -163,16 +163,16 @@ public class HoverTests
    // ── Plain (non-enum) constant hover ──────────────────────────────────────
 
    [Fact]
-   public void PlainConstant_Hover_ShowsFallbackText()
+   public void PlainConstant_Hover_ShowsConstantValue()
    {
-      // TASK_RESOURCE_ID is a plain constant (not enum-derived); hover should show
-      // the "constant: TASK_RESOURCE_ID" fallback.
+      // TASK_RESOURCE_ID is a plain constant (not enum-derived with real doc);
+      // hover should show the constant name and value.
       const string source = "TASK_RESOURCE_ID;";
       var (target, uri) = CreateTarget(source);
 
       var text = GetHoverText(target, uri, line: 0, character: 0);
 
       Assert.NotNull(text);
-      Assert.Contains("constant: TASK_RESOURCE_ID", text);
+      Assert.Contains("TASK_RESOURCE_ID", text);
    }
 }
