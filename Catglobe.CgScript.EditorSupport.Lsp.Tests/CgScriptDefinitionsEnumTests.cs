@@ -98,16 +98,16 @@ public class CgScriptDefinitionsEnumTests
    }
 
    [Fact]
-   public void EnumDerivedConstant_Completion_HasParentEnumDocumentation()
+   public void PlainConstant_Completion_HasNoDocumentation()
    {
-      // DATETIME_DAY has no value-level doc, but its parent enum DATETIME has a doc —
-      // the completion item should still surface documentation from the parent enum.
-      var (target, uri) = CreateTarget("DATETIME_DAY");
+      // TASK_RESOURCE_ID has no doc; its completion should not set Documentation
+      // (obsoleteDoc is separate and does not count as documentation).
+      var (target, uri) = CreateTarget("TASK_RESOURCE_ID");
 
-      var items = GetCompletions(target, uri, prefix: "DATETIME_DAY");
+      var items = GetCompletions(target, uri, prefix: "TASK_RESOURCE_ID");
 
-      var item = items.FirstOrDefault(i => i.Label == "DATETIME_DAY");
+      var item = items.FirstOrDefault(i => i.Label == "TASK_RESOURCE_ID");
       Assert.NotNull(item);
-      Assert.NotNull(item.Documentation);
+      Assert.Null(item.Documentation);
    }
 }

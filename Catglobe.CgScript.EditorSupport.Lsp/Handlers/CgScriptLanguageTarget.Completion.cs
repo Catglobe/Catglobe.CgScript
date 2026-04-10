@@ -295,7 +295,8 @@ public partial class CgScriptLanguageTarget
             Kind   = CompletionItemKind.Constant,
             Detail = constObsolete ? "(deprecated)" : null,
          };
-         if (inEnum && (!string.IsNullOrWhiteSpace(entry.Enum.Doc) || !string.IsNullOrWhiteSpace(entry.Value.Doc) || entry.Value.IsObsolete))
+         if (inEnum && (!string.IsNullOrWhiteSpace(entry.Enum.Doc) || !string.IsNullOrWhiteSpace(entry.Value.Doc))
+                    && !entry.Value.IsObsolete)
             item.Documentation = new MarkupContent
             {
                Kind  = MarkupKind.Markdown,
