@@ -187,9 +187,18 @@ public class SemanticAnalyzerDiagnosticsTests
    [Fact]
    public void ArrayVar_AssignedArrayLiteral_NoCGS020()
    {
-      var diags = Analyze("array a = [1, 2, 3];");
+      var diags = Analyze("array a = {1, 2, 3};");
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void ArrayVar_AssignedRangeLiteral_ReportsCGS020()
+   {
+      // [1, 2, 3] is a Range literal in CgScript, not an array
+      var diags = Analyze("array a = [1, 2, 3];");
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
    }
 
    [Fact]

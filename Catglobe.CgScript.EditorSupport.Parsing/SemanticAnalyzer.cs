@@ -1109,8 +1109,10 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       if (cv.STRING_LITERAL() != null || cv.CHAR_LITERAL() != null) return "String";
       if (cv.NUM_INT() != null || cv.NUM_DOUBLE() != null)           return "Number";
       if (cv.TRUE() != null || cv.FALSE() != null)                   return "Boolean";
-      // Array/dict literal, date literal, interval → Array
-      if (cv.LBRACKET() != null || cv.LCURLY() != null || cv.DATE_LITERAL() != null)
+      // Range (interval) literal: [1, 3-5] — distinct from Array
+      if (cv.LBRACKET() != null) return "Range";
+      // Array/dict literal or date literal → Array
+      if (cv.LCURLY() != null || cv.DATE_LITERAL() != null)
          return "Array";
       return null;
    }
