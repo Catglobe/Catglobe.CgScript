@@ -430,7 +430,7 @@
     ],
     "Blacklist_checkExist": [
       {
-        "doc": "Check if the specified emails exist in the blacklist. Returns a dictionary of email → bool.",
+        "doc": "Check if the specified emails exist in the blacklist. Returns a dictionary of email ΓåÆ bool.",
         "returnType": "Dictionary",
         "param": [
           {
@@ -443,7 +443,7 @@
     ],
     "Blacklist_getDetail": [
       {
-        "doc": "Get detail information (date, comment) for the specified emails. Returns a dictionary of email → details.",
+        "doc": "Get detail information (date, comment) for the specified emails. Returns a dictionary of email ΓåÆ details.",
         "returnType": "Dictionary",
         "param": [
           {
@@ -2206,12 +2206,12 @@
         "param": [
           {
             "name": "start date time",
-            "doc": "Start of the date range (inclusive; must be ≥ 1753-01-01)",
+            "doc": "Start of the date range (inclusive; must be ΓëÑ 1753-01-01)",
             "type": "DateTime"
           },
           {
             "name": "end date time",
-            "doc": "End of the date range (inclusive; must be ≥ 1753-01-01)",
+            "doc": "End of the date range (inclusive; must be ΓëÑ 1753-01-01)",
             "type": "DateTime"
           }
         ]
@@ -2222,12 +2222,12 @@
         "param": [
           {
             "name": "start date time",
-            "doc": "Start of the date range (inclusive; must be ≥ 1753-01-01)",
+            "doc": "Start of the date range (inclusive; must be ΓëÑ 1753-01-01)",
             "type": "DateTime"
           },
           {
             "name": "end date time",
-            "doc": "End of the date range (inclusive; must be ≥ 1753-01-01)",
+            "doc": "End of the date range (inclusive; must be ΓëÑ 1753-01-01)",
             "type": "DateTime"
           },
           {
@@ -6307,7 +6307,7 @@
     ],
     "Security_changeResourceGuid": [
       {
-        "doc": "Changes the GUID of a resource — requires admin rights",
+        "doc": "Changes the GUID of a resource ΓÇö requires admin rights",
         "returnType": "Empty",
         "param": [
           {
@@ -7127,7 +7127,7 @@
     ],
     "Tabulation_setPdfMargin": [
       {
-        "doc": "Sets a PDF margin value in points (valid range: 0–100) for the specified margin type",
+        "doc": "Sets a PDF margin value in points (valid range: 0ΓÇô100) for the specified margin type",
         "returnType": "Empty",
         "param": [
           {
@@ -9531,7 +9531,7 @@
         "param": [
           {
             "name": "CompletedPercentage",
-            "doc": "The percentage complete (0–100)",
+            "doc": "The percentage complete (0ΓÇô100)",
             "type": "int"
           },
           {
@@ -9662,21 +9662,21 @@
     ],
     "activeCultures": [
       {
-        "doc": "Returns a dictionary of active cultures (ISO code → localized name)",
+        "doc": "Returns a dictionary of active cultures (ISO code ΓåÆ localized name)",
         "returnType": "Dictionary",
         "param": []
       }
     ],
     "activeCurrencies": [
       {
-        "doc": "Returns a dictionary of active currencies (ISO code → native name and symbol)",
+        "doc": "Returns a dictionary of active currencies (ISO code ΓåÆ native name and symbol)",
         "returnType": "Dictionary",
         "param": []
       }
     ],
     "activeLanguages": [
       {
-        "doc": "Returns a dictionary of active languages (ISO code → localized name)",
+        "doc": "Returns a dictionary of active languages (ISO code ΓåÆ localized name)",
         "returnType": "Dictionary",
         "param": []
       }
@@ -9868,7 +9868,7 @@
           },
           {
             "name": "NoItem",
-            "doc": "Sliding-window size — the number of items averaged together (1–1024)",
+            "doc": "Sliding-window size ΓÇö the number of items averaged together (1ΓÇô1024)",
             "type": "int"
           },
           {
@@ -10196,7 +10196,7 @@
           },
           {
             "name": "columns",
-            "doc": "Array of column-axis-name arrays — one inner array per column stack",
+            "doc": "Array of column-axis-name arrays ΓÇö one inner array per column stack",
             "type": "array"
           }
         ]
@@ -22433,15 +22433,15 @@
           "returnType": "number"
         },
         "Day": {
-          "doc": "The day-of-month component (1–31)",
+          "doc": "The day-of-month component (1ΓÇô31)",
           "returnType": "int"
         },
         "Hour": {
-          "doc": "The hour component (0–23)",
+          "doc": "The hour component (0ΓÇô23)",
           "returnType": "int"
         },
         "IsoWeek": {
-          "doc": "The ISO 8601 week number (1–53)",
+          "doc": "The ISO 8601 week number (1ΓÇô53)",
           "returnType": "int"
         },
         "IsoWeekYear": {
@@ -22453,7 +22453,7 @@
           "returnType": "number"
         },
         "Millisecond": {
-          "doc": "The millisecond component (0–999)",
+          "doc": "The millisecond component (0ΓÇô999)",
           "returnType": "int"
         },
         "Min": {
@@ -22461,11 +22461,11 @@
           "returnType": "number"
         },
         "Minute": {
-          "doc": "The minute component (0–59)",
+          "doc": "The minute component (0ΓÇô59)",
           "returnType": "int"
         },
         "Month": {
-          "doc": "The month component (1–12)",
+          "doc": "The month component (1ΓÇô12)",
           "returnType": "int"
         },
         "ObjectTypeName": {
@@ -22473,7 +22473,7 @@
           "returnType": "string"
         },
         "Second": {
-          "doc": "The second component (0–59)",
+          "doc": "The second component (0ΓÇô59)",
           "returnType": "int"
         },
         "Sum": {
@@ -31484,7 +31484,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -31542,7 +31542,7 @@
       }
     },
     "MultimediaQuestion": {
-      "doc": "Multimedia question. Read-only — assignment is not supported.",
+      "doc": "Multimedia question. Read-only ΓÇö assignment is not supported.",
       "methods": {
         "AsValue": [
           {
@@ -31553,7 +31553,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -31611,7 +31611,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -31944,7 +31944,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -32662,7 +32662,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -33356,7 +33356,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -38531,7 +38531,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -46828,7 +46828,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -46890,7 +46890,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -47572,7 +47572,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -47634,7 +47634,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -49413,7 +49413,7 @@
           "returnType": "bool"
         },
         "Variance": {
-          "doc": "Estimates variance based on a data cache column’s values.",
+          "doc": "Estimates variance based on a data cache columnΓÇÖs values.",
           "hasSetter": true,
           "returnType": "bool"
         },
@@ -51746,7 +51746,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -51808,7 +51808,7 @@
         ],
         "Set": [
           {
-            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) — use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
+            "doc": "Equivalent to the `=` assignment operator. Pass `empty` to clear the answer. Prefer direct assignment (`QUESTION = value`) ΓÇö use .Set() only when passing the question as a callback target or when the operator form is not syntactically available.",
             "returnType": "Empty",
             "param": [
               {
@@ -53527,7 +53527,7 @@
       "doc": "Pre-parsed expression fragment for use with DataCacheSpecification.EvalWhereExps. Build static sub-expressions once outside loops, then combine with operators and substitute per-iteration values using the replacement constructor to avoid repeated parsing overhead.",
       "constructors": [
         {
-          "doc": "Parse an expression string into a reusable fragment. Expensive — avoid calling inside loops. Build static sub-expressions once and reuse them via the replacement or operator constructors.",
+          "doc": "Parse an expression string into a reusable fragment. Expensive ΓÇö avoid calling inside loops. Build static sub-expressions once and reuse them via the replacement or operator constructors.",
           "returnType": "",
           "param": [
             {
@@ -53575,7 +53575,7 @@
           "param": [
             {
               "name": "operation",
-              "doc": "Operator constant — one of WHEREEXPFRAGMENT_AND / OR / PLUS / MINUS / MULT / DIV.",
+              "doc": "Operator constant ΓÇö one of WHEREEXPFRAGMENT_AND / OR / PLUS / MINUS / MULT / DIV.",
               "type": "int"
             },
             {
@@ -54222,7 +54222,7 @@
     },
     "mathPi": {
       "typeName": "number",
-      "doc": "π = 3,141592653589793"
+      "doc": "╧Ç = 3,141592653589793"
     },
     "Resource_Permission_None": {
       "typeName": "string",
@@ -58614,7 +58614,7 @@
     },
     "TASKPARTICIPANT": {
       "prefix": "TASKPARTICIPANT_",
-      "doc": "Index constants for TaskParticipant — use named properties instead",
+      "doc": "Index constants for TaskParticipant ΓÇö use named properties instead",
       "values": [
         {
           "name": "TASKPARTICIPANT_RESOURCE_ID",
@@ -58635,7 +58635,7 @@
     },
     "TASKTESTCASE": {
       "prefix": "TASKTESTCASE_",
-      "doc": "Index constants for TaskTestcase — use named properties instead",
+      "doc": "Index constants for TaskTestcase ΓÇö use named properties instead",
       "values": [
         {
           "name": "TASKTESTCASE_TESTCASE_ID",
@@ -58931,7 +58931,7 @@
           "name": "Timezone_Azerbaijan_Standard_Time",
           "doc": "Azerbaijan Standard Time",
           "value": 1,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Beirut",
@@ -58942,7 +58942,7 @@
           "name": "Timezone_Middle_East_Standard_Time",
           "doc": "Middle East Standard Time",
           "value": 2,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Amman",
@@ -58953,7 +58953,7 @@
           "name": "Timezone_Jordan_Standard_Time",
           "doc": "Jordan Standard Time",
           "value": 3,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Mexico_City",
@@ -58964,7 +58964,7 @@
           "name": "Timezone_Central_Standard_Time_Mexico",
           "doc": "Central Standard Time (Mexico)",
           "value": 4,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Chihuahua",
@@ -58975,7 +58975,7 @@
           "name": "Timezone_Mountain_Standard_Time_Mexico",
           "doc": "Mountain Standard Time (Mexico)",
           "value": 5,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Tijuana",
@@ -58986,7 +58986,7 @@
           "name": "Timezone_Pacific_Standard_Time_Mexico",
           "doc": "Pacific Standard Time (Mexico)",
           "value": 6,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Africa_Windhoek",
@@ -58997,7 +58997,7 @@
           "name": "Timezone_Namibia_Standard_Time",
           "doc": "Namibia Standard Time",
           "value": 7,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Tbilisi",
@@ -59008,7 +59008,7 @@
           "name": "Timezone_Georgian_Standard_Time",
           "doc": "Georgian Standard Time",
           "value": 8,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Cuiaba",
@@ -59019,7 +59019,7 @@
           "name": "Timezone_Central_Brazilian_Standard_Time",
           "doc": "Central Brazilian Standard Time",
           "value": 9,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Montevideo",
@@ -59030,7 +59030,7 @@
           "name": "Timezone_Montevideo_Standard_Time",
           "doc": "Montevideo Standard Time",
           "value": 10,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Etc_GMT_12",
@@ -59041,7 +59041,7 @@
           "name": "Timezone_Dateline_Standard_Time",
           "doc": "Dateline Standard Time",
           "value": 11,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Pacific_Apia",
@@ -59052,7 +59052,7 @@
           "name": "Timezone_Samoa_Standard_Time",
           "doc": "Samoa Standard Time",
           "value": 12,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Pacific_Honolulu",
@@ -59063,7 +59063,7 @@
           "name": "Timezone_Hawaiian_Standard_Time",
           "doc": "Hawaiian Standard Time",
           "value": 13,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Anchorage",
@@ -59074,7 +59074,7 @@
           "name": "Timezone_Alaskan_Standard_Time",
           "doc": "Alaskan Standard Time",
           "value": 14,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Los_Angeles",
@@ -59085,7 +59085,7 @@
           "name": "Timezone_Pacific_Standard_Time",
           "doc": "Pacific Standard Time",
           "value": 15,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Denver",
@@ -59096,7 +59096,7 @@
           "name": "Timezone_Mountain_Standard_Time",
           "doc": "Mountain Standard Time",
           "value": 16,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Phoenix",
@@ -59107,7 +59107,7 @@
           "name": "Timezone_US_Mountain_Standard_Time",
           "doc": "US Mountain Standard Time",
           "value": 18,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Chicago",
@@ -59118,7 +59118,7 @@
           "name": "Timezone_Central_Standard_Time",
           "doc": "Central Standard Time",
           "value": 19,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Regina",
@@ -59129,7 +59129,7 @@
           "name": "Timezone_Canada_Central_Standard_Time",
           "doc": "Canada Central Standard Time",
           "value": 20,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Guatemala",
@@ -59140,7 +59140,7 @@
           "name": "Timezone_Central_America_Standard_Time",
           "doc": "Central America Standard Time",
           "value": 22,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_New_York",
@@ -59151,7 +59151,7 @@
           "name": "Timezone_Eastern_Standard_Time",
           "doc": "Eastern Standard Time",
           "value": 23,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Indianapolis",
@@ -59162,7 +59162,7 @@
           "name": "Timezone_US_Eastern_Standard_Time",
           "doc": "US Eastern Standard Time",
           "value": 24,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Bogota",
@@ -59173,7 +59173,7 @@
           "name": "Timezone_SA_Pacific_Standard_Time",
           "doc": "SA Pacific Standard Time",
           "value": 25,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Halifax",
@@ -59184,7 +59184,7 @@
           "name": "Timezone_Atlantic_Standard_Time",
           "doc": "Atlantic Standard Time",
           "value": 26,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_La_Paz",
@@ -59195,7 +59195,7 @@
           "name": "Timezone_SA_Western_Standard_Time",
           "doc": "SA Western Standard Time",
           "value": 27,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Santiago",
@@ -59206,7 +59206,7 @@
           "name": "Timezone_Pacific_SA_Standard_Time",
           "doc": "Pacific SA Standard Time",
           "value": 28,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_St_Johns",
@@ -59217,7 +59217,7 @@
           "name": "Timezone_Newfoundland_Standard_Time",
           "doc": "Newfoundland Standard Time",
           "value": 29,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Sao_Paulo",
@@ -59228,7 +59228,7 @@
           "name": "Timezone_E_South_America_Standard_Time",
           "doc": "E. South America Standard Time",
           "value": 30,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Cayenne",
@@ -59239,7 +59239,7 @@
           "name": "Timezone_SA_Eastern_Standard_Time",
           "doc": "SA Eastern Standard Time",
           "value": 31,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_America_Godthab",
@@ -59250,7 +59250,7 @@
           "name": "Timezone_Greenland_Standard_Time",
           "doc": "Greenland Standard Time",
           "value": 32,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Etc_GMT_2",
@@ -59261,7 +59261,7 @@
           "name": "Timezone_Mid_Atlantic_Standard_Time",
           "doc": "Mid-Atlantic Standard Time",
           "value": 33,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Atlantic_Azores",
@@ -59272,7 +59272,7 @@
           "name": "Timezone_Azores_Standard_Time",
           "doc": "Azores Standard Time",
           "value": 34,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Atlantic_Cape_Verde",
@@ -59283,7 +59283,7 @@
           "name": "Timezone_Cape_Verde_Standard_Time",
           "doc": "Cape Verde Standard Time",
           "value": 35,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_GMT",
@@ -59294,13 +59294,13 @@
           "name": "Timezone_GMT_Standard_Time",
           "doc": "GMT Standard Time",
           "value": 36,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Greenwich_Standard_Time",
           "doc": "Greenwich Standard Time",
           "value": 37,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_CET",
@@ -59311,25 +59311,25 @@
           "name": "Timezone_Central_Europe_Standard_Time",
           "doc": "Central Europe Standard Time",
           "value": 38,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Central_European_Standard_Time",
           "doc": "Central European Standard Time",
           "value": 39,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Romance_Standard_Time",
           "doc": "Romance Standard Time",
           "value": 40,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_W_Europe_Standard_Time",
           "doc": "W. Europe Standard Time",
           "value": 41,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Africa_Lagos",
@@ -59340,7 +59340,7 @@
           "name": "Timezone_W_Central_Africa_Standard_Time",
           "doc": "W. Central Africa Standard Time",
           "value": 42,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Europe_Chisinau",
@@ -59351,7 +59351,7 @@
           "name": "Timezone_E_Europe_Standard_Time",
           "doc": "E. Europe Standard Time",
           "value": 43,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Africa_Cairo",
@@ -59362,7 +59362,7 @@
           "name": "Timezone_Egypt_Standard_Time",
           "doc": "Egypt Standard Time",
           "value": 44,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Europe_Kiev",
@@ -59373,7 +59373,7 @@
           "name": "Timezone_FLE_Standard_Time",
           "doc": "FLE Standard Time",
           "value": 45,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Europe_Bucharest",
@@ -59384,7 +59384,7 @@
           "name": "Timezone_GTB_Standard_Time",
           "doc": "GTB Standard Time",
           "value": 46,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Africa_Johannesburg",
@@ -59395,7 +59395,7 @@
           "name": "Timezone_South_Africa_Standard_Time",
           "doc": "South Africa Standard Time",
           "value": 48,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Europe_Moscow",
@@ -59406,7 +59406,7 @@
           "name": "Timezone_Russian_Standard_Time",
           "doc": "Russian Standard Time",
           "value": 49,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Riyadh",
@@ -59417,7 +59417,7 @@
           "name": "Timezone_Arab_Standard_Time",
           "doc": "Arab Standard Time",
           "value": 50,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Africa_Nairobi",
@@ -59428,7 +59428,7 @@
           "name": "Timezone_E_Africa_Standard_Time",
           "doc": "E. Africa Standard Time",
           "value": 51,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Baghdad",
@@ -59439,7 +59439,7 @@
           "name": "Timezone_Arabic_Standard_Time",
           "doc": "Arabic Standard Time",
           "value": 52,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Tehran",
@@ -59450,7 +59450,7 @@
           "name": "Timezone_Iran_Standard_Time",
           "doc": "Iran Standard Time",
           "value": 53,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Dubai",
@@ -59461,7 +59461,7 @@
           "name": "Timezone_Arabian_Standard_Time",
           "doc": "Arabian Standard Time",
           "value": 54,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Yerevan",
@@ -59472,7 +59472,7 @@
           "name": "Timezone_Caucasus_Standard_Time",
           "doc": "Caucasus Standard Time",
           "value": 55,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Kabul",
@@ -59483,7 +59483,7 @@
           "name": "Timezone_Afghanistan_Standard_Time",
           "doc": "Afghanistan Standard Time",
           "value": 56,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Yekaterinburg",
@@ -59494,7 +59494,7 @@
           "name": "Timezone_Ekaterinburg_Standard_Time",
           "doc": "Ekaterinburg Standard Time",
           "value": 57,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Tashkent",
@@ -59505,7 +59505,7 @@
           "name": "Timezone_West_Asia_Standard_Time",
           "doc": "West Asia Standard Time",
           "value": 58,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Calcutta",
@@ -59516,7 +59516,7 @@
           "name": "Timezone_India_Standard_Time",
           "doc": "India Standard Time",
           "value": 59,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Katmandu",
@@ -59527,7 +59527,7 @@
           "name": "Timezone_Nepal_Standard_Time",
           "doc": "Nepal Standard Time",
           "value": 60,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Almaty",
@@ -59538,7 +59538,7 @@
           "name": "Timezone_Central_Asia_Standard_Time",
           "doc": "Central Asia Standard Time",
           "value": 61,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Colombo",
@@ -59549,7 +59549,7 @@
           "name": "Timezone_Sri_Lanka_Standard_Time",
           "doc": "Sri Lanka Standard Time",
           "value": 62,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Novosibirsk",
@@ -59560,7 +59560,7 @@
           "name": "Timezone_N_Central_Asia_Standard_Time",
           "doc": "N. Central Asia Standard Time",
           "value": 63,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Rangoon",
@@ -59571,7 +59571,7 @@
           "name": "Timezone_Myanmar_Standard_Time",
           "doc": "Myanmar Standard Time",
           "value": 64,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Bangkok",
@@ -59582,7 +59582,7 @@
           "name": "Timezone_SE_Asia_Standard_Time",
           "doc": "SE Asia Standard Time",
           "value": 65,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Krasnoyarsk",
@@ -59593,7 +59593,7 @@
           "name": "Timezone_North_Asia_Standard_Time",
           "doc": "North Asia Standard Time",
           "value": 66,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Shanghai",
@@ -59604,7 +59604,7 @@
           "name": "Timezone_China_Standard_Time",
           "doc": "China Standard Time",
           "value": 67,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Taipei",
@@ -59615,7 +59615,7 @@
           "name": "Timezone_Taipei_Standard_Time",
           "doc": "Taipei Standard Time",
           "value": 69,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Australia_Perth",
@@ -59626,7 +59626,7 @@
           "name": "Timezone_W_Australia_Standard_Time",
           "doc": "W. Australia Standard Time",
           "value": 70,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Irkutsk",
@@ -59637,7 +59637,7 @@
           "name": "Timezone_North_Asia_East_Standard_Time",
           "doc": "North Asia East Standard Time",
           "value": 71,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Seoul",
@@ -59648,7 +59648,7 @@
           "name": "Timezone_Korea_Standard_Time",
           "doc": "Korea Standard Time",
           "value": 72,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Tokyo",
@@ -59659,7 +59659,7 @@
           "name": "Timezone_Tokyo_Standard_Time",
           "doc": "Tokyo Standard Time",
           "value": 73,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Yakutsk",
@@ -59670,7 +59670,7 @@
           "name": "Timezone_Yakutsk_Standard_Time",
           "doc": "Yakutsk Standard Time",
           "value": 74,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Australia_Darwin",
@@ -59681,7 +59681,7 @@
           "name": "Timezone_AUS_Central_Standard_Time",
           "doc": "AUS Central Standard Time",
           "value": 75,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Australia_Adelaide",
@@ -59692,7 +59692,7 @@
           "name": "Timezone_Cen_Australia_Standard_Time",
           "doc": "Cen. Australia Standard Time",
           "value": 76,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Australia_Sydney",
@@ -59703,7 +59703,7 @@
           "name": "Timezone_AUS_Eastern_Standard_Time",
           "doc": "AUS Eastern Standard Time",
           "value": 77,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Australia_Brisbane",
@@ -59714,7 +59714,7 @@
           "name": "Timezone_E_Australia_Standard_Time",
           "doc": "E. Australia Standard Time",
           "value": 78,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Australia_Hobart",
@@ -59725,7 +59725,7 @@
           "name": "Timezone_Tasmania_Standard_Time",
           "doc": "Tasmania Standard Time",
           "value": 79,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Asia_Vladivostok",
@@ -59736,7 +59736,7 @@
           "name": "Timezone_Vladivostok_Standard_Time",
           "doc": "Vladivostok Standard Time",
           "value": 80,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Pacific_Port_Moresby",
@@ -59747,7 +59747,7 @@
           "name": "Timezone_West_Pacific_Standard_Time",
           "doc": "West Pacific Standard Time",
           "value": 81,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Pacific_Guadalcanal",
@@ -59758,7 +59758,7 @@
           "name": "Timezone_Central_Pacific_Standard_Time",
           "doc": "Central Pacific Standard Time",
           "value": 82,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Pacific_Fiji",
@@ -59769,7 +59769,7 @@
           "name": "Timezone_Fiji_Standard_Time",
           "doc": "Fiji Standard Time",
           "value": 83,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Pacific_Auckland",
@@ -59780,7 +59780,7 @@
           "name": "Timezone_New_Zealand_Standard_Time",
           "doc": "New Zealand Standard Time",
           "value": 84,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         },
         {
           "name": "Timezone_Pacific_Tongatapu",
@@ -59791,7 +59791,7 @@
           "name": "Timezone_Tonga_Standard_Time",
           "doc": "Tonga Standard Time",
           "value": 85,
-          "obsoleteDoc": ""
+          "obsoleteDoc": "Use IANA names instead"
         }
       ]
     },
