@@ -28,16 +28,23 @@ file sealed class ReadOnlySet<T>(HashSet<T> inner) : IReadOnlySet<T>
 // ── JSON models ───────────────────────────────────────────────────────────────
 
 /// <summary>A parameter in a method, constructor, or built-in function.</summary>
-public sealed record MethodParam(string Name, string Doc, string Type);
+public sealed record MethodParam(
+   string  Name,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   string? Doc  = null,
+   string  Type = "");
 
 /// <summary>One overload of a method, constructor, or built-in function.</summary>
 public sealed record MethodOverload(
-   string       Doc,
-   MethodParam[] Param,
-   string       ReturnType,
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
-   string?      ObsoleteDoc = null)
+   string?        Doc        = null,
+   MethodParam[]  Param      = null!,
+   string         ReturnType = "",
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   string?        ObsoleteDoc = null)
 {
+   /// <summary>The parameter list; never null after construction.</summary>
+   public MethodParam[] Param { get; init; } = Param ?? [];
    /// <summary>Returns <c>true</c> when <see cref="ObsoleteDoc"/> is non-null.</summary>
    [System.Text.Json.Serialization.JsonIgnore]
    public bool IsObsolete => ObsoleteDoc != null;
@@ -46,7 +53,8 @@ public sealed record MethodOverload(
 /// <summary>A global variable pre-declared by the runtime.</summary>
 public sealed record GlobalVariableDefinition(
    string  TypeName,
-   string  Doc         = "",
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   string? Doc         = null,
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
    string? ObsoleteDoc = null)
 {
@@ -57,7 +65,8 @@ public sealed record GlobalVariableDefinition(
 
 /// <summary>A property on a CgScript object type.</summary>
 public sealed record PropertyDefinition(
-   string  Doc,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   string? Doc,
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
    bool    HasSetter   = false,
    string  ReturnType  = "",
@@ -71,7 +80,8 @@ public sealed record PropertyDefinition(
 
 /// <summary>A CgScript object type with constructors, methods, static methods, and properties.</summary>
 public sealed record ObjectDefinition(
-   string                                  Doc,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   string? Doc,
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
    MethodOverload[]?                       Constructors  = null,
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
@@ -84,7 +94,8 @@ public sealed record ObjectDefinition(
 /// <summary>One value within a CgScript enum.</summary>
 public sealed record EnumValueDefinition(
    string  Name,
-   string  Doc,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   string? Doc,
    int     Value,
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
    string? ObsoleteDoc = null)
@@ -98,21 +109,22 @@ public sealed record EnumValueDefinition(
 /// A CgScript enum type (e.g. <c>[Cg("COLOR",…)]</c>).
 /// <see cref="Prefix"/> is the constant-name prefix (e.g. <c>"COLOR_"</c>).
 /// </summary>
-public sealed record EnumDefinition(string Prefix, string Doc, EnumValueDefinition[] Values);
+public sealed record EnumDefinition(
+   string                Prefix,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   string?               Doc,
+   EnumValueDefinition[] Values);
 
 /// <summary>
 /// The raw payload record that maps 1:1 to the JSON produced by the definitions API endpoint.
 /// </summary>
-/// <param name="Functions">Standalone global functions (NOT also exposed as static methods) keyed by name.</param>
-/// <param name="GlobalFunctions">Names of functions that are globally callable but defined as object static methods.</param>
+/// <param name="Functions">All globally callable functions keyed by name.</param>
 /// <param name="Objects">Known built-in object types keyed by type name.</param>
 /// <param name="GlobalVariables">Global variables pre-declared by the runtime.</param>
 /// <param name="Enums">Enum types with their prefixed constant values.</param>
 public sealed record CgScriptDefinitionsPayload(
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
    Dictionary<string, MethodOverload[]>?         Functions,
-   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
-   IReadOnlyList<string>?                        GlobalFunctions,
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
    Dictionary<string, ObjectDefinition>?         Objects,
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
@@ -224,10 +236,13 @@ public class CgScriptDefinitions
    public CgScriptDefinitions()
    {
       var payload  = Load();
-      var (functions, globalFunctions) = ExtractFunctions(payload);
+      var objects  = payload?.Objects         ?? new Dictionary<string, ObjectDefinition>();
+      var functions = new Dictionary<string, MethodOverload[]>(
+         payload?.Functions ?? new Dictionary<string, MethodOverload[]>(),
+         StringComparer.Ordinal);
       Functions        = functions;
-      GlobalFunctions  = globalFunctions;
-      Objects          = payload?.Objects         ?? new Dictionary<string, ObjectDefinition>();
+      GlobalFunctions  = DeriveGlobalFunctions(functions, objects);
+      Objects          = objects;
       Constants        = DeriveConstants(payload?.Enums);
       GlobalVariables  = payload?.GlobalVariables ?? new Dictionary<string, GlobalVariableDefinition>();
       Enums            = payload?.Enums           ?? new Dictionary<string, EnumDefinition>();
@@ -246,6 +261,19 @@ public class CgScriptDefinitions
       return arr;
    }
 
+   /// <summary>Derives the list of function names that are also exposed as static methods on any object type.</summary>
+   private static IReadOnlyList<string> DeriveGlobalFunctions(
+      IReadOnlyDictionary<string, MethodOverload[]>    functions,
+      IReadOnlyDictionary<string, ObjectDefinition>    objects)
+   {
+      var staticMethodNames = new HashSet<string>(StringComparer.Ordinal);
+      foreach (var obj in objects.Values)
+         if (obj.StaticMethods != null)
+            foreach (var name in obj.StaticMethods.Keys)
+               staticMethodNames.Add(name);
+      return functions.Keys.Where(staticMethodNames.Contains).ToArray();
+   }
+
    /// <summary>Derives the sorted constant list from enum values.</summary>
    private static string[] DeriveConstants(IReadOnlyDictionary<string, EnumDefinition>? enums)
    {
@@ -255,49 +283,16 @@ public class CgScriptDefinitions
       return names;
    }
 
-   /// <summary>
-   /// Builds the full functions dict by merging standalone Functions with globally-accessible
-   /// static methods referenced in GlobalFunctions.
-   /// </summary>
-   private static (Dictionary<string, MethodOverload[]>, IReadOnlyList<string>) ExtractFunctions(CgScriptDefinitionsPayload? payload)
-   {
-      var functions = new Dictionary<string, MethodOverload[]>(
-         payload?.Functions ?? new Dictionary<string, MethodOverload[]>(),
-         StringComparer.OrdinalIgnoreCase);
-      var globalFunctionsList = payload?.GlobalFunctions ?? [];
-      if (globalFunctionsList.Count > 0 && payload?.Objects != null)
-      {
-         foreach (var funcName in globalFunctionsList)
-         {
-            if (functions.ContainsKey(funcName)) continue;
-            foreach (var obj in payload.Objects.Values)
-               if (obj.StaticMethods?.TryGetValue(funcName, out var overloads) == true)
-               {
-                  functions[funcName] = overloads;
-                  break;
-               }
-         }
-      }
-      return (functions, globalFunctionsList);
-   }
-
-   /// <summary>Loads definitions from the embedded JSON resource, setting <see cref="LoadError"/> to <paramref name="loadError"/>.</summary>
-#if NET5_0_OR_GREATER
-   [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("JSON deserialization of CgScriptDefinitionsPayload.")]
-#endif
-   public CgScriptDefinitions(string loadError) : this() => LoadError = loadError;
-
    /// <summary>Constructor for subclasses that supply their own definitions.</summary>
    protected CgScriptDefinitions(
       Dictionary<string, MethodOverload[]>                  functions,
       Dictionary<string, ObjectDefinition>                  objects,
       IReadOnlyCollection<string>                           constants,
       IReadOnlyDictionary<string, GlobalVariableDefinition> globalVariables,
-      Dictionary<string, EnumDefinition>                    enums,
-      IReadOnlyList<string>?                                globalFunctions = null)
+      Dictionary<string, EnumDefinition>                    enums)
    {
       Functions        = functions;
-      GlobalFunctions  = globalFunctions ?? [];
+      GlobalFunctions  = DeriveGlobalFunctions(functions, objects);
       Objects          = objects;
       Constants        = Sort(constants);
       GlobalVariables  = globalVariables;
@@ -307,6 +302,12 @@ public class CgScriptDefinitions
       GlobalVariableKeys = Sort(GlobalVariables.Keys);
       (ObjectMemberInfos, FunctionInfos, ObsoleteFunctions, ObsoleteConstants, ConstantsSet, EnumByConstant) = BuildDerived(Objects, Functions, Enums);
    }
+
+   /// <summary>Loads definitions from the embedded JSON resource, setting <see cref="LoadError"/> to <paramref name="loadError"/>.</summary>
+#if NET5_0_OR_GREATER
+   [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("JSON deserialization of CgScriptDefinitionsPayload.")]
+#endif
+   public CgScriptDefinitions(string loadError) : this() => LoadError = loadError;
 
    private static (
       IReadOnlyDictionary<string, ObjectMemberInfo>,
@@ -474,8 +475,7 @@ public class CgScriptDefinitions
          Objects     is Dictionary<string, ObjectDefinition>    od ? od : Objects.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
          Constants,
          merged,
-         Enums       is Dictionary<string, EnumDefinition>      ed ? ed : Enums.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
-         GlobalFunctions);
+         Enums       is Dictionary<string, EnumDefinition>      ed ? ed : Enums.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase));
    }
 
    /// <summary>
@@ -492,8 +492,7 @@ public class CgScriptDefinitions
          Objects     is Dictionary<string, ObjectDefinition>    od ? od : Objects.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
          Constants,
          GlobalVariables,
-         Enums       is Dictionary<string, EnumDefinition>      ed ? ed : Enums.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
-         GlobalFunctions)
+         Enums       is Dictionary<string, EnumDefinition>      ed ? ed : Enums.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase))
       { ObjectMemberInfos = modified };
    }
 
@@ -513,16 +512,15 @@ public class CgScriptDefinitions
 #endif
    internal static CgScriptDefinitions FromPayload(CgScriptDefinitionsPayload? payload)
    {
-      var (functions, globalFunctions) = ExtractFunctions(payload);
+      var functions = new Dictionary<string, MethodOverload[]>(
+         payload?.Functions ?? new Dictionary<string, MethodOverload[]>(),
+         StringComparer.Ordinal);
+      var objects   = payload?.Objects         ?? new Dictionary<string, ObjectDefinition>();
       var enums     = payload?.Enums           ?? new Dictionary<string, EnumDefinition>();
-      var constants = DeriveConstants(enums);
       return new CgScriptDefinitions(
-         functions,
-         payload?.Objects         ?? new Dictionary<string, ObjectDefinition>(),
-         constants,
+         functions, objects, DeriveConstants(enums),
          payload?.GlobalVariables ?? new Dictionary<string, GlobalVariableDefinition>(),
-         enums,
-         globalFunctions);
+         enums);
    }
 
 #if NET5_0_OR_GREATER
