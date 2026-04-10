@@ -1172,35 +1172,67 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    }
 
    /// <summary>
-   /// Returns <c>true</c> when <paramref name="a"/> and <paramref name="b"/> are
-   /// assignment-compatible or ternary-branch-compatible types.
+   /// Returns <c>true</c> when a value of type <paramref name="b"/> can be assigned to
+   /// a variable of type <paramref name="a"/>.
    /// <list type="bullet">
    ///   <item>Same type → compatible.</item>
-   ///   <item>"Array" and any class name (non-primitive) → compatible, because
-   ///         CgScript objects are represented as arrays internally.</item>
-   ///   <item>Two different class names → conservatively treated as compatible.</item>
+   ///   <item>Declared type is <c>Question</c> or inherits from it → any assignment is valid
+   ///         (question types have implicit conversion).</item>
+   ///   <item>Inferred type is a subtype of the declared type → compatible (standard inheritance).</item>
    /// </list>
    /// </summary>
-   private static bool IsTypeCompatible(string a, string b)
+   private bool IsTypeCompatible(string a, string b)
    {
       if (a == b) return true;
-      // Array ↔ class name: compatible (objects are arrays)
-      if (a == "Array" && !IsPrimitive(b)) return true;
-      if (!IsPrimitive(a) && b == "Array") return true;
-      // Two different class names: be conservative
-      if (!IsPrimitive(a) && !IsPrimitive(b)) return true;
+      // Question family accepts any assignment due to implicit conversion
+      if (IsInQuestionFamily(a)) return true;
+      // Standard inheritance: b is a subtype of a
+      if (IsSubtypeOf(b, a)) return true;
       return false;
    }
 
-   private static bool IsPrimitive(string type)
-      => type is "Number" or "String" or "Boolean" or "Function";
+   /// <summary>
+   /// Returns <c>true</c> when <paramref name="typeName"/> is <c>Question</c> or any class
+   /// that directly or transitively inherits from <c>Question</c>.
+   /// Question types accept any assignment due to implicit conversion.
+   /// </summary>
+   private bool IsInQuestionFamily(string typeName)
+   {
+      var current = typeName;
+      var seen    = new HashSet<string>(StringComparer.Ordinal);
+      while (current != null && seen.Add(current))
+      {
+         if (current == "Question") return true;
+         if (!_definitions.Objects.TryGetValue(current, out var def)) break;
+         current = def.Parent;
+      }
+      return false;
+   }
+
+   /// <summary>
+   /// Returns <c>true</c> when <paramref name="subType"/> is equal to
+   /// <paramref name="superType"/> or transitively inherits from it via
+   /// <see cref="ObjectDefinition.Parent"/>.
+   /// </summary>
+   private bool IsSubtypeOf(string subType, string superType)
+   {
+      var current = subType;
+      var seen    = new HashSet<string>(StringComparer.Ordinal);
+      while (current != null && seen.Add(current))
+      {
+         if (current == superType) return true;
+         if (!_definitions.Objects.TryGetValue(current, out var def)) break;
+         current = def.Parent;
+      }
+      return false;
+   }
 
    /// <summary>
    /// Returns <c>true</c> when the supplied argument types are valid for the given
    /// function definition (correct arity and compatible parameter types).
    /// For new-style functions with variants, checks whether any variant accepts the call.
    /// </summary>
-   private static bool IsCallValid(FunctionInfo funcInfo, string?[] argTypes)
+   private bool IsCallValid(FunctionInfo funcInfo, string?[] argTypes)
       => IsAnyVariantValid(funcInfo.Variants, argTypes);
 
    /// <summary>
@@ -1209,7 +1241,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// An overload whose last parameter type is <c>"Params object"</c> is variadic and
    /// accepts any number of arguments beyond the preceding fixed parameters.
    /// </summary>
-   private static bool IsAnyOverloadValid(
+   private bool IsAnyOverloadValid(
       IReadOnlyList<IReadOnlyList<string>> overloads,
       string?[] argTypes)
    {
@@ -1246,7 +1278,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// given argument types.  Mirrors the interpreter's <c>FindRightOverLoad</c>: a variant
    /// is only a candidate when the argument count exactly equals its parameter count.
    /// </summary>
-   private static bool IsAnyVariantValid(
+   private bool IsAnyVariantValid(
       IReadOnlyList<IReadOnlyList<string>> variants,
       string?[] argTypes)
    {
@@ -1280,7 +1312,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    /// Returns <c>true</c> when every supplied argument type is compatible with the
    /// corresponding parameter type in <paramref name="paramTypes"/>.
    /// </summary>
-   private static bool AllArgsCompatible(IReadOnlyList<string> paramTypes, string?[] argTypes)
+   private bool AllArgsCompatible(IReadOnlyList<string> paramTypes, string?[] argTypes)
    {
       for (var i = 0; i < argTypes.Length; i++)
          if (!IsMethodArgCompatible(argTypes[i], paramTypes[i]))
@@ -1288,14 +1320,14 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       return true;
    }
 
-   private static bool IsMethodArgCompatible(string? argType, string paramType)
+   private bool IsMethodArgCompatible(string? argType, string paramType)
    {
       if (argType == null) return true; // unknown arg type → no false positive
       var canonical = MapToCanonical(paramType);
       if (canonical == null) return true; // "object" param type → any arg is accepted
       // DateTime params accept Array arguments: old-style datetime was represented as array
       if (canonical == "DateTime" && argType == "Array") return true;
-      return IsTypeCompatible(argType, canonical);
+      return IsTypeCompatible(canonical, argType);
    }
 
    /// <summary>

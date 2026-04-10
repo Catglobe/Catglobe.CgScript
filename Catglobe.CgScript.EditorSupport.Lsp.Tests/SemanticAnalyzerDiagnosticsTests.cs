@@ -177,6 +177,57 @@ public class SemanticAnalyzerDiagnosticsTests
       Assert.DoesNotContain(diags, d => d.Code == "CGS020");
    }
 
+   // ── CGS020: class type assignment validation ──────────────────────────────
+
+   [Fact]
+   public void DictionaryVar_AssignedNewArray_ReportsCGS020()
+   {
+      // Dictionary d = new Array() — Array does not inherit from Dictionary
+      var result = CgScriptParseService.Parse("Dictionary d = new Array();");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void QuestionVar_AssignedNumber_NoCGS020()
+   {
+      // question Q1 = 42 — question keyword type accepts any value
+      var diags = Analyze("question Q1 = 42;");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void QuestionSubclassVar_AssignedArrayLiteral_NoCGS020()
+   {
+      // MultiGridQuestion Q2 = [2,3] — inherits from Question which accepts anything
+      var result = CgScriptParseService.Parse("MultiGridQuestion Q2 = [2,3];");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void ParentClassVar_AssignedChildClassInstance_NoCGS020()
+   {
+      // CatTaskSchedule t = new CatTaskNeverSchedule() — CatTaskNeverSchedule inherits CatTaskSchedule
+      var result = CgScriptParseService.Parse("CatTaskSchedule t = new CatTaskNeverSchedule();");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void UnrelatedClassVar_AssignedOtherClass_ReportsCGS020()
+   {
+      // Array a = new Dictionary() — Dictionary does not inherit from Array
+      var result = CgScriptParseService.Parse("Array a = new Dictionary();");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.Contains(diags, d => d.Code == "CGS020");
+   }
+
    // ── CGS020: location accuracy ─────────────────────────────────────────────
 
    [Fact]
