@@ -10,7 +10,6 @@ import {
 } from "@codemirror/language";
 import { history, defaultKeymap, historyKeymap, indentWithTab, undo, redo } from "@codemirror/commands";
 import { javascript } from "@codemirror/lang-javascript";
-import { css }        from "@codemirror/lang-css";
 import { highlightSelectionMatches, searchKeymap, openSearchPanel } from "@codemirror/search";
 import {
    autocompletion, completionKeymap, completeFromList,
@@ -647,10 +646,24 @@ export class CodeMirrorForCgScript implements LspEditor {
       this._setFullscreen(!document.body.classList.contains("CodeMirror-fullscreen"));
    }
 
+   getContent(): string { return this.#view.state.doc.toString(); }
+   setSize(w: string | number, h: string | number): void {
+      this.#view.dom.style.width  = typeof w === "number" ? `${w}px` : (w as string);
+      this.#view.dom.style.height = typeof h === "number" ? `${h}px` : (h as string);
+   }
+   focus(): void                  { this.#view.focus(); }
+   onBlur(fn: () => void): void   { this.#view.contentDOM.addEventListener("blur", fn); }
+   onScroll(fn: () => void): void { this.#view.scrollDOM.addEventListener("scroll", fn); }
+   scrollTop(): number            { return this.#view.scrollDOM.scrollTop; }
+   get scrollerElement(): Element { return this.#view.scrollDOM; }
+   undo(): void       { undo(this.#view); }
+   redo(): void       { redo(this.#view); }
+   openSearch(): void { openSearchPanel(this.#view); }
+
    get view(): EditorView { return this.#view; }
 }
 
-// ─── CodeMirrorForQsl ─────────────────────────────────────────────────────────
+// ─── CodeMirrorForQsl─────────────────────────────────────────────────────────
 
 export interface QslEditorOptions {
    /** Called (debounced) whenever the document changes. */
@@ -756,10 +769,24 @@ export class CodeMirrorForQsl implements LspEditor {
       this._setFullscreen(!document.body.classList.contains("CodeMirror-fullscreen"));
    }
 
+   getContent(): string { return this.#view.state.doc.toString(); }
+   setSize(w: string | number, h: string | number): void {
+      this.#view.dom.style.width  = typeof w === "number" ? `${w}px` : (w as string);
+      this.#view.dom.style.height = typeof h === "number" ? `${h}px` : (h as string);
+   }
+   focus(): void                  { this.#view.focus(); }
+   onBlur(fn: () => void): void   { this.#view.contentDOM.addEventListener("blur", fn); }
+   onScroll(fn: () => void): void { this.#view.scrollDOM.addEventListener("scroll", fn); }
+   scrollTop(): number            { return this.#view.scrollDOM.scrollTop; }
+   get scrollerElement(): Element { return this.#view.scrollDOM; }
+   undo(): void       { undo(this.#view); }
+   redo(): void       { redo(this.#view); }
+   openSearch(): void { openSearchPanel(this.#view); }
+
    get view(): EditorView { return this.#view; }
 }
 
-// ─── LSP Connection Manager ───────────────────────────────────────────────────
+// ─── LSP Connection Manager───────────────────────────────────────────────────
 
 export async function manageLspConnection(wsUri: string, cm: LspEditor, fileUri: string): Promise<never> {
    let delay = 2000;
@@ -833,94 +860,20 @@ export class CodeMirrorForJs {
       const sel = this.#view.state.selection.main;
       return sel.from === sel.to ? "" : this.#view.state.sliceDoc(sel.from, sel.to);
    }
-   get view(): EditorView { return this.#view; }
-}
-
-export class CodeMirrorForCss {
-   readonly #view: EditorView;
-   readonly #themeCompartment    = new Compartment();
-   readonly #editableCompartment = new Compartment();
-
-   constructor(parent: Element, initialContent: string, selectedTheme = "") {
-      const state = EditorState.create({
-         doc: initialContent,
-         extensions: [
-            lineNumbers(),
-            highlightActiveLineGutter(),
-            highlightSpecialChars(),
-            history(),
-            foldGutter(),
-            drawSelection(),
-            dropCursor(),
-            EditorState.allowMultipleSelections.of(true),
-            indentOnInput(),
-            bracketMatching(),
-            closeBrackets(),
-            autocompletion(),
-            rectangularSelection(),
-            crosshairCursor(),
-            highlightActiveLine(),
-            highlightSelectionMatches(),
-            css(),
-            this.#themeCompartment.of(resolveTheme(selectedTheme)),
-            this.#editableCompartment.of(EditorView.editable.of(true)),
-            EditorState.tabSize.of(4),
-            keymap.of([
-               ...closeBracketsKeymap,
-               ...defaultKeymap,
-               ...searchKeymap,
-               ...historyKeymap,
-               ...foldKeymap,
-               ...completionKeymap,
-               indentWithTab,
-               { key: "Ctrl-h", run: () => { openSearchPanel(this.#view); return true; } },
-            ]),
-            EditorView.lineWrapping,
-         ],
-      });
-      this.#view = new EditorView({ state, parent });
+   getContent(): string { return this.#view.state.doc.toString(); }
+   setSize(w: string | number, h: string | number): void {
+      this.#view.dom.style.width  = typeof w === "number" ? `${w}px` : (w as string);
+      this.#view.dom.style.height = typeof h === "number" ? `${h}px` : (h as string);
    }
-
-   setTheme(name: string)         { this.#view.dispatch({ effects: this.#themeCompartment.reconfigure(resolveTheme(name)) }); }
-   setEditable(editable: boolean) { this.#view.dispatch({ effects: this.#editableCompartment.reconfigure(EditorView.editable.of(editable)) }); }
-   loadContent(text: string)      { this.#view.dispatch({ changes: { from: 0, to: this.#view.state.doc.length, insert: text } }); }
-   getSelection(): string {
-      const sel = this.#view.state.selection.main;
-      return sel.from === sel.to ? "" : this.#view.state.sliceDoc(sel.from, sel.to);
-   }
+   focus(): void                  { this.#view.focus(); }
+   onBlur(fn: () => void): void   { this.#view.contentDOM.addEventListener("blur", fn); }
+   onScroll(fn: () => void): void { this.#view.scrollDOM.addEventListener("scroll", fn); }
+   scrollTop(): number            { return this.#view.scrollDOM.scrollTop; }
+   get scrollerElement(): Element { return this.#view.scrollDOM; }
+   undo(): void       { undo(this.#view); }
+   redo(): void       { redo(this.#view); }
+   openSearch(): void { openSearchPanel(this.#view); }
    get view(): EditorView { return this.#view; }
-}
-
-// ─── CM5-compatible shim ───────────────────────────────────────────────────────
-
-/** Returns a CodeMirror 5-compatible wrapper around any CM6 editor instance.
- *  Used by the QuestionnaireJsEditorV2 AMD viewmodels which depend on the CM5 API. */
-export function wrapAsCm5(cm: { view: EditorView; setTheme(n: string): void; loadContent(t: string): void; setEditable?(v: boolean): void }) {
-   const v = cm.view;
-   return {
-      setValue(text: string) { cm.loadContent(text); },
-      getValue(): string     { return v.state.doc.toString(); },
-      setOption(key: string, value: unknown) {
-         if (key === "theme")    cm.setTheme(String(value ?? ""));
-         else if (key === "readOnly") cm.setEditable?.(!value);
-      },
-      setSize(width: string | number, height: string | number) {
-         v.dom.style.width  = typeof width  === "number" ? `${width}px`  : (width  as string);
-         v.dom.style.height = typeof height === "number" ? `${height}px` : (height as string);
-      },
-      execCommand(name: string) {
-         if      (name === "undo")                undo(v);
-         else if (name === "redo")                redo(v);
-         else if (name === "find" || name === "replace") openSearchPanel(v);
-      },
-      on(event: string, handler: () => void) {
-         if      (event === "blur")   v.contentDOM.addEventListener("blur",   () => handler());
-         else if (event === "scroll") v.scrollDOM .addEventListener("scroll", () => handler());
-      },
-      getScrollInfo(): { top: number } { return { top: v.scrollDOM.scrollTop }; },
-      getScrollerElement(): Element    { return v.scrollDOM; },
-      focus(): void                    { v.focus(); },
-   };
 }
 
 // ─── LSP diagnostic WebSocket intercept ───────────────────────────────────────
