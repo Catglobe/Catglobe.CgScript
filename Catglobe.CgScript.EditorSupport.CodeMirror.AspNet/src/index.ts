@@ -548,6 +548,8 @@ export class CodeMirrorForCgScript implements LspEditor {
    readonly #themeCompartment    = new Compartment();
    readonly #lspCompartment      = new Compartment();
    readonly #editableCompartment = new Compartment();
+   #lspClient: LSPClient | null = null;
+   #pendingQuestionVars: { label: string; typeName: string }[] | null = null;
    #saveDraftTimer: ReturnType<typeof setTimeout> | null = null;
 
    constructor(parent: Element, initialContent: string, selectedTheme: string, opts?: CgScriptEditorOptions) {
@@ -609,13 +611,37 @@ export class CodeMirrorForCgScript implements LspEditor {
    }
 
    connectLsp(lspClient: LSPClient, fileUri: string) {
+      this.#lspClient = lspClient;
       this.#view.dispatch({
          effects: this.#lspCompartment.reconfigure(lspClient.plugin(fileUri, "cgscript")),
       });
+      // Send pending question variables once the LSP handshake completes.
+      if (this.#pendingQuestionVars) {
+         const vars = this.#pendingQuestionVars;
+         lspClient.initializing.then(() => lspClient.notification("workspace/didChangeConfiguration", {
+            settings: { cgscript: { questionVariables: vars } },
+         })).catch(() => { /* connection already closed */ });
+      }
    }
 
    disconnectLsp() {
+      this.#lspClient = null;
       this.#view.dispatch({ effects: this.#lspCompartment.reconfigure([]) });
+   }
+
+   /**
+    * Push the current questionnaire question variables to the LSP server so that
+    * question labels are available for completion/hover even before saving.
+    * Re-sends automatically on every reconnect.
+    */
+   sendQuestionVariables(vars: { label: string; typeName: string }[]) {
+      this.#pendingQuestionVars = vars;
+      if (this.#lspClient) {
+         const client = this.#lspClient;
+         client.initializing.then(() => client.notification("workspace/didChangeConfiguration", {
+            settings: { cgscript: { questionVariables: vars } },
+         })).catch(() => { /* connection already closed */ });
+      }
    }
 
    setTheme(name: string) {

@@ -13,9 +13,23 @@ namespace Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 public sealed class DocumentStore
 {
    private readonly ConcurrentDictionary<string, (string Text, ParseResult Result)> _docs = new();
-   private readonly CgScriptDefinitions _definitions;
+   private volatile CgScriptDefinitions _definitions;
 
    public DocumentStore(CgScriptDefinitions definitions) => _definitions = definitions;
+
+   /// <summary>
+   /// Replaces the active definitions and re-analyses every currently open document.
+   /// Called when the client sends <c>workspace/didChangeConfiguration</c> with updated questionnaire context.
+   /// </summary>
+   public void UpdateDefinitions(CgScriptDefinitions newDefinitions)
+   {
+      _definitions = newDefinitions;
+      foreach (var kv in _docs.ToArray())
+         Update(kv.Key, kv.Value.Text);
+   }
+
+   /// <summary>Returns the URIs of all currently open documents.</summary>
+   public IEnumerable<string> GetOpenDocumentUris() => _docs.Keys;
 
    public void Update(string uri, string text)
    {

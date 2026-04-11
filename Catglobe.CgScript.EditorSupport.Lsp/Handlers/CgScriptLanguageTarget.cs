@@ -7,6 +7,8 @@ using System.Collections.Concurrent;
 using System.Threading;
 using LspDiagnostic = Microsoft.VisualStudio.LanguageServer.Protocol.Diagnostic;
 using LspRange      = Microsoft.VisualStudio.LanguageServer.Protocol.Range;
+using JArray        = Newtonsoft.Json.Linq.JArray;
+using JObject       = Newtonsoft.Json.Linq.JObject;
 
 namespace Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 
@@ -18,8 +20,9 @@ namespace Catglobe.CgScript.EditorSupport.Lsp.Handlers;
 /// </summary>
 public partial class CgScriptLanguageTarget
 {
-   protected readonly DocumentStore    _store;
-   protected readonly CgScriptDefinitions _definitions;
+   protected readonly DocumentStore         _store;
+   protected readonly CgScriptDefinitions   _baseDefinitions;
+   protected          CgScriptDefinitions   _definitions;
 
    // Set after construction to break the circular dependency (JsonRpc needs target, target needs JsonRpc).
    public JsonRpc? Rpc { get; set; }
@@ -34,8 +37,9 @@ public partial class CgScriptLanguageTarget
 
    public CgScriptLanguageTarget(DocumentStore store, CgScriptDefinitions definitions)
    {
-      _store       = store;
-      _definitions = definitions;
+      _store            = store;
+      _baseDefinitions  = definitions;
+      _definitions      = definitions;
    }
 
    // ── initialize ──────────────────────────────────────────────────────────────
@@ -147,6 +151,35 @@ public partial class CgScriptLanguageTarget
    // ── semantic tokens → see CgScriptLanguageTarget.SemanticTokens.cs ──────────
    // ── doc features    → see CgScriptLanguageTarget.DocumentFeatures.cs ─────────
    // ── helpers    → see CgScriptLanguageTarget.Helpers.cs ───────────────────────
+
+   // ── workspace/didChangeConfiguration ─────────────────────────────────────────
+
+   /// <summary>
+   /// Called when the client sends updated questionnaire question context.
+   /// Expected payload shape: <c>{ settings: { cgscript: { questionVariables: [{label, typeName}] } } }</c>
+   /// </summary>
+   public void OnDidChangeConfiguration(DidChangeConfigurationParams p)
+   {
+      if (p.Settings is not JObject root) return;
+      var vars = root["cgscript"]?["questionVariables"] as JArray;
+      if (vars is null) return;
+
+      var dict = new Dictionary<string, GlobalVariableDefinition>(StringComparer.OrdinalIgnoreCase);
+      foreach (var item in vars)
+      {
+         var label    = (string?)item["label"];
+         var typeName = (string?)item["typeName"];
+         if (!string.IsNullOrEmpty(label) && !string.IsNullOrEmpty(typeName))
+            dict[label] = new GlobalVariableDefinition(typeName);
+      }
+
+      var newDefs  = dict.Count > 0 ? _baseDefinitions.WithExtraGlobalVariables(dict) : _baseDefinitions;
+      _definitions = newDefs;
+      _store.UpdateDefinitions(newDefs);
+
+      foreach (var uri in _store.GetOpenDocumentUris())
+         _ = PublishDiagnosticsAsync(new Uri(uri));
+   }
 
    // ── diagnostics (server-push notification) ────────────────────────────────────
 

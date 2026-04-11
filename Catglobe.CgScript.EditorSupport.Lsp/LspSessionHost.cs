@@ -132,6 +132,7 @@ public static class LspSessionHost
       rpc.AddLspNotification(Methods.Initialized,            t.Initialized);
       rpc.AddLspHandler(Methods.Shutdown,      t.Shutdown);
       rpc.AddLspNotification(Methods.Exit,     t.Exit);
+      rpc.AddLspNotification(Methods.WorkspaceDidChangeConfiguration, t.OnDidChangeConfiguration);
       rpc.AddLspNotification(Methods.TextDocumentDidOpen,    t.OnDidOpen);
       rpc.AddLspNotification(Methods.TextDocumentDidChange,  t.OnDidChange);
       rpc.AddLspNotification(Methods.TextDocumentDidSave,    t.OnDidSave);
