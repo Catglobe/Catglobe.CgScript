@@ -22,6 +22,16 @@ public partial class CgScriptLanguageTarget
    /// </summary>
    public Hover OnHover(TextDocumentPositionParams p)
    {
+      try { return OnHoverCore(p); }
+      catch (Exception ex)
+      {
+         System.Diagnostics.Debug.WriteLine($"[CgScript LSP] Hover error: {ex}");
+         return null!;
+      }
+   }
+
+   private Hover OnHoverCore(TextDocumentPositionParams p)
+   {
       var text = _store.GetText(p.TextDocument.Uri.ToString());
       if (text is null) return null!;
 

@@ -20,6 +20,16 @@ public partial class CgScriptLanguageTarget
    /// </summary>
    public SumType<Location, Location[]>? OnDefinition(TextDocumentPositionParams p)
    {
+      try { return OnDefinitionCore(p); }
+      catch (Exception ex)
+      {
+         System.Diagnostics.Debug.WriteLine($"[CgScript LSP] Definition error: {ex}");
+         return null;
+      }
+   }
+
+   private SumType<Location, Location[]>? OnDefinitionCore(TextDocumentPositionParams p)
+   {
       var uri    = p.TextDocument.Uri.ToString();
       var result = _store.GetParseResult(uri);
       if (result is null) return null;
@@ -46,6 +56,16 @@ public partial class CgScriptLanguageTarget
    /// Respects <c>context.includeDeclaration</c>.
    /// </summary>
    public Location[] OnReferences(ReferenceParams p)
+   {
+      try { return OnReferencesCore(p); }
+      catch (Exception ex)
+      {
+         System.Diagnostics.Debug.WriteLine($"[CgScript LSP] References error: {ex}");
+         return [];
+      }
+   }
+
+   private Location[] OnReferencesCore(ReferenceParams p)
    {
       var uri    = p.TextDocument.Uri.ToString();
       var result = _store.GetParseResult(uri);

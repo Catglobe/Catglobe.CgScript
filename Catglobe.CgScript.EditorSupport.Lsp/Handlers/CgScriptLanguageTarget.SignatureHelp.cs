@@ -20,6 +20,16 @@ public partial class CgScriptLanguageTarget
    /// </summary>
    public SignatureHelp? OnSignatureHelp(SignatureHelpParams p)
    {
+      try { return OnSignatureHelpCore(p); }
+      catch (Exception ex)
+      {
+         System.Diagnostics.Debug.WriteLine($"[CgScript LSP] SignatureHelp error: {ex}");
+         return null;
+      }
+   }
+
+   private SignatureHelp? OnSignatureHelpCore(SignatureHelpParams p)
+   {
       var text = _store.GetText(p.TextDocument.Uri.ToString());
       if (text is null) return null;
 

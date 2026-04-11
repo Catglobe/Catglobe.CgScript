@@ -17,6 +17,16 @@ public partial class CgScriptLanguageTarget
 
    public virtual SumType<CompletionItem[], CompletionList>? OnCompletion(CompletionParams p)
    {
+      try { return OnCompletionCore(p); }
+      catch (Exception ex)
+      {
+         System.Diagnostics.Debug.WriteLine($"[CgScript LSP] Completion error: {ex}");
+         return new SumType<CompletionItem[], CompletionList>(new CompletionList { IsIncomplete = false, Items = [] });
+      }
+   }
+
+   private SumType<CompletionItem[], CompletionList>? OnCompletionCore(CompletionParams p)
+   {
       var text        = _store.GetText(p.TextDocument.Uri.ToString()) ?? string.Empty;
       var offset      = GetOffset(text, p.Position.Line, p.Position.Character);
 
