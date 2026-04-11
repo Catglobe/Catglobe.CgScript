@@ -8,7 +8,9 @@ import {
    foldGutter, indentOnInput, syntaxHighlighting,
    HighlightStyle, bracketMatching, foldKeymap, StreamLanguage,
 } from "@codemirror/language";
-import { history, defaultKeymap, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { history, defaultKeymap, historyKeymap, indentWithTab, undo, redo } from "@codemirror/commands";
+import { javascript } from "@codemirror/lang-javascript";
+import { css }        from "@codemirror/lang-css";
 import { highlightSelectionMatches, searchKeymap, openSearchPanel } from "@codemirror/search";
 import {
    autocompletion, completionKeymap, completeFromList,
@@ -544,8 +546,9 @@ export interface CgScriptEditorOptions {
 
 export class CodeMirrorForCgScript implements LspEditor {
    readonly #view: EditorView;
-   readonly #themeCompartment = new Compartment();
-   readonly #lspCompartment   = new Compartment();
+   readonly #themeCompartment    = new Compartment();
+   readonly #lspCompartment      = new Compartment();
+   readonly #editableCompartment = new Compartment();
    #saveDraftTimer: ReturnType<typeof setTimeout> | null = null;
 
    constructor(parent: Element, initialContent: string, selectedTheme: string, opts?: CgScriptEditorOptions) {
@@ -576,6 +579,7 @@ export class CodeMirrorForCgScript implements LspEditor {
             semanticDecoField,
             this.#themeCompartment.of(resolveTheme(selectedTheme)),
             this.#lspCompartment.of([]),
+            this.#editableCompartment.of(EditorView.editable.of(true)),
             EditorState.tabSize.of(4),
             keymap.of([
                ...closeBracketsKeymap,
@@ -617,6 +621,10 @@ export class CodeMirrorForCgScript implements LspEditor {
 
    setTheme(name: string) {
       this.#view.dispatch({ effects: this.#themeCompartment.reconfigure(resolveTheme(name)) });
+   }
+
+   setEditable(editable: boolean) {
+      this.#view.dispatch({ effects: this.#editableCompartment.reconfigure(EditorView.editable.of(editable)) });
    }
 
    getSelection(): string {
@@ -769,4 +777,189 @@ export async function manageLspConnection(wsUri: string, cm: LspEditor, fileUri:
       await new Promise(r => setTimeout(r, delay));
       delay = Math.min(delay * 2, 30_000);
    }
+}
+
+// ─── Simple editors for JS / CSS (no LSP) ─────────────────────────────────────
+
+export class CodeMirrorForJs {
+   readonly #view: EditorView;
+   readonly #themeCompartment    = new Compartment();
+   readonly #editableCompartment = new Compartment();
+
+   constructor(parent: Element, initialContent: string, selectedTheme = "") {
+      const state = EditorState.create({
+         doc: initialContent,
+         extensions: [
+            lineNumbers(),
+            highlightActiveLineGutter(),
+            highlightSpecialChars(),
+            history(),
+            foldGutter(),
+            drawSelection(),
+            dropCursor(),
+            EditorState.allowMultipleSelections.of(true),
+            indentOnInput(),
+            bracketMatching(),
+            closeBrackets(),
+            autocompletion(),
+            rectangularSelection(),
+            crosshairCursor(),
+            highlightActiveLine(),
+            highlightSelectionMatches(),
+            javascript(),
+            this.#themeCompartment.of(resolveTheme(selectedTheme)),
+            this.#editableCompartment.of(EditorView.editable.of(true)),
+            EditorState.tabSize.of(4),
+            keymap.of([
+               ...closeBracketsKeymap,
+               ...defaultKeymap,
+               ...searchKeymap,
+               ...historyKeymap,
+               ...foldKeymap,
+               ...completionKeymap,
+               indentWithTab,
+               { key: "Ctrl-h", run: () => { openSearchPanel(this.#view); return true; } },
+            ]),
+            EditorView.lineWrapping,
+         ],
+      });
+      this.#view = new EditorView({ state, parent });
+   }
+
+   setTheme(name: string)         { this.#view.dispatch({ effects: this.#themeCompartment.reconfigure(resolveTheme(name)) }); }
+   setEditable(editable: boolean) { this.#view.dispatch({ effects: this.#editableCompartment.reconfigure(EditorView.editable.of(editable)) }); }
+   loadContent(text: string)      { this.#view.dispatch({ changes: { from: 0, to: this.#view.state.doc.length, insert: text } }); }
+   getSelection(): string {
+      const sel = this.#view.state.selection.main;
+      return sel.from === sel.to ? "" : this.#view.state.sliceDoc(sel.from, sel.to);
+   }
+   get view(): EditorView { return this.#view; }
+}
+
+export class CodeMirrorForCss {
+   readonly #view: EditorView;
+   readonly #themeCompartment    = new Compartment();
+   readonly #editableCompartment = new Compartment();
+
+   constructor(parent: Element, initialContent: string, selectedTheme = "") {
+      const state = EditorState.create({
+         doc: initialContent,
+         extensions: [
+            lineNumbers(),
+            highlightActiveLineGutter(),
+            highlightSpecialChars(),
+            history(),
+            foldGutter(),
+            drawSelection(),
+            dropCursor(),
+            EditorState.allowMultipleSelections.of(true),
+            indentOnInput(),
+            bracketMatching(),
+            closeBrackets(),
+            autocompletion(),
+            rectangularSelection(),
+            crosshairCursor(),
+            highlightActiveLine(),
+            highlightSelectionMatches(),
+            css(),
+            this.#themeCompartment.of(resolveTheme(selectedTheme)),
+            this.#editableCompartment.of(EditorView.editable.of(true)),
+            EditorState.tabSize.of(4),
+            keymap.of([
+               ...closeBracketsKeymap,
+               ...defaultKeymap,
+               ...searchKeymap,
+               ...historyKeymap,
+               ...foldKeymap,
+               ...completionKeymap,
+               indentWithTab,
+               { key: "Ctrl-h", run: () => { openSearchPanel(this.#view); return true; } },
+            ]),
+            EditorView.lineWrapping,
+         ],
+      });
+      this.#view = new EditorView({ state, parent });
+   }
+
+   setTheme(name: string)         { this.#view.dispatch({ effects: this.#themeCompartment.reconfigure(resolveTheme(name)) }); }
+   setEditable(editable: boolean) { this.#view.dispatch({ effects: this.#editableCompartment.reconfigure(EditorView.editable.of(editable)) }); }
+   loadContent(text: string)      { this.#view.dispatch({ changes: { from: 0, to: this.#view.state.doc.length, insert: text } }); }
+   getSelection(): string {
+      const sel = this.#view.state.selection.main;
+      return sel.from === sel.to ? "" : this.#view.state.sliceDoc(sel.from, sel.to);
+   }
+   get view(): EditorView { return this.#view; }
+}
+
+// ─── CM5-compatible shim ───────────────────────────────────────────────────────
+
+/** Returns a CodeMirror 5-compatible wrapper around any CM6 editor instance.
+ *  Used by the QuestionnaireJsEditorV2 AMD viewmodels which depend on the CM5 API. */
+export function wrapAsCm5(cm: { view: EditorView; setTheme(n: string): void; loadContent(t: string): void; setEditable?(v: boolean): void }) {
+   const v = cm.view;
+   return {
+      setValue(text: string) { cm.loadContent(text); },
+      getValue(): string     { return v.state.doc.toString(); },
+      setOption(key: string, value: unknown) {
+         if (key === "theme")    cm.setTheme(String(value ?? ""));
+         else if (key === "readOnly") cm.setEditable?.(!value);
+      },
+      setSize(width: string | number, height: string | number) {
+         v.dom.style.width  = typeof width  === "number" ? `${width}px`  : (width  as string);
+         v.dom.style.height = typeof height === "number" ? `${height}px` : (height as string);
+      },
+      execCommand(name: string) {
+         if      (name === "undo")                undo(v);
+         else if (name === "redo")                redo(v);
+         else if (name === "find" || name === "replace") openSearchPanel(v);
+      },
+      on(event: string, handler: () => void) {
+         if      (event === "blur")   v.contentDOM.addEventListener("blur",   () => handler());
+         else if (event === "scroll") v.scrollDOM .addEventListener("scroll", () => handler());
+      },
+      getScrollInfo(): { top: number } { return { top: v.scrollDOM.scrollTop }; },
+      getScrollerElement(): Element    { return v.scrollDOM; },
+      focus(): void                    { v.focus(); },
+   };
+}
+
+// ─── LSP diagnostic WebSocket intercept ───────────────────────────────────────
+
+export interface LspDiagnosticInfo {
+   severity:  number;
+   message:   string;
+   line:      number;
+   character: number;
+}
+
+/**
+ * Patches window.WebSocket once so that any LSP connection created after this
+ * call will forward textDocument/publishDiagnostics messages to the callback.
+ */
+export function patchWebSocketForDiagnostics(onDiagnostics: (diags: LspDiagnosticInfo[]) => void): void {
+   const OriginalWS = window.WebSocket as typeof WebSocket;
+   let intercepted = false;
+
+   (window as Window & typeof globalThis).WebSocket = class extends OriginalWS {
+      constructor(url: string | URL, protocols?: string | string[]) {
+         super(url, protocols);
+         if (!intercepted) {
+            intercepted = true;
+            this.addEventListener("message", (evt: MessageEvent) => {
+               try {
+                  const msg = JSON.parse(evt.data as string);
+                  if (msg.method === "textDocument/publishDiagnostics" && Array.isArray(msg.params?.diagnostics)) {
+                     const diags: LspDiagnosticInfo[] = msg.params.diagnostics.map((d: { severity: number; message: string; range?: { start?: { line?: number; character?: number } } }) => ({
+                        severity:  d.severity,
+                        message:   d.message,
+                        line:      d.range?.start?.line      ?? 0,
+                        character: d.range?.start?.character ?? 0,
+                     }));
+                     onDiagnostics(diags);
+                  }
+               } catch { /* ignore parse errors */ }
+            });
+         }
+      }
+   } as typeof WebSocket;
 }
