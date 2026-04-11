@@ -573,6 +573,17 @@ public class SemanticAnalyzerDiagnosticsTests
    }
 
    [Fact]
+   public void QuestionSubclass_AsAnyFunctionParam_NoCGS022()
+   {
+      // indexOf("Mobile", q) where q is SingleQuestion — question family types can be
+      // passed as any parameter type due to implicit runtime conversion.
+      var result = CgScriptParseService.Parse("SingleQuestion q; indexOf(\"Mobile\", q);");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
    public void CGS022_ErrorMessage_UsesProperEnglish()
    {
       // Error message must say "No overload of 'X' matches (...)", not "Doesn't has X with format (...)"
