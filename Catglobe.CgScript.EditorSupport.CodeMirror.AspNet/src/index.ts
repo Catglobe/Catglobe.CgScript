@@ -10,6 +10,7 @@ import {
 } from "@codemirror/language";
 import { history, defaultKeymap, historyKeymap, indentWithTab, undo, redo } from "@codemirror/commands";
 import { javascript } from "@codemirror/lang-javascript";
+import { html } from "@codemirror/lang-html";
 import { highlightSelectionMatches, searchKeymap, openSearchPanel } from "@codemirror/search";
 import {
    autocompletion, completionKeymap, completeFromList,
@@ -900,6 +901,69 @@ export class CodeMirrorForJs {
    redo(): void       { redo(this.#view); }
    openSearch(): void { openSearchPanel(this.#view); }
    get view(): EditorView { return this.#view; }
+}
+
+// ─── Simple editor for HTML ───────────────────────────────────────────────────
+
+export class CodeMirrorForHtml {
+   readonly #view: EditorView;
+   readonly #themeCompartment    = new Compartment();
+   readonly #editableCompartment = new Compartment();
+
+   constructor(parent: Element, initialContent: string, selectedTheme = "") {
+      const state = EditorState.create({
+         doc: initialContent,
+         extensions: [
+            lineNumbers(),
+            highlightActiveLineGutter(),
+            highlightSpecialChars(),
+            history(),
+            foldGutter(),
+            drawSelection(),
+            dropCursor(),
+            EditorState.allowMultipleSelections.of(true),
+            indentOnInput(),
+            bracketMatching(),
+            closeBrackets(),
+            autocompletion(),
+            rectangularSelection(),
+            crosshairCursor(),
+            highlightActiveLine(),
+            highlightSelectionMatches(),
+            html(),
+            this.#themeCompartment.of(resolveTheme(selectedTheme)),
+            this.#editableCompartment.of(EditorView.editable.of(true)),
+            EditorState.tabSize.of(4),
+            keymap.of([
+               ...closeBracketsKeymap,
+               ...defaultKeymap,
+               ...searchKeymap,
+               ...historyKeymap,
+               ...foldKeymap,
+               ...completionKeymap,
+               indentWithTab,
+               { key: "Ctrl-h", run: () => { openSearchPanel(this.#view); return true; } },
+            ]),
+            EditorView.lineWrapping,
+         ],
+      });
+      this.#view = new EditorView({ state, parent });
+   }
+
+   setTheme(name: string)         { this.#view.dispatch({ effects: this.#themeCompartment.reconfigure(resolveTheme(name)) }); }
+   setEditable(editable: boolean) { this.#view.dispatch({ effects: this.#editableCompartment.reconfigure(EditorView.editable.of(editable)) }); }
+   loadContent(text: string)      { this.#view.dispatch({ changes: { from: 0, to: this.#view.state.doc.length, insert: text } }); }
+   getContent(): string           { return this.#view.state.doc.toString(); }
+   setSize(w: string | number, h: string | number): void {
+      this.#view.dom.style.width  = typeof w === "number" ? `${w}px` : (w as string);
+      this.#view.dom.style.height = typeof h === "number" ? `${h}px` : (h as string);
+   }
+   focus(): void                  { this.#view.focus(); }
+   onBlur(fn: () => void): void   { this.#view.contentDOM.addEventListener("blur", fn); }
+   undo(): void                   { undo(this.#view); }
+   redo(): void                   { redo(this.#view); }
+   openSearch(): void             { openSearchPanel(this.#view); }
+   get view(): EditorView         { return this.#view; }
 }
 
 // ─── LSP diagnostic WebSocket intercept ───────────────────────────────────────
