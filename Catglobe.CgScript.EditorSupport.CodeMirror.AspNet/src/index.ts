@@ -528,6 +528,88 @@ export function resolveTheme(name: string): Extension[] {
    return THEMES[name] ?? THEMES["default"];
 }
 
+// ─── Base editor ─────────────────────────────────────────────────────────────
+
+/**
+ * Foundation for all CM6 editors in this package.
+ * Holds the shared extensions and exposes all common public methods.
+ * Pass language-specific and LSP extensions via {@link extraExtensions}.
+ */
+class BaseEditor {
+   protected readonly _view: EditorView;
+   readonly #themeCompartment    = new Compartment();
+   readonly #editableCompartment = new Compartment();
+
+   constructor(parent: Element, initialContent: string, selectedTheme: string, extraExtensions: Extension[] = []) {
+      const state = EditorState.create({
+         doc: initialContent,
+         extensions: [
+            lineNumbers(),
+            highlightActiveLineGutter(),
+            highlightSpecialChars(),
+            history(),
+            foldGutter(),
+            drawSelection(),
+            dropCursor(),
+            EditorState.allowMultipleSelections.of(true),
+            indentOnInput(),
+            bracketMatching(),
+            closeBrackets(),
+            autocompletion(),
+            rectangularSelection(),
+            crosshairCursor(),
+            highlightActiveLine(),
+            highlightSelectionMatches(),
+            this.#themeCompartment.of(resolveTheme(selectedTheme)),
+            this.#editableCompartment.of(EditorView.editable.of(true)),
+            EditorState.tabSize.of(4),
+            keymap.of([
+               ...closeBracketsKeymap,
+               ...defaultKeymap,
+               ...searchKeymap,
+               ...historyKeymap,
+               ...foldKeymap,
+               ...completionKeymap,
+               indentWithTab,
+               { key: "Ctrl-h", run: () => { openSearchPanel(this._view); return true; } },
+            ]),
+            EditorView.lineWrapping,
+            ...extraExtensions,
+         ],
+      });
+      this._view = new EditorView({ state, parent });
+   }
+
+   static _fullscreen(view: EditorView, on: boolean) {
+      document.body.classList.toggle("CodeMirror-fullscreen", on);
+      view.requestMeasure();
+   }
+   _setFullscreen(on: boolean)  { BaseEditor._fullscreen(this._view, on); }
+   toggleFullscreen()           { this._setFullscreen(!document.body.classList.contains("CodeMirror-fullscreen")); }
+
+   setTheme(name: string)         { this._view.dispatch({ effects: this.#themeCompartment.reconfigure(resolveTheme(name)) }); }
+   setEditable(editable: boolean) { this._view.dispatch({ effects: this.#editableCompartment.reconfigure(EditorView.editable.of(editable)) }); }
+   loadContent(text: string)      { this._view.dispatch({ changes: { from: 0, to: this._view.state.doc.length, insert: text } }); }
+   getContent(): string           { return this._view.state.doc.toString(); }
+   getSelection(): string {
+      const sel = this._view.state.selection.main;
+      return sel.from === sel.to ? "" : this._view.state.sliceDoc(sel.from, sel.to);
+   }
+   setSize(w: string | number, h: string | number): void {
+      this._view.dom.style.width  = typeof w === "number" ? `${w}px` : (w as string);
+      this._view.dom.style.height = typeof h === "number" ? `${h}px` : (h as string);
+   }
+   focus():                 void    { this._view.focus(); }
+   onBlur(fn: () => void):  void    { this._view.contentDOM.addEventListener("blur", fn); }
+   onScroll(fn: () => void): void   { this._view.scrollDOM.addEventListener("scroll", fn); }
+   scrollTop():             number  { return this._view.scrollDOM.scrollTop; }
+   get scrollerElement():   Element { return this._view.scrollDOM; }
+   undo():                  void    { undo(this._view); }
+   redo():                  void    { redo(this._view); }
+   openSearch():            void    { openSearchPanel(this._view); }
+   get view():              EditorView { return this._view; }
+}
+
 // ─── Shared interface for editors that support LSP ───────────────────────────
 
 export interface LspEditor {
@@ -544,79 +626,41 @@ export interface CgScriptEditorOptions {
    saveDelay?: number;
 }
 
-export class CodeMirrorForCgScript implements LspEditor {
-   readonly #view: EditorView;
-   readonly #themeCompartment    = new Compartment();
-   readonly #lspCompartment      = new Compartment();
-   readonly #editableCompartment = new Compartment();
+export class CodeMirrorForCgScript extends BaseEditor implements LspEditor {
+   readonly #lspCompartment: Compartment;
    #lspClient: LSPClient | null = null;
    #pendingQuestionVars: { label: string; typeName: string }[] | null = null;
-   #saveDraftTimer: ReturnType<typeof setTimeout> | null = null;
 
    constructor(parent: Element, initialContent: string, selectedTheme: string, opts?: CgScriptEditorOptions) {
+      const lspComp = new Compartment();
       const { language, keywordCompletions } = createCgScriptLanguage();
       const saveDelay = opts?.saveDelay ?? 2000;
+      let saveDraftTimer: ReturnType<typeof setTimeout> | null = null;
 
-      const startState = EditorState.create({
-         doc: initialContent,
-         extensions: [
-            lineNumbers(),
-            highlightActiveLineGutter(),
-            highlightSpecialChars(),
-            history(),
-            foldGutter(),
-            drawSelection(),
-            dropCursor(),
-            EditorState.allowMultipleSelections.of(true),
-            indentOnInput(),
-            bracketMatching(),
-            closeBrackets(),
-            autocompletion(),
-            language.data.of({ autocomplete: completeFromList(keywordCompletions) }),
-            rectangularSelection(),
-            crosshairCursor(),
-            highlightActiveLine(),
-            highlightSelectionMatches(),
-            language,
-            semanticDecoField,
-            this.#themeCompartment.of(resolveTheme(selectedTheme)),
-            this.#lspCompartment.of([]),
-            this.#editableCompartment.of(EditorView.editable.of(true)),
-            EditorState.tabSize.of(4),
-            keymap.of([
-               ...closeBracketsKeymap,
-               ...defaultKeymap,
-               ...searchKeymap,
-               ...historyKeymap,
-               ...foldKeymap,
-               ...completionKeymap,
-               indentWithTab,
-               { key: "Ctrl-h", run: () => { openSearchPanel(this.#view); return true; } },
-               { key: "F11",    run: () => { this._setFullscreen(true);  return true; } },
-               { key: "Escape", run: () => { this._setFullscreen(false); return true; } },
-            ]),
-            EditorView.updateListener.of(update => {
-               if (!update.docChanged) return;
-               const text = update.state.doc.toString();
-               if (opts?.onDocChange) {
-                  if (this.#saveDraftTimer) clearTimeout(this.#saveDraftTimer);
-                  this.#saveDraftTimer = setTimeout(() => opts.onDocChange!(text), saveDelay);
-               }
-            }),
-            EditorView.lineWrapping,
-            signatureHintTheme,
-         ],
-      });
-
-      this.#view = new EditorView({ state: startState, parent });
+      super(parent, initialContent, selectedTheme, [
+         language.data.of({ autocomplete: completeFromList(keywordCompletions) }),
+         language,
+         semanticDecoField,
+         lspComp.of([]),
+         signatureHintTheme,
+         keymap.of([
+            { key: "F11",    run: (view) => { BaseEditor._fullscreen(view, true);  return true; } },
+            { key: "Escape", run: (view) => { BaseEditor._fullscreen(view, false); return true; } },
+         ]),
+         EditorView.updateListener.of(update => {
+            if (!update.docChanged || !opts?.onDocChange) return;
+            if (saveDraftTimer) clearTimeout(saveDraftTimer);
+            saveDraftTimer = setTimeout(() => opts.onDocChange!(update.state.doc.toString()), saveDelay);
+         }),
+      ]);
+      this.#lspCompartment = lspComp;
    }
 
    connectLsp(lspClient: LSPClient, fileUri: string) {
       this.#lspClient = lspClient;
-      this.#view.dispatch({
+      this._view.dispatch({
          effects: this.#lspCompartment.reconfigure(lspClient.plugin(fileUri, "cgscript")),
       });
-      // Send pending question variables once the LSP handshake completes.
       if (this.#pendingQuestionVars) {
          const vars = this.#pendingQuestionVars;
          lspClient.initializing.then(() => lspClient.notification("workspace/didChangeConfiguration", {
@@ -627,7 +671,7 @@ export class CodeMirrorForCgScript implements LspEditor {
 
    disconnectLsp() {
       this.#lspClient = null;
-      this.#view.dispatch({ effects: this.#lspCompartment.reconfigure([]) });
+      this._view.dispatch({ effects: this.#lspCompartment.reconfigure([]) });
    }
 
    /**
@@ -644,50 +688,6 @@ export class CodeMirrorForCgScript implements LspEditor {
          })).catch(() => { /* connection already closed */ });
       }
    }
-
-   setTheme(name: string) {
-      this.#view.dispatch({ effects: this.#themeCompartment.reconfigure(resolveTheme(name)) });
-   }
-
-   setEditable(editable: boolean) {
-      this.#view.dispatch({ effects: this.#editableCompartment.reconfigure(EditorView.editable.of(editable)) });
-   }
-
-   getSelection(): string {
-      const sel = this.#view.state.selection.main;
-      return sel.from === sel.to ? "" : this.#view.state.sliceDoc(sel.from, sel.to);
-   }
-
-   loadContent(text: string) {
-      this.#view.dispatch({
-         changes: { from: 0, to: this.#view.state.doc.length, insert: text },
-      });
-   }
-
-   _setFullscreen(on: boolean) {
-      document.body.classList.toggle("CodeMirror-fullscreen", on);
-      this.#view.requestMeasure();
-   }
-
-   toggleFullscreen() {
-      this._setFullscreen(!document.body.classList.contains("CodeMirror-fullscreen"));
-   }
-
-   getContent(): string { return this.#view.state.doc.toString(); }
-   setSize(w: string | number, h: string | number): void {
-      this.#view.dom.style.width  = typeof w === "number" ? `${w}px` : (w as string);
-      this.#view.dom.style.height = typeof h === "number" ? `${h}px` : (h as string);
-   }
-   focus(): void                  { this.#view.focus(); }
-   onBlur(fn: () => void): void   { this.#view.contentDOM.addEventListener("blur", fn); }
-   onScroll(fn: () => void): void { this.#view.scrollDOM.addEventListener("scroll", fn); }
-   scrollTop(): number            { return this.#view.scrollDOM.scrollTop; }
-   get scrollerElement(): Element { return this.#view.scrollDOM; }
-   undo(): void       { undo(this.#view); }
-   redo(): void       { redo(this.#view); }
-   openSearch(): void { openSearchPanel(this.#view); }
-
-   get view(): EditorView { return this.#view; }
 }
 
 // ─── CodeMirrorForQsl─────────────────────────────────────────────────────────
@@ -699,118 +699,43 @@ export interface QslEditorOptions {
    saveDelay?: number;
 }
 
-export class CodeMirrorForQsl implements LspEditor {
-   readonly #view: EditorView;
-   readonly #themeCompartment = new Compartment();
-   readonly #lspCompartment   = new Compartment();
-   #saveDraftTimer: ReturnType<typeof setTimeout> | null = null;
+export class CodeMirrorForQsl extends BaseEditor implements LspEditor {
+   readonly #lspCompartment: Compartment;
 
    constructor(parent: Element, initialContent: string, selectedTheme: string, opts?: QslEditorOptions) {
+      const lspComp = new Compartment();
       const { language, keywordCompletions } = createQslLanguage();
       const saveDelay = opts?.saveDelay ?? 2000;
+      let saveDraftTimer: ReturnType<typeof setTimeout> | null = null;
 
-      const startState = EditorState.create({
-         doc: initialContent,
-         extensions: [
-            lineNumbers(),
-            highlightActiveLineGutter(),
-            highlightSpecialChars(),
-            history(),
-            foldGutter(),
-            drawSelection(),
-            dropCursor(),
-            EditorState.allowMultipleSelections.of(true),
-            indentOnInput(),
-            bracketMatching(),
-            closeBrackets(),
-            autocompletion(),
-            language.data.of({ autocomplete: completeFromList(keywordCompletions) }),
-            rectangularSelection(),
-            crosshairCursor(),
-            highlightActiveLine(),
-            highlightSelectionMatches(),
-            language,
-            semanticDecoField,
-            this.#themeCompartment.of(resolveTheme(selectedTheme)),
-            this.#lspCompartment.of([]),
-            EditorState.tabSize.of(4),
-            keymap.of([
-               ...closeBracketsKeymap,
-               ...defaultKeymap,
-               ...searchKeymap,
-               ...historyKeymap,
-               ...foldKeymap,
-               ...completionKeymap,
-               indentWithTab,
-               { key: "Ctrl-h", run: () => { openSearchPanel(this.#view); return true; } },
-               { key: "F11",    run: () => { this._setFullscreen(true);  return true; } },
-               { key: "Escape", run: () => { this._setFullscreen(false); return true; } },
-            ]),
-            EditorView.updateListener.of(update => {
-               if (!update.docChanged) return;
-               const text = update.state.doc.toString();
-               if (opts?.onDocChange) {
-                  if (this.#saveDraftTimer) clearTimeout(this.#saveDraftTimer);
-                  this.#saveDraftTimer = setTimeout(() => opts.onDocChange!(text), saveDelay);
-               }
-            }),
-            EditorView.lineWrapping,
-            signatureHintTheme,
-         ],
-      });
-
-      this.#view = new EditorView({ state: startState, parent });
+      super(parent, initialContent, selectedTheme, [
+         language.data.of({ autocomplete: completeFromList(keywordCompletions) }),
+         language,
+         semanticDecoField,
+         lspComp.of([]),
+         signatureHintTheme,
+         keymap.of([
+            { key: "F11",    run: (view) => { BaseEditor._fullscreen(view, true);  return true; } },
+            { key: "Escape", run: (view) => { BaseEditor._fullscreen(view, false); return true; } },
+         ]),
+         EditorView.updateListener.of(update => {
+            if (!update.docChanged || !opts?.onDocChange) return;
+            if (saveDraftTimer) clearTimeout(saveDraftTimer);
+            saveDraftTimer = setTimeout(() => opts.onDocChange!(update.state.doc.toString()), saveDelay);
+         }),
+      ]);
+      this.#lspCompartment = lspComp;
    }
 
    connectLsp(lspClient: LSPClient, fileUri: string) {
-      this.#view.dispatch({
+      this._view.dispatch({
          effects: this.#lspCompartment.reconfigure(lspClient.plugin(fileUri, "qsl")),
       });
    }
 
    disconnectLsp() {
-      this.#view.dispatch({ effects: this.#lspCompartment.reconfigure([]) });
+      this._view.dispatch({ effects: this.#lspCompartment.reconfigure([]) });
    }
-
-   setTheme(name: string) {
-      this.#view.dispatch({ effects: this.#themeCompartment.reconfigure(resolveTheme(name)) });
-   }
-
-   getSelection(): string {
-      const sel = this.#view.state.selection.main;
-      return sel.from === sel.to ? "" : this.#view.state.sliceDoc(sel.from, sel.to);
-   }
-
-   loadContent(text: string) {
-      this.#view.dispatch({
-         changes: { from: 0, to: this.#view.state.doc.length, insert: text },
-      });
-   }
-
-   _setFullscreen(on: boolean) {
-      document.body.classList.toggle("CodeMirror-fullscreen", on);
-      this.#view.requestMeasure();
-   }
-
-   toggleFullscreen() {
-      this._setFullscreen(!document.body.classList.contains("CodeMirror-fullscreen"));
-   }
-
-   getContent(): string { return this.#view.state.doc.toString(); }
-   setSize(w: string | number, h: string | number): void {
-      this.#view.dom.style.width  = typeof w === "number" ? `${w}px` : (w as string);
-      this.#view.dom.style.height = typeof h === "number" ? `${h}px` : (h as string);
-   }
-   focus(): void                  { this.#view.focus(); }
-   onBlur(fn: () => void): void   { this.#view.contentDOM.addEventListener("blur", fn); }
-   onScroll(fn: () => void): void { this.#view.scrollDOM.addEventListener("scroll", fn); }
-   scrollTop(): number            { return this.#view.scrollDOM.scrollTop; }
-   get scrollerElement(): Element { return this.#view.scrollDOM; }
-   undo(): void       { undo(this.#view); }
-   redo(): void       { redo(this.#view); }
-   openSearch(): void { openSearchPanel(this.#view); }
-
-   get view(): EditorView { return this.#view; }
 }
 
 // ─── LSP Connection Manager───────────────────────────────────────────────────
@@ -833,137 +758,40 @@ export async function manageLspConnection(wsUri: string, cm: LspEditor, fileUri:
    }
 }
 
-// ─── Simple editors for JS / CSS (no LSP) ─────────────────────────────────────
+export { html, javascript };
 
-export class CodeMirrorForJs {
-   readonly #view: EditorView;
-   readonly #themeCompartment    = new Compartment();
-   readonly #editableCompartment = new Compartment();
+// ─── Simple generic editor (no LSP) ──────────────────────────────────────────
 
-   constructor(parent: Element, initialContent: string, selectedTheme = "") {
-      const state = EditorState.create({
-         doc: initialContent,
-         extensions: [
-            lineNumbers(),
-            highlightActiveLineGutter(),
-            highlightSpecialChars(),
-            history(),
-            foldGutter(),
-            drawSelection(),
-            dropCursor(),
-            EditorState.allowMultipleSelections.of(true),
-            indentOnInput(),
-            bracketMatching(),
-            closeBrackets(),
-            autocompletion(),
-            rectangularSelection(),
-            crosshairCursor(),
-            highlightActiveLine(),
-            highlightSelectionMatches(),
-            javascript(),
-            this.#themeCompartment.of(resolveTheme(selectedTheme)),
-            this.#editableCompartment.of(EditorView.editable.of(true)),
-            EditorState.tabSize.of(4),
-            keymap.of([
-               ...closeBracketsKeymap,
-               ...defaultKeymap,
-               ...searchKeymap,
-               ...historyKeymap,
-               ...foldKeymap,
-               ...completionKeymap,
-               indentWithTab,
-               { key: "Ctrl-h", run: () => { openSearchPanel(this.#view); return true; } },
-            ]),
-            EditorView.lineWrapping,
-         ],
-      });
-      this.#view = new EditorView({ state, parent });
-   }
-
-   setTheme(name: string)         { this.#view.dispatch({ effects: this.#themeCompartment.reconfigure(resolveTheme(name)) }); }
-   setEditable(editable: boolean) { this.#view.dispatch({ effects: this.#editableCompartment.reconfigure(EditorView.editable.of(editable)) }); }
-   loadContent(text: string)      { this.#view.dispatch({ changes: { from: 0, to: this.#view.state.doc.length, insert: text } }); }
-   getSelection(): string {
-      const sel = this.#view.state.selection.main;
-      return sel.from === sel.to ? "" : this.#view.state.sliceDoc(sel.from, sel.to);
-   }
-   getContent(): string { return this.#view.state.doc.toString(); }
-   setSize(w: string | number, h: string | number): void {
-      this.#view.dom.style.width  = typeof w === "number" ? `${w}px` : (w as string);
-      this.#view.dom.style.height = typeof h === "number" ? `${h}px` : (h as string);
-   }
-   focus(): void                  { this.#view.focus(); }
-   onBlur(fn: () => void): void   { this.#view.contentDOM.addEventListener("blur", fn); }
-   onScroll(fn: () => void): void { this.#view.scrollDOM.addEventListener("scroll", fn); }
-   scrollTop(): number            { return this.#view.scrollDOM.scrollTop; }
-   get scrollerElement(): Element { return this.#view.scrollDOM; }
-   undo(): void       { undo(this.#view); }
-   redo(): void       { redo(this.#view); }
-   openSearch(): void { openSearchPanel(this.#view); }
-   get view(): EditorView { return this.#view; }
+export interface SimpleEditor {
+   setTheme(name: string): void;
+   setEditable(editable: boolean): void;
+   loadContent(text: string): void;
+   getContent(): string;
+   getSelection(): string;
+   setSize(w: string | number, h: string | number): void;
+   focus(): void;
+   onBlur(fn: () => void): void;
+   onScroll(fn: () => void): void;
+   scrollTop(): number;
+   readonly scrollerElement: Element;
+   undo(): void;
+   redo(): void;
+   openSearch(): void;
 }
 
-// ─── Simple editor for HTML ───────────────────────────────────────────────────
-
-export class CodeMirrorForHtml {
-   readonly #view: EditorView;
-   readonly #themeCompartment    = new Compartment();
-   readonly #editableCompartment = new Compartment();
-
-   constructor(parent: Element, initialContent: string, selectedTheme = "") {
-      const state = EditorState.create({
-         doc: initialContent,
-         extensions: [
-            lineNumbers(),
-            highlightActiveLineGutter(),
-            highlightSpecialChars(),
-            history(),
-            foldGutter(),
-            drawSelection(),
-            dropCursor(),
-            EditorState.allowMultipleSelections.of(true),
-            indentOnInput(),
-            bracketMatching(),
-            closeBrackets(),
-            autocompletion(),
-            rectangularSelection(),
-            crosshairCursor(),
-            highlightActiveLine(),
-            highlightSelectionMatches(),
-            html(),
-            this.#themeCompartment.of(resolveTheme(selectedTheme)),
-            this.#editableCompartment.of(EditorView.editable.of(true)),
-            EditorState.tabSize.of(4),
-            keymap.of([
-               ...closeBracketsKeymap,
-               ...defaultKeymap,
-               ...searchKeymap,
-               ...historyKeymap,
-               ...foldKeymap,
-               ...completionKeymap,
-               indentWithTab,
-               { key: "Ctrl-h", run: () => { openSearchPanel(this.#view); return true; } },
-            ]),
-            EditorView.lineWrapping,
-         ],
-      });
-      this.#view = new EditorView({ state, parent });
-   }
-
-   setTheme(name: string)         { this.#view.dispatch({ effects: this.#themeCompartment.reconfigure(resolveTheme(name)) }); }
-   setEditable(editable: boolean) { this.#view.dispatch({ effects: this.#editableCompartment.reconfigure(EditorView.editable.of(editable)) }); }
-   loadContent(text: string)      { this.#view.dispatch({ changes: { from: 0, to: this.#view.state.doc.length, insert: text } }); }
-   getContent(): string           { return this.#view.state.doc.toString(); }
-   setSize(w: string | number, h: string | number): void {
-      this.#view.dom.style.width  = typeof w === "number" ? `${w}px` : (w as string);
-      this.#view.dom.style.height = typeof h === "number" ? `${h}px` : (h as string);
-   }
-   focus(): void                  { this.#view.focus(); }
-   onBlur(fn: () => void): void   { this.#view.contentDOM.addEventListener("blur", fn); }
-   undo(): void                   { undo(this.#view); }
-   redo(): void                   { redo(this.#view); }
-   openSearch(): void             { openSearchPanel(this.#view); }
-   get view(): EditorView         { return this.#view; }
+/**
+ * Creates a generic CodeMirror 6 editor using the shared {@link BaseEditor} foundation.
+ * Pass an optional language extension (e.g. `javascript()` or `html()`) for syntax
+ * highlighting and completion. Omit for plain-text / CSS editors.
+ */
+export function makeSimpleEditor(
+   parent: Element,
+   initialContent: string,
+   selectedTheme: string,
+   languageExtension?: Extension,
+): SimpleEditor {
+   return new BaseEditor(parent, initialContent, selectedTheme,
+      languageExtension ? [languageExtension] : []);
 }
 
 // ─── LSP diagnostic WebSocket intercept ───────────────────────────────────────

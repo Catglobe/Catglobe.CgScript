@@ -35,11 +35,22 @@ public partial class CgScriptLanguageTarget
    private bool _clientSupportsMarkdownHover;
    private bool _clientSupportsSnippets;
 
-   public CgScriptLanguageTarget(DocumentStore store, CgScriptDefinitions definitions)
+   /// <param name="store">Document store for this session.</param>
+   /// <param name="baseDefinitions">
+   ///   The immutable base definitions (no questionnaire context).
+   ///   <c>workspace/didChangeConfiguration</c> updates are applied on top of this.
+   /// </param>
+   /// <param name="initialDefinitions">
+   ///   Optional pre-loaded definitions that include questionnaire context (e.g. from
+   ///   <c>?questionnaireId=</c>).  When <see langword="null"/>, <paramref name="baseDefinitions"/> is used.
+   ///   Must NOT be passed as <paramref name="baseDefinitions"/>, otherwise renaming a question would
+   ///   leave the old label in the definitions forever.
+   /// </param>
+   public CgScriptLanguageTarget(DocumentStore store, CgScriptDefinitions baseDefinitions, CgScriptDefinitions? initialDefinitions = null)
    {
       _store            = store;
-      _baseDefinitions  = definitions;
-      _definitions      = definitions;
+      _baseDefinitions  = baseDefinitions;
+      _definitions      = initialDefinitions ?? baseDefinitions;
    }
 
    // ── initialize ──────────────────────────────────────────────────────────────
