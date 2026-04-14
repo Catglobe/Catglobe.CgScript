@@ -1338,6 +1338,9 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       if (IsInQuestionFamily(argType)) return true;
       var canonical = MapToCanonical(paramType);
       if (canonical == null) return true; // "object" param type → any arg is accepted
+      // Array can be implicitly converted to DateTime when passed as a parameter:
+      // the runtime accepts old-style {year, month, day} arrays for DateTime params.
+      if (canonical == "DateTime" && argType == "Array") return true;
       return IsTypeCompatible(canonical, argType);
    }
 
