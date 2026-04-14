@@ -771,6 +771,34 @@ public class SemanticAnalyzerDiagnosticsTests
       Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }
 
+   [Fact]
+   public void DateLiteral_PassedToArrayParam_NoCGS022()
+   {
+      // DateTime is a subtype of Array (DateTime.Parent = "Array" in definitions),
+      // so passing a date literal where Array is expected must not produce CGS022.
+      // Uses full definitions so IsSubtypeOf can walk the DateTime→Array parent chain.
+      var diags = AnalyzeViaDocumentStore("DateTime_addDays(#2024-01-15#, 1);");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void ArrayLiteral_PassedToDateTimeParam_NoCGS022()
+   {
+      // The runtime accepts old-style {year, month, day} arrays for DateTime params.
+      var funcDefs = new Dictionary<string, FunctionInfo>
+      {
+         ["myFunc"] = new FunctionInfo([["DateTime"]]),
+      };
+
+      var diags = Analyze(
+         "myFunc({2024, 1, 15});",
+         functions:           ["myFunc"],
+         functionDefinitions: funcDefs);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
    // ── CGS023: constructor argument mismatch ─────────────────────────────────
 
    private static ObjectDefinition MakeStringDef()
