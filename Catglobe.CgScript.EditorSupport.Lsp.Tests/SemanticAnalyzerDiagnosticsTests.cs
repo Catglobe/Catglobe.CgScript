@@ -754,6 +754,23 @@ public class SemanticAnalyzerDiagnosticsTests
       Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }
 
+   [Fact]
+   public void DateLiteral_InferredAsDateTime_NoCGS022()
+   {
+      // Regression: DATE_LITERAL was incorrectly inferred as "Array" instead of "DateTime".
+      var funcDefs = new Dictionary<string, FunctionInfo>
+      {
+         ["myFunc"] = new FunctionInfo([["DateTime"]]),
+      };
+
+      var diags = Analyze(
+         "myFunc(#2024-01-15#);",
+         functions:           ["myFunc"],
+         functionDefinitions: funcDefs);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
    // ── CGS023: constructor argument mismatch ─────────────────────────────────
 
    private static ObjectDefinition MakeStringDef()

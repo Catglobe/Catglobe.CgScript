@@ -1121,7 +1121,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          return colons != null && colons.Length > 0 ? "Dictionary" : "Array";
       }
       if (cv.DATE_LITERAL() != null)
-         return "Array";
+         return "DateTime";
       return null;
    }
 
@@ -1338,8 +1338,6 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       if (IsInQuestionFamily(argType)) return true;
       var canonical = MapToCanonical(paramType);
       if (canonical == null) return true; // "object" param type → any arg is accepted
-      // DateTime params accept Array arguments: old-style datetime was represented as array
-      if (canonical == "DateTime" && argType == "Array") return true;
       return IsTypeCompatible(canonical, argType);
    }
 
