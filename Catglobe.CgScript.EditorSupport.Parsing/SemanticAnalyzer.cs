@@ -1333,6 +1333,9 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    private bool IsMethodArgCompatible(string? argType, string paramType)
    {
       if (argType == null) return true; // unknown arg type → no false positive
+      // Question family (Question and any subclass) can be passed as any parameter type,
+      // mirroring the implicit conversion available in the runtime.
+      if (IsInQuestionFamily(argType)) return true;
       var canonical = MapToCanonical(paramType);
       if (canonical == null) return true; // "object" param type → any arg is accepted
       // DateTime params accept Array arguments: old-style datetime was represented as array
