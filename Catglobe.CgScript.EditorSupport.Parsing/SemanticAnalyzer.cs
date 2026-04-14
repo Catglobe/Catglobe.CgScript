@@ -551,7 +551,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                if (!IsKnown(token.Text))
                {
                   _diagnostics.Add(new Diagnostic(
-                     DiagnosticSeverity.Warning,
+                     DiagnosticSeverity.Error,
                      $"Unknown function '{token.Text}'",
                      token.Line,
                      token.Column,

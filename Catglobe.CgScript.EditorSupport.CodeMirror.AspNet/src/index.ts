@@ -795,6 +795,7 @@ export interface LspDiagnosticInfo {
    message:   string;
    line:      number;
    character: number;
+   code?:     string;
 }
 
 /**
@@ -814,11 +815,12 @@ export function patchWebSocketForDiagnostics(onDiagnostics: (diags: LspDiagnosti
                try {
                   const msg = JSON.parse(evt.data as string);
                   if (msg.method === "textDocument/publishDiagnostics" && Array.isArray(msg.params?.diagnostics)) {
-                     const diags: LspDiagnosticInfo[] = msg.params.diagnostics.map((d: { severity: number; message: string; range?: { start?: { line?: number; character?: number } } }) => ({
+                     const diags: LspDiagnosticInfo[] = msg.params.diagnostics.map((d: { severity: number; message: string; code?: string | number; range?: { start?: { line?: number; character?: number } } }) => ({
                         severity:  d.severity,
                         message:   d.message,
                         line:      d.range?.start?.line      ?? 0,
                         character: d.range?.start?.character ?? 0,
+                        code:      d.code != null ? String(d.code) : undefined,
                      }));
                      onDiagnostics(diags);
                   }
