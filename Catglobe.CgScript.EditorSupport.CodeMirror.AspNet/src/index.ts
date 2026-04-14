@@ -469,42 +469,35 @@ const midnightHighlight = HighlightStyle.define([
    { tag: tags.bracket,   color: "#cc7" },
 ]);
 
-const defaultSemanticTheme = EditorView.theme({
-   ".cm-cgs-function":  { color: "#170 !important", fontStyle: "italic" },
-   ".cm-cgs-type":      { color: "#F60 !important" },
-   ".cm-cgs-constant":  { color: "#30a !important" },
-   ".cm-cgs-property":  { color: "#555 !important" },
-   ".cm-cgs-macro":     { color: "#660 !important" },
+// Single base theme — responds to &light / &dark set by the compartment flag below.
+// baseTheme has lower specificity than theme(), so per-editor overrides still win.
+const cgscriptBaseTheme = EditorView.baseTheme({
+   "&light":                         { backgroundColor: "white" },
+   "&dark":                          { backgroundColor: "black", color: "white" },
+   "&light .cm-gutters":             { backgroundColor: "#f8f8f8", borderRight: "1px solid #ddd", color: "#999" },
+   "&dark  .cm-gutters":             { backgroundColor: "#111", color: "#888", borderColor: "#333" },
+   "&light .cm-activeLine":          { backgroundColor: "#e8f2ff" },
+   "&dark  .cm-activeLine":          { backgroundColor: "#1a1a1a" },
+   "&light .cm-activeLineGutter":    { backgroundColor: "#e8f2ff" },
+   "&dark  .cm-activeLineGutter":    { backgroundColor: "#1a1a1a" },
+   "&light .cm-selectionBackground": { backgroundColor: "#b3d4fd" },
+   "&dark  .cm-selectionBackground": { backgroundColor: "#334" },
+   "&dark  .cm-cursor":              { borderLeftColor: "white" },
+   "&light .cm-matchingBracket":     { color: "inherit", backgroundColor: "#c0e0c0", outline: "1px solid #888" },
+   "&dark  .cm-matchingBracket":     { color: "#fff", backgroundColor: "#3a3a3a", outline: "1px solid #888" },
+   "&dark  .cm-searchMatch":         { backgroundColor: "#555" },
+   "&dark  .cm-foldPlaceholder":     { backgroundColor: "#333", color: "#aaa" },
+   // semantic highlights
+   "&light .cm-cgs-function":        { color: "#170 !important", fontStyle: "italic" },
+   "&dark  .cm-cgs-function":        { color: "#81ff6c !important", fontStyle: "italic" },
+   ".cm-cgs-type":                   { color: "#F60 !important" },
+   "&light .cm-cgs-constant":        { color: "#30a !important" },
+   "&dark  .cm-cgs-constant":        { color: "#ac8afd !important" },
+   "&light .cm-cgs-property":        { color: "#555 !important" },
+   "&dark  .cm-cgs-property":        { color: "#aaa !important" },
+   "&light .cm-cgs-macro":           { color: "#660 !important" },
+   "&dark  .cm-cgs-macro":           { color: "#cc9900 !important" },
 });
-
-const midnightSemanticTheme = EditorView.theme({
-   ".cm-cgs-function":  { color: "#81ff6c !important", fontStyle: "italic" },
-   ".cm-cgs-type":      { color: "#F60 !important" },
-   ".cm-cgs-constant":  { color: "#ac8afd !important" },
-   ".cm-cgs-property":  { color: "#aaa !important" },
-   ".cm-cgs-macro":     { color: "#cc9900 !important" },
-});
-
-const defaultEditorTheme = EditorView.theme({
-   "&": { backgroundColor: "white" },
-   ".cm-gutters": { backgroundColor: "#f8f8f8", borderRight: "1px solid #ddd", color: "#999" },
-   ".cm-activeLine": { backgroundColor: "#e8f2ff" },
-   ".cm-activeLineGutter": { backgroundColor: "#e8f2ff" },
-   ".cm-selectionBackground, ::selection": { backgroundColor: "#b3d4fd" },
-   ".cm-matchingBracket": { color: "inherit", backgroundColor: "#c0e0c0", outline: "1px solid #888" },
-});
-
-const midnightEditorTheme = EditorView.theme({
-   "&": { backgroundColor: "black", color: "white" },
-   ".cm-gutters": { backgroundColor: "#111", color: "#888", borderColor: "#333" },
-   ".cm-activeLine": { backgroundColor: "#1a1a1a" },
-   ".cm-activeLineGutter": { backgroundColor: "#1a1a1a" },
-   ".cm-selectionBackground, ::selection": { backgroundColor: "#334" },
-   ".cm-cursor": { borderLeftColor: "white" },
-   ".cm-matchingBracket": { color: "#fff", backgroundColor: "#3a3a3a", outline: "1px solid #888" },
-   ".cm-searchMatch": { backgroundColor: "#555" },
-   ".cm-foldPlaceholder": { backgroundColor: "#333", color: "#aaa" },
-}, { dark: true });
 
 // Signature help overload cycling hint
 export const signatureHintTheme = EditorView.baseTheme({
@@ -520,8 +513,8 @@ export const signatureHintTheme = EditorView.baseTheme({
 });
 
 const THEMES: Record<string, Extension[]> = {
-   default:  [defaultEditorTheme,  defaultSemanticTheme,  syntaxHighlighting(defaultHighlight)],
-   midnight: [midnightEditorTheme, midnightSemanticTheme, syntaxHighlighting(midnightHighlight)],
+   default:  [EditorView.theme({}, { dark: false }), syntaxHighlighting(defaultHighlight)],
+   midnight: [EditorView.theme({}, { dark: true  }), syntaxHighlighting(midnightHighlight)],
 };
 
 export function resolveTheme(name: string): Extension[] {
@@ -560,6 +553,7 @@ class BaseEditor {
             crosshairCursor(),
             highlightActiveLine(),
             highlightSelectionMatches(),
+            cgscriptBaseTheme,
             this.#themeCompartment.of(resolveTheme(selectedTheme)),
             this.#editableCompartment.of(EditorView.editable.of(true)),
             EditorState.tabSize.of(4),
