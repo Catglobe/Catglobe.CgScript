@@ -1606,7 +1606,24 @@
       {
         "doc": "Returns the number of whole days between two DateTime objects",
         "returnType": "int",
-        "obsoleteDoc": "Use DateTime.daysBetween(second, timezoneId)",
+        "obsoleteDoc": "Use DateTime.daysBetween(second)",
+        "param": [
+          {
+            "name": "First DateTime",
+            "doc": "The first DateTime object",
+            "type": "DateTime"
+          },
+          {
+            "name": "Second DateTime",
+            "doc": "The second DateTime object",
+            "type": "DateTime"
+          }
+        ]
+      },
+      {
+        "doc": "Returns the number of whole days between two DateTime objects",
+        "returnType": "int",
+        "obsoleteDoc": "Use DateTime.daysBetween(second)",
         "param": [
           {
             "name": "First DateTime",
@@ -1620,7 +1637,7 @@
           },
           {
             "name": "Timezone",
-            "doc": "Optional timezone ID override applied to both DateTime objects",
+            "doc": "Unused",
             "type": "int?"
           }
         ]
@@ -1934,7 +1951,7 @@
       {
         "doc": "Returns the total number of seconds between two DateTime objects",
         "returnType": "number",
-        "obsoleteDoc": "Use DateTime.secondsBetween(second, timezoneId)",
+        "obsoleteDoc": "Use DateTime.secondsBetween(second)",
         "param": [
           {
             "name": "First DateTime",
@@ -1948,7 +1965,7 @@
           },
           {
             "name": "Timezone",
-            "doc": "Optional timezone ID override applied to both DateTime objects",
+            "doc": "Unused",
             "type": "int?"
           }
         ]
@@ -2156,7 +2173,7 @@
       {
         "doc": "Returns the number of working days (excluding weekends) between two DateTime objects with optional timezone override",
         "returnType": "int",
-        "obsoleteDoc": "Use DateTime.workDaysBetween(second, timezoneId)",
+        "obsoleteDoc": "Use DateTime.workDaysBetween(second)",
         "param": [
           {
             "name": "First DateTime",
@@ -2170,7 +2187,7 @@
           },
           {
             "name": "Timezone",
-            "doc": "Optional timezone ID override applied to both DateTime objects",
+            "doc": "Unused",
             "type": "int?"
           }
         ]
@@ -2178,7 +2195,7 @@
       {
         "doc": "Returns the number of working days (excluding weekends and specified holidays) between two DateTime objects with optional timezone override",
         "returnType": "int",
-        "obsoleteDoc": "Use DateTime.workDaysBetween(second, holidays, timezoneId)",
+        "obsoleteDoc": "Use DateTime.workDaysBetween(second, holidays)",
         "param": [
           {
             "name": "First DateTime",
@@ -2197,7 +2214,7 @@
           },
           {
             "name": "Timezone",
-            "doc": "Optional timezone ID override applied to both DateTime objects",
+            "doc": "Unused",
             "type": "int?"
           }
         ]
@@ -21793,6 +21810,7 @@
         },
         "ProfileFromLastEval": {
           "doc": "Get the profile result from the last run of EvalWhere.",
+          "hasSetter": true,
           "returnType": "ProfilingResult"
         },
         "QuestionnaireIds": {
@@ -22375,11 +22393,6 @@
                 "name": "Second",
                 "doc": "The second DateTime object",
                 "type": "DateTime"
-              },
-              {
-                "name": "Timezone",
-                "doc": "Optional timezone ID override (unused; reserved for compatibility)",
-                "type": "int?"
               }
             ]
           }
@@ -22422,11 +22435,6 @@
                 "name": "Second",
                 "doc": "The second DateTime object",
                 "type": "DateTime"
-              },
-              {
-                "name": "Timezone",
-                "doc": "Optional timezone ID override (unused; reserved for compatibility)",
-                "type": "int?"
               }
             ]
           }
@@ -22554,43 +22562,6 @@
                 "name": "Holidays",
                 "doc": "List of holiday DateTime objects",
                 "type": "array"
-              }
-            ]
-          },
-          {
-            "doc": "Returns the number of working days between this and another DateTime with optional timezone override",
-            "returnType": "int",
-            "param": [
-              {
-                "name": "Second",
-                "doc": "The second DateTime object",
-                "type": "DateTime"
-              },
-              {
-                "name": "Timezone",
-                "doc": "Optional timezone ID override applied to both DateTime objects",
-                "type": "int?"
-              }
-            ]
-          },
-          {
-            "doc": "Returns the number of working days (excluding holidays) between this and another DateTime with optional timezone override",
-            "returnType": "int",
-            "param": [
-              {
-                "name": "Second",
-                "doc": "The second DateTime object",
-                "type": "DateTime"
-              },
-              {
-                "name": "Holidays",
-                "doc": "List of holiday DateTime objects",
-                "type": "array"
-              },
-              {
-                "name": "Timezone",
-                "doc": "Optional timezone ID override applied to both DateTime objects",
-                "type": "int?"
               }
             ]
           }
@@ -31712,6 +31683,7 @@
         },
         "Id": {
           "doc": "Id of the document",
+          "hasSetter": true,
           "returnType": "string"
         },
         "ObjectTypeName": {
@@ -31852,6 +31824,7 @@
         },
         "Id": {
           "doc": "Id of the document",
+          "hasSetter": true,
           "returnType": "string",
           "inheritedFrom": "LuceneDocument"
         },
@@ -59817,27 +59790,27 @@
         {
           "name": "RPQ_Status_Normal",
           "value": 1,
-          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusNormal"
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_Status_Normal"
         },
         {
           "name": "RPQ_Status_QuotaFull",
           "value": 2,
-          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusQuotaFull"
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_Status_QuotaFull"
         },
         {
           "name": "RPQ_Status_OutsideTarget",
           "value": 3,
-          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusOutsideTarget"
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_Status_OutsideTarget"
         },
         {
           "name": "RPQ_Status_InterviewFailed",
           "value": 4,
-          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusInterviewFailed"
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_Status_InterviewFailed"
         },
         {
           "name": "RPQ_Status_InterviewSucceeded",
           "value": 5,
-          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusInterviewSucceeded"
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_Status_InterviewSucceeded"
         }
       ]
     },
@@ -61702,27 +61675,27 @@
         {
           "name": "UserProjectQuestionnaire_Status_Normal",
           "value": 1,
-          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusNormal"
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_Status_Normal"
         },
         {
           "name": "UserProjectQuestionnaire_Status_QuotaFull",
           "value": 2,
-          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusQuotaFull"
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_Status_QuotaFull"
         },
         {
           "name": "UserProjectQuestionnaire_Status_OutsideTarget",
           "value": 3,
-          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusOutsideTarget"
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_Status_OutsideTarget"
         },
         {
           "name": "UserProjectQuestionnaire_Status_InterviewFailed",
           "value": 4,
-          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusInterviewFailed"
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_Status_InterviewFailed"
         },
         {
           "name": "UserProjectQuestionnaire_Status_InterviewSucceeded",
           "value": 5,
-          "obsoleteDoc": "Use QuestionnaireAnswerSheet_StatusInterviewSucceeded"
+          "obsoleteDoc": "Use QuestionnaireAnswerSheet_Status_InterviewSucceeded"
         }
       ]
     },
