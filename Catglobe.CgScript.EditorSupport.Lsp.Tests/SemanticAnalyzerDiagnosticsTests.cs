@@ -689,6 +689,60 @@ public class SemanticAnalyzerDiagnosticsTests
       Assert.DoesNotContain(diags, d => d.Code == "CGS022");
    }
 
+   // ── CGS022: dict literal must infer as Dictionary, not Array ─────────────
+
+   [Fact]
+   public void DictLiteral_InferredAsDictionary_NoCGS022()
+   {
+      // Regression: {"key": 4} was inferred as "Array" instead of "Dictionary",
+      // causing false CGS022 when passing to a function expecting Dictionary.
+      var funcDefs = new Dictionary<string, FunctionInfo>
+      {
+         ["myFunc"] = new FunctionInfo([["Dictionary"]]),
+      };
+
+      var diags = Analyze(
+         "myFunc({\"key\": 4});",
+         functions:           ["myFunc"],
+         functionDefinitions: funcDefs);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void ArrayLiteral_StillInferredAsArray_NoCGS022()
+   {
+      // {1, 2, 3} must still infer as Array when passed to a function expecting Array.
+      var funcDefs = new Dictionary<string, FunctionInfo>
+      {
+         ["myFunc"] = new FunctionInfo([["Array"]]),
+      };
+
+      var diags = Analyze(
+         "myFunc({1, 2, 3});",
+         functions:           ["myFunc"],
+         functionDefinitions: funcDefs);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
+   [Fact]
+   public void MultilineDictLiteral_InferredAsDictionary_NoCGS022()
+   {
+      // Multi-line form: {\n"key": 4\n} must also infer as Dictionary.
+      var funcDefs = new Dictionary<string, FunctionInfo>
+      {
+         ["myFunc"] = new FunctionInfo([["Dictionary"]]),
+      };
+
+      var diags = Analyze(
+         "myFunc({\n\"key\": 4\n});",
+         functions:           ["myFunc"],
+         functionDefinitions: funcDefs);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS022");
+   }
+
    // ── CGS023: constructor argument mismatch ─────────────────────────────────
 
    private static ObjectDefinition MakeStringDef()

@@ -1111,8 +1111,16 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       if (cv.TRUE() != null || cv.FALSE() != null)                   return "Boolean";
       // Range (interval) literal: [1, 3-5] — distinct from Array
       if (cv.LBRACKET() != null) return "Range";
-      // Array/dict literal or date literal → Array
-      if (cv.LCURLY() != null || cv.DATE_LITERAL() != null)
+      // Array/dict literal: {…}  — check body for COLON separators to distinguish dict from array
+      if (cv.LCURLY() != null)
+      {
+         var body = cv.dictOrArrayBody();
+         // Dict literal:  { key : value, … }  — body has at least one COLON token
+         // Array literal: { value, value, … }  — body has no COLON tokens
+         var colons = body?.COLON();
+         return colons != null && colons.Length > 0 ? "Dictionary" : "Array";
+      }
+      if (cv.DATE_LITERAL() != null)
          return "Array";
       return null;
    }
