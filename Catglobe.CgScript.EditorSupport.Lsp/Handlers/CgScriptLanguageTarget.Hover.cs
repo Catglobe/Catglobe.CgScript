@@ -112,7 +112,7 @@ public partial class CgScriptLanguageTarget
       }
 
       // ── Where-expression aggregator ────────────────────────────────────────────
-      if (CgScriptDefinitions.WhereExpressions.TryGetValue(word, out var whereDef))
+      if (_definitions.WhereExpressions.TryGetValue(word, out var whereDef))
       {
          return new Hover
          {

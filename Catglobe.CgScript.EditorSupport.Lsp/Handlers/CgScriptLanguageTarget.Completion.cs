@@ -287,7 +287,7 @@ public partial class CgScriptLanguageTarget
          });
       }
 
-      foreach (var (name, def) in CgScriptDefinitions.WhereExpressionsStartingWith(all ? "" : prefix))
+      foreach (var (name, def) in _definitions.WhereExpressionsStartingWith(all ? "" : prefix))
       {
          var paramList = string.Join(", ", def.Params.Select(p =>
             $"{(p.IsColumnName ? "column" : "expr")} {p.Name}{(p.IsVarArgs ? "…" : "")}"));

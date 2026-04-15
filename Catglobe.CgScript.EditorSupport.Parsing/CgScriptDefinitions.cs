@@ -162,6 +162,7 @@ public sealed record WhereExpressionDefinition(
 /// <param name="Objects">Known built-in object types keyed by type name.</param>
 /// <param name="GlobalVariables">Global variables pre-declared by the runtime.</param>
 /// <param name="Enums">Enum types with their prefixed constant values.</param>
+/// <param name="WhereExpressions">Where-expression aggregate functions; when present, overrides the hardcoded fallback.</param>
 public sealed record CgScriptDefinitionsPayload(
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
    Dictionary<string, MethodOverload[]>?         Functions,
@@ -170,7 +171,9 @@ public sealed record CgScriptDefinitionsPayload(
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
    Dictionary<string, GlobalVariableDefinition>? GlobalVariables,
    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
-   Dictionary<string, EnumDefinition>?           Enums);
+   Dictionary<string, EnumDefinition>?           Enums,
+   [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+   Dictionary<string, WhereExpressionDefinition>? WhereExpressions = null);
 
 // ── Loader ────────────────────────────────────────────────────────────────────
 
@@ -224,19 +227,19 @@ public class CgScriptDefinitions
    /// <summary>Global variable names sorted case-insensitively for binary-search prefix lookup.</summary>
    public IReadOnlyList<string>                         GlobalVariableKeys { get; init; }
 
-   // ── Where-expression functions (hardcoded — stable across runtime versions) ──
+   // ── Where-expression functions (fallback is hardcoded; can be overridden by API payload) ──
    /// <summary>
    /// All <c>where</c>-expression aggregate functions, keyed by name.
-   /// These are hardcoded because the set has not changed in years and is not part of the
-   /// server-side definitions JSON.
+   /// Populated from the server-side API payload when available; otherwise falls back to the
+   /// hardcoded set (which is stable across runtime versions).
    /// </summary>
-   public static IReadOnlyDictionary<string, WhereExpressionDefinition> WhereExpressions { get; } = BuildWhereExpressions();
+   public IReadOnlyDictionary<string, WhereExpressionDefinition> WhereExpressions { get; private set; }
 
    /// <summary>Where-expression function names sorted case-insensitively for binary-search prefix lookup.</summary>
-   public static IReadOnlyList<string> WhereExpressionKeys { get; } = Sort(WhereExpressions.Keys);
+   public IReadOnlyList<string> WhereExpressionKeys { get; private set; }
 
    /// <summary>Returns where-expression entries whose names start with <paramref name="prefix"/>.</summary>
-   public static IEnumerable<KeyValuePair<string, WhereExpressionDefinition>> WhereExpressionsStartingWith(string prefix = "")
+   public IEnumerable<KeyValuePair<string, WhereExpressionDefinition>> WhereExpressionsStartingWith(string prefix = "")
    {
       foreach (var k in ScanKeys(WhereExpressionKeys, prefix))
          yield return new KeyValuePair<string, WhereExpressionDefinition>(k, WhereExpressions[k]);
@@ -308,6 +311,8 @@ public class CgScriptDefinitions
       ObjectKeys         = Sort(Objects.Keys);
       GlobalVariableKeys = Sort(GlobalVariables.Keys);
       (ObjectMemberInfos, FunctionInfos, ObsoleteFunctions, ObsoleteConstants, ConstantsSet, EnumByConstant) = BuildDerived(Objects, Functions, Enums);
+      WhereExpressions = payload?.WhereExpressions ?? BuildWhereExpressions();
+      WhereExpressionKeys = Sort(WhereExpressions.Keys);
    }
 
    private static string[] Sort(IEnumerable<string>? list)
@@ -347,7 +352,8 @@ public class CgScriptDefinitions
       Dictionary<string, ObjectDefinition>                  objects,
       IReadOnlyCollection<string>                           constants,
       IReadOnlyDictionary<string, GlobalVariableDefinition> globalVariables,
-      Dictionary<string, EnumDefinition>                    enums)
+      Dictionary<string, EnumDefinition>                    enums,
+      Dictionary<string, WhereExpressionDefinition>?        whereExpressions = null)
    {
       Functions        = functions;
       GlobalFunctions  = DeriveGlobalFunctions(functions, objects);
@@ -359,6 +365,8 @@ public class CgScriptDefinitions
       ObjectKeys         = Sort(Objects.Keys);
       GlobalVariableKeys = Sort(GlobalVariables.Keys);
       (ObjectMemberInfos, FunctionInfos, ObsoleteFunctions, ObsoleteConstants, ConstantsSet, EnumByConstant) = BuildDerived(Objects, Functions, Enums);
+      WhereExpressions = whereExpressions ?? BuildWhereExpressions();
+      WhereExpressionKeys = Sort(WhereExpressions.Keys);
    }
 
    /// <summary>Loads definitions from the embedded JSON resource, setting <see cref="LoadError"/> to <paramref name="loadError"/>.</summary>

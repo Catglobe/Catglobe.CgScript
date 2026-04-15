@@ -285,7 +285,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       var funcToken = ctx.IDENTIFIER().Symbol;
       var funcName  = funcToken.Text;
 
-      if (!CgScriptDefinitions.WhereExpressions.TryGetValue(funcName, out var def))
+      if (!_definitions.WhereExpressions.TryGetValue(funcName, out var def))
       {
          _diagnostics.Add(new Diagnostic(
             DiagnosticSeverity.Error,
@@ -1031,7 +1031,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             if (expr.WHERE() != null)
             {
                var funcName = expr.whereAggregation()?.IDENTIFIER()?.Symbol?.Text;
-               if (funcName != null && CgScriptDefinitions.WhereExpressions.TryGetValue(funcName, out var whereDef))
+               if (funcName != null && _definitions.WhereExpressions.TryGetValue(funcName, out var whereDef))
                   return string.IsNullOrEmpty(whereDef.ReturnType) ? null : whereDef.ReturnType;
                return null;
             }

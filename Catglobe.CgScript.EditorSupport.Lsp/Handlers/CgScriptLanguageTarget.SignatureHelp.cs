@@ -61,7 +61,7 @@ public partial class CgScriptLanguageTarget
             {
                signatures = BuildSignatureInfoList(funcName, fn);
             }
-            else if (CgScriptDefinitions.WhereExpressions.TryGetValue(funcName, out var whereDef))
+            else if (_definitions.WhereExpressions.TryGetValue(funcName, out var whereDef))
             {
                signatures = BuildWhereExpressionSignatureInfoList(funcName, whereDef);
             }

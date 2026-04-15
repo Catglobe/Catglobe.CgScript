@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+   <!-- To update: dotnet pack D:\Catglobe.ScriptDeployer\Catglobe.CgScript.EditorSupport.Lsp\Catglobe.CgScript.EditorSupport.Lsp.csproj /p:Version=X.Y.Z /p:CgScriptEditorSupportParsingVersion=X.Y.Z -o D:\localpackages -->
    <PropertyGroup>
       <PackageId>Catglobe.CgScript.EditorSupport.Lsp</PackageId>
       <Version>0.1.0</Version>
