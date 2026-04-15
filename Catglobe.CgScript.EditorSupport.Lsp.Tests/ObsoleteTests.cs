@@ -21,9 +21,6 @@ public class ObsoleteTests
       return new TestCgScriptDefinitions(
          functions ?? new Dictionary<string, MethodOverload[]>(),
          objects   ?? new Dictionary<string, ObjectDefinition>(),
-         constants:  enums?.Values
-            .SelectMany(e => e.Values.Select(v => v.Name))
-            .ToList() ?? new List<string>(),
          globalVariables: new Dictionary<string, GlobalVariableDefinition>(),
          enums:  enums ?? new Dictionary<string, EnumDefinition>());
    }
@@ -141,10 +138,8 @@ public class ObsoleteTests
             enums["_plain_" + c] = new EnumDefinition("", "",
                [new EnumValueDefinition(c, "", 0)]);
       }
-      var allConstants = enums.Values.SelectMany(e => e.Values.Select(v => v.Name)).ToList();
-
       var defs = new TestCgScriptDefinitions(
-         funcDefs, objDefs, allConstants,
+         funcDefs, objDefs,
          new Dictionary<string, GlobalVariableDefinition>(), enums);
       return SemanticAnalyzer.Analyze(result.Tree, defs);
    }
@@ -154,12 +149,11 @@ public class ObsoleteTests
    private sealed class TestCgScriptDefinitions : CgScriptDefinitions
    {
       public TestCgScriptDefinitions(
-         Dictionary<string, MethodOverload[]>            functions,
-         Dictionary<string, ObjectDefinition>            objects,
-         IReadOnlyCollection<string>                     constants,
+         Dictionary<string, MethodOverload[]>                  functions,
+         Dictionary<string, ObjectDefinition>                  objects,
          IReadOnlyDictionary<string, GlobalVariableDefinition> globalVariables,
-         Dictionary<string, EnumDefinition>              enums)
-         : base(functions, objects, constants, globalVariables, enums)
+         Dictionary<string, EnumDefinition>                    enums)
+         : base(functions, objects, globalVariables, enums)
       {
       }
    }

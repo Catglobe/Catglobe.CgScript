@@ -16,7 +16,6 @@ public class CompletionGlobalVariableTests
          : base(
             functions:       [],
             objects:         [],
-            constants:       [],
             globalVariables: globalVariables,
             enums:           [])
       { }

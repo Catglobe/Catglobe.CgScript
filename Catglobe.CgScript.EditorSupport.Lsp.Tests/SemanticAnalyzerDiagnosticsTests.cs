@@ -17,10 +17,9 @@ public class SemanticAnalyzerDiagnosticsTests
       public TestCgScriptDefinitions(
          Dictionary<string, MethodOverload[]>                  functions,
          Dictionary<string, ObjectDefinition>                  objects,
-         IReadOnlyCollection<string>                           constants,
          IReadOnlyDictionary<string, GlobalVariableDefinition>? globalVariables = null,
          Dictionary<string, EnumDefinition>?                   enums = null)
-         : base(functions, objects, constants,
+         : base(functions, objects,
                 globalVariables ?? new Dictionary<string, GlobalVariableDefinition>(),
                 enums ?? new Dictionary<string, EnumDefinition>())
       { }
@@ -57,7 +56,7 @@ public class SemanticAnalyzerDiagnosticsTests
       foreach (var c in constants ?? [])
          enumDefs["_plain_" + c] = new EnumDefinition("", "", [new EnumValueDefinition(c, "", 0)]);
       return SemanticAnalyzer.Analyze(result.Tree,
-         new TestCgScriptDefinitions(funcDefs, objDefs, [], globalVarDefs, enumDefs));
+         new TestCgScriptDefinitions(funcDefs, objDefs, globalVarDefs, enumDefs));
    }
 
    private static IReadOnlyList<Diagnostic> AnalyzeWithObjects(
@@ -71,8 +70,7 @@ public class SemanticAnalyzerDiagnosticsTests
          funcDefs[fn] = [];
       return SemanticAnalyzer.Analyze(result.Tree,
          new TestCgScriptDefinitions(funcDefs,
-            objectDefinitions.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal),
-            []));
+            objectDefinitions.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal)));
    }
 
    // ── Known constants are not reported as undefined ─────────────────────────

@@ -16,9 +16,8 @@ public class DiagnosticPositionTests
    {
       public TestCgScriptDefinitions(
          Dictionary<string, MethodOverload[]> functions,
-         Dictionary<string, ObjectDefinition> objects,
-         IReadOnlyCollection<string>          constants)
-         : base(functions, objects, constants,
+         Dictionary<string, ObjectDefinition> objects)
+         : base(functions, objects,
                 globalVariables: new Dictionary<string, GlobalVariableDefinition>(),
                 enums: new Dictionary<string, EnumDefinition>())
       { }
@@ -49,7 +48,7 @@ public class DiagnosticPositionTests
       var objDefs = new Dictionary<string, ObjectDefinition>(StringComparer.Ordinal);
       foreach (var obj in objects ?? [])
          objDefs[obj] = new ObjectDefinition("");
-      var defs = new TestCgScriptDefinitions(funcDefs, objDefs, (constants ?? []).ToList());
+      var defs = new TestCgScriptDefinitions(funcDefs, objDefs);
       return SemanticAnalyzer.Analyze(result.Tree, defs);
    }
 
