@@ -61,6 +61,10 @@ public partial class CgScriptLanguageTarget
             {
                signatures = BuildSignatureInfoList(funcName, fn);
             }
+            else if (CgScriptDefinitions.WhereExpressions.TryGetValue(funcName, out var whereDef))
+            {
+               signatures = BuildWhereExpressionSignatureInfoList(funcName, whereDef);
+            }
             else if (TryGetObjectDefinition(funcName, out var obj)
                      && obj.Constructors?.Length > 0
                      && IsConstructorCall(text, i, funcName))

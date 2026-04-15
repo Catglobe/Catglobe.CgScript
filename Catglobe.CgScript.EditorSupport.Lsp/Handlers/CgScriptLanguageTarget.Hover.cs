@@ -111,6 +111,15 @@ public partial class CgScriptLanguageTarget
          };
       }
 
+      // ── Where-expression aggregator ────────────────────────────────────────────
+      if (CgScriptDefinitions.WhereExpressions.TryGetValue(word, out var whereDef))
+      {
+         return new Hover
+         {
+            Contents = HoverContent(BuildWhereExpressionHover(word, whereDef)),
+         };
+      }
+
       // ── Built-in object type ───────────────────────────────────────────────────
       if (_definitions.Objects.TryGetValue(word, out var obj))
       {
@@ -268,8 +277,54 @@ public partial class CgScriptLanguageTarget
       return sb.ToString();
    }
 
-   private static SignatureInformation[] BuildSignatureInfoList(string funcName, MethodOverload[] fn)
+   private static string BuildWhereExpressionHover(string name, WhereExpressionDefinition def)
    {
+      var sb = new System.Text.StringBuilder();
+      if (def.ObsoleteMessage != null)
+         sb.Append(DeprecatedPrefix(def.ObsoleteMessage));
+      if (!string.IsNullOrWhiteSpace(def.Doc))
+         sb.Append(def.Doc).Append("\n\n");
+      var paramList = string.Join(", ", def.Params.Select(p =>
+         $"{(p.IsColumnName ? "column" : "expr")} {p.Name}{(p.IsVarArgs ? "…" : "")}"));
+      var returnPart = string.IsNullOrEmpty(def.ReturnType) ? "" : $"{def.ReturnType} ";
+      sb.Append($"`{returnPart}{name}({paramList})`");
+      if (def.Params.Length > 0)
+      {
+         sb.Append("\n\n**Parameters:**");
+         foreach (var p in def.Params)
+         {
+            sb.Append($"\n- `{(p.IsColumnName ? "column" : "expr")} {p.Name}{(p.IsVarArgs ? "…" : "")}`");
+            if (!string.IsNullOrWhiteSpace(p.Doc))
+               sb.Append($" — {p.Doc}");
+         }
+      }
+      return sb.ToString();
+   }
+
+   private static SignatureInformation[] BuildWhereExpressionSignatureInfoList(string funcName, WhereExpressionDefinition def)
+   {
+      var paramList = string.Join(", ", def.Params.Select(p =>
+         $"{(p.IsColumnName ? "column" : "expr")} {p.Name}{(p.IsVarArgs ? "…" : "")}"));
+      var returnPart = string.IsNullOrEmpty(def.ReturnType) ? "" : $"{def.ReturnType} ";
+      return [new SignatureInformation
+      {
+         Label         = $"{returnPart}{funcName}({paramList})",
+         Documentation = new SumType<string, MarkupContent>(new MarkupContent
+         {
+            Kind  = MarkupKind.Markdown,
+            Value = (def.ObsoleteMessage != null ? DeprecatedPrefix(def.ObsoleteMessage) : "")
+                    + (def.Doc ?? string.Empty),
+         }),
+         Parameters    = def.Params.Select(p => new ParameterInformation
+         {
+            Label         = new SumType<string, Tuple<int, int>>(
+               $"{(p.IsColumnName ? "column" : "expr")} {p.Name}{(p.IsVarArgs ? "…" : "")}"),
+            Documentation = new SumType<string, MarkupContent>(p.Doc ?? string.Empty),
+         }).ToArray(),
+      }];
+   }
+
+   private static SignatureInformation[] BuildSignatureInfoList(string funcName, MethodOverload[] fn)   {
       if (fn.Length == 0) return [];
       return fn.Select(v => new SignatureInformation
       {

@@ -1245,7 +1245,7 @@ public class SemanticAnalyzerDiagnosticsTests
    [Fact]
    public void WhereExpr_AllKnownAggregators_ProduceNoDiagnostics()
    {
-      // Every known where-expression function must produce zero diagnostics.
+      // Every non-obsolete where-expression function must produce zero diagnostics.
       var functions = new[]
       {
          "average(q1) where 1 == 1",
@@ -1258,7 +1258,6 @@ public class SemanticAnalyzerDiagnosticsTests
          "variance(q1) where 1 == 1",
          "stdev(q1) where 1 == 1",
          "sterr(q1) where 1 == 1",
-         "selectColumn(q1) where 1 == 1",
          "selectMultiColumn(q1, q2) where 1 == 1",
          "selectMultiColumnReadOnly(q1, q2) where 1 == 1",
          "selectDictionary(q1, q2) where 1 == 1",
@@ -1275,6 +1274,18 @@ public class SemanticAnalyzerDiagnosticsTests
          var result = CgScriptParseService.Parse($"{expr};");
          var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
          Assert.Empty(diags);
+      }
+   }
+
+   [Fact]
+   public void WhereExpr_ObsoleteFunctions_ReportCGS026()
+   {
+      // select() and selectColumn() are obsolete — each must produce exactly one CGS026 warning.
+      foreach (var expr in new[] { "select(q1) where 1 == 1", "selectColumn(q1) where 1 == 1" })
+      {
+         var result = CgScriptParseService.Parse($"{expr};");
+         var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+         Assert.Single(diags, d => d.Code == "CGS026");
       }
    }
 

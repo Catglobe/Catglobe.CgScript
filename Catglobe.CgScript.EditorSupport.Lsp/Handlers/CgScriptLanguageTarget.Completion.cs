@@ -287,6 +287,27 @@ public partial class CgScriptLanguageTarget
          });
       }
 
+      foreach (var (name, def) in CgScriptDefinitions.WhereExpressionsStartingWith(all ? "" : prefix))
+      {
+         var paramList = string.Join(", ", def.Params.Select(p =>
+            $"{(p.IsColumnName ? "column" : "expr")} {p.Name}{(p.IsVarArgs ? "…" : "")}"));
+         items.Add(new CompletionItem
+         {
+            Label         = $"{name}({paramList})",
+            FilterText    = name,
+            InsertText    = name,
+            Kind          = CompletionItemKind.Function,
+            Detail        = def.ObsoleteMessage != null
+               ? $"{def.ReturnType} (deprecated)"
+               : def.ReturnType,
+            Documentation = new SumType<string, MarkupContent>(new MarkupContent
+            {
+               Kind  = MarkupKind.Markdown,
+               Value = BuildWhereExpressionHover(name, def),
+            }),
+         });
+      }
+
       foreach (var (name, obj) in _definitions.ObjectsStartingWith(all ? "" : prefix))
          items.Add(new CompletionItem
          {
