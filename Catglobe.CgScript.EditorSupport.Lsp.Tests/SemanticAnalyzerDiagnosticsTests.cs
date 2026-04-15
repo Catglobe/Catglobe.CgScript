@@ -1229,4 +1229,93 @@ public class SemanticAnalyzerDiagnosticsTests
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS024");
    }
+
+   // ── CGS027: where-expression function validation ──────────────────────────
+
+   [Fact]
+   public void WhereExpr_KnownFunction_NoDiagnostics()
+   {
+      // selectColumn(q1) where condition — no errors; q1 is a column name, not a variable.
+      var result = CgScriptParseService.Parse("number n = selectColumn(q1) where 1 == 1;");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.DoesNotContain(diags, d => d.Code is "CGS004" or "CGS005" or "CGS027");
+   }
+
+   [Fact]
+   public void WhereExpr_AllKnownAggregators_ProduceNoDiagnostics()
+   {
+      // Every known where-expression function must produce zero diagnostics.
+      var functions = new[]
+      {
+         "average(q1) where 1 == 1",
+         "count() where 1 == 1",
+         "countAnswer(q1) where 1 == 1",
+         "max(q1) where 1 == 1",
+         "min(q1) where 1 == 1",
+         "sum(q1) where 1 == 1",
+         "median(q1) where 1 == 1",
+         "variance(q1) where 1 == 1",
+         "stdev(q1) where 1 == 1",
+         "sterr(q1) where 1 == 1",
+         "selectColumn(q1) where 1 == 1",
+         "selectMultiColumn(q1, q2) where 1 == 1",
+         "selectMultiColumnReadOnly(q1, q2) where 1 == 1",
+         "selectDictionary(q1, q2) where 1 == 1",
+         "selectDictionaryReadOnly(q1, q2) where 1 == 1",
+         "selectMultiDictionary(q1, q2) where 1 == 1",
+         "selectMultiDictionaryReadOnly(q1, q2) where 1 == 1",
+         "quantile(q1, 4, 2) where 1 == 1",
+         "percentile(q1, 75) where 1 == 1",
+         "explainFreeText(10) where 1 == 1",
+      };
+
+      foreach (var expr in functions)
+      {
+         var result = CgScriptParseService.Parse($"{expr};");
+         var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+         Assert.Empty(diags);
+      }
+   }
+
+   [Fact]
+   public void WhereExpr_UnknownFunction_ReportsCGS027()
+   {
+      // notAWhereFunc(q1) where condition — should report CGS027.
+      var result = CgScriptParseService.Parse("number n = notAWhereFunc(q1) where 1 == 1;");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.Contains(diags, d => d.Code == "CGS027" && d.Message.Contains("notAWhereFunc"));
+   }
+
+   [Fact]
+   public void WhereExpr_ColumnNameArgs_NoCGS005()
+   {
+      // Column name identifiers (q1, q2) must not produce CGS005 "Undefined variable".
+      var result = CgScriptParseService.Parse("number n = average(undeclaredColumn) where 1 == 1;");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS005");
+   }
+
+   [Fact]
+   public void WhereExpr_ExpressionParams_AreValidatedNormally()
+   {
+      // quantile(col, q, k) — q and k are expressions; an undefined variable there must still produce CGS005.
+      var result = CgScriptParseService.Parse("number n = quantile(q1, undeclaredVar, 4) where 1 == 1;");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.Contains(diags, d => d.Code == "CGS005" && d.Message.Contains("undeclaredVar"));
+      Assert.DoesNotContain(diags, d => d.Code == "CGS005" && d.Message.Contains("q1"));
+   }
+
+   [Fact]
+   public void WhereExpr_Condition_IsValidatedNormally()
+   {
+      // The RHS condition uses an undeclared variable — CGS005 must fire for it.
+      var result = CgScriptParseService.Parse("number n = count() where undeclaredCond == 1;");
+      var diags  = SemanticAnalyzer.Analyze(result.Tree, new CgScriptDefinitions());
+
+      Assert.Contains(diags, d => d.Code == "CGS005" && d.Message.Contains("undeclaredCond"));
+   }
 }

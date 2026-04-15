@@ -270,6 +270,69 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    }
 
    /// <summary>
+   /// Validates the LHS of a <c>where</c> expression.
+   /// <list type="bullet">
+   ///   <item>CGS027 — function name is not a known where-expression aggregator.</item>
+   ///   <item>Parameters declared as column names (<see cref="WhereExpressionParam.IsColumnName"/>) are
+   ///   skipped during variable-scope validation, because they are DCS column identifiers, not
+   ///   CgScript variables.</item>
+   ///   <item>Parameters declared as expressions are visited normally so that all the usual
+   ///   diagnostics (CGS005, CGS022, …) still apply to them.</item>
+   /// </list>
+   /// </summary>
+   public override object? VisitWhereAggregation(CgScriptParser.WhereAggregationContext ctx)
+   {
+      var funcToken = ctx.IDENTIFIER().Symbol;
+      var funcName  = funcToken.Text;
+
+      if (!CgScriptDefinitions.WhereExpressions.TryGetValue(funcName, out var def))
+      {
+         _diagnostics.Add(new Diagnostic(
+            DiagnosticSeverity.Error,
+            $"Unknown where-expression function '{funcName}'",
+            funcToken.Line,
+            funcToken.Column,
+            funcName.Length,
+            "CGS027"));
+         // Visit params normally so that expression errors are still reported.
+         return VisitChildren(ctx);
+      }
+
+      if (def.ObsoleteMessage != null)
+      {
+         _diagnostics.Add(new Diagnostic(
+            DiagnosticSeverity.Warning,
+            def.ObsoleteMessage,
+            funcToken.Line,
+            funcToken.Column,
+            funcName.Length,
+            "CGS026"));
+      }
+
+      // Selectively visit only expression-typed parameters; skip column-name parameters
+      // because they are DCS column identifiers and are not validated against the script scope.
+      var paramExprs = ctx.parameters().expression();
+      var paramDefs  = def.Params;
+
+      for (var i = 0; i < paramExprs.Length; i++)
+      {
+         // Resolve which param definition applies (last varargs entry covers the tail).
+         WhereExpressionParam? paramDef = null;
+         if (i < paramDefs.Length)
+            paramDef = paramDefs[i];
+         else if (paramDefs.Length > 0 && paramDefs[paramDefs.Length - 1].IsVarArgs)
+            paramDef = paramDefs[paramDefs.Length - 1];
+
+         if (paramDef?.IsColumnName != false)
+            continue; // column name — no scope validation needed
+
+         Visit(paramExprs[i]);
+      }
+
+      return null;
+   }
+
+   /// <summary>
    /// Returns the number of characters spanned from <paramref name="start"/> to
    /// <paramref name="stop"/> (inclusive) when both tokens are on the same line.
    /// Falls back to the text length of <paramref name="start"/> when <paramref name="stop"/>
@@ -964,6 +1027,14 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       switch (tree)
       {
          case CgScriptParser.ExpressionContext expr:
+            // WHERE expression: return the aggregator function's declared return type
+            if (expr.WHERE() != null)
+            {
+               var funcName = expr.whereAggregation()?.IDENTIFIER()?.Symbol?.Text;
+               if (funcName != null && CgScriptDefinitions.WhereExpressions.TryGetValue(funcName, out var whereDef))
+                  return string.IsNullOrEmpty(whereDef.ReturnType) ? null : whereDef.ReturnType;
+               return null;
+            }
             // Ternary: subExpression QMARK subExpression COLON subExpression
             if (expr.QMARK() != null)
             {

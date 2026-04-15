@@ -222,6 +222,14 @@ internal static class CgScriptDiagnostics
       defaultSeverity:    DiagnosticSeverity.Warning,
       isEnabledByDefault: true);
 
+   public static readonly DiagnosticDescriptor UnknownWhereFunction = new(
+      id:                 "CGS027",
+      title:              "Unknown where-expression function",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
+
    public static DiagnosticSeverity ToRoslyn(Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity s)
       => s == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
          ? DiagnosticSeverity.Error
@@ -256,6 +264,7 @@ internal static class CgScriptDiagnostics
          "CGS024" => MethodCallMismatch,
          "CGS025" => IndexerCallMismatch,
          "CGS026" => ObsoleteUsage,
+         "CGS027" => UnknownWhereFunction,
          _ => throw new ArgumentOutOfRangeException(nameof(d), d.Code, "Unknown diagnostic code"),
       };
 }

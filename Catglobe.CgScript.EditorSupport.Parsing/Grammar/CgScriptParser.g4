@@ -168,9 +168,17 @@ exprOrAssign
 
 // ── Expressions (precedence encoded in separate rules, top -> lowest) ────────
 expression
-    : subExpression WHERE subExpression
+    : whereAggregation WHERE subExpression
     | subExpression QMARK subExpression COLON subExpression
     | subExpression
+    ;
+
+// ── Where-expression aggregation (LHS of a 'where' expression) ───────────────
+// Always a direct function call: funcName(arg1, arg2, …)
+// The function name must be one of the known where-expression aggregators.
+// Arguments are DCS column names or CgScript expressions, depending on the function.
+whereAggregation
+    : IDENTIFIER LPAREN parameters RPAREN
     ;
 
 subExpression : orExpression;
