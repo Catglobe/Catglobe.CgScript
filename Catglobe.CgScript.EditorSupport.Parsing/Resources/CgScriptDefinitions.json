@@ -2616,6 +2616,7 @@
       {
         "doc": "Add specific users to a group",
         "returnType": "Empty",
+        "obsoleteDoc": "Use instance method .AddUsers() instead",
         "param": [
           {
             "name": "Group resource id",
@@ -3137,6 +3138,7 @@
       {
         "doc": "Remove specific users from a group",
         "returnType": "Empty",
+        "obsoleteDoc": "Use instance method .RemoveUsers() instead",
         "param": [
           {
             "name": "Group resource id",
@@ -9937,6 +9939,7 @@
       {
         "doc": "Returns the number of elements in an array or dictionary",
         "returnType": "int",
+        "obsoleteDoc": "Use .Count instead",
         "param": [
           {
             "name": "array",
@@ -27368,24 +27371,6 @@
         ]
       },
       "staticMethods": {
-        "Group_addUsers": [
-          {
-            "doc": "Add specific users to a group",
-            "returnType": "Empty",
-            "param": [
-              {
-                "name": "Group resource id",
-                "doc": "Unique id of the group",
-                "type": "int"
-              },
-              {
-                "name": "List of user resource id",
-                "doc": "Array of user unique ids to add",
-                "type": "Array of ints"
-              }
-            ]
-          }
-        ],
         "Group_areMemberOfGroups": [
           {
             "doc": "Determine which of the specified groups the user is a member of",
@@ -27426,24 +27411,6 @@
                 "name": "Group resource id",
                 "doc": "Unique id of the group",
                 "type": "int"
-              }
-            ]
-          }
-        ],
-        "Group_removeUsers": [
-          {
-            "doc": "Remove specific users from a group",
-            "returnType": "Empty",
-            "param": [
-              {
-                "name": "Group resource id",
-                "doc": "Unique id of the group",
-                "type": "int"
-              },
-              {
-                "name": "List of user resource id",
-                "doc": "Array of user unique ids to remove",
-                "type": "Array of ints"
               }
             ]
           }
@@ -61924,6 +61891,316 @@
           "value": 6
         }
       ]
+    }
+  },
+  "whereExpressions": {
+    "average": {
+      "doc": "Returns the average value of the specified column for rows that satisfy the where condition.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "DCS column name.",
+          "isColumnName": true,
+          "isVarArgs": false
+        }
+      ],
+      "returnType": "Number",
+      "obsoleteMessage": null
+    },
+    "count": {
+      "doc": "Returns the number of rows (including empty values) that satisfy the where condition.",
+      "params": [],
+      "returnType": "Number",
+      "obsoleteMessage": null
+    },
+    "countAnswer": {
+      "doc": "Returns the number of non-empty answers in the specified column for rows that satisfy the where condition.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "DCS column name.",
+          "isColumnName": true,
+          "isVarArgs": false
+        }
+      ],
+      "returnType": "Number",
+      "obsoleteMessage": null
+    },
+    "max": {
+      "doc": "Returns the maximum value of the specified column for rows that satisfy the where condition.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "DCS column name.",
+          "isColumnName": true,
+          "isVarArgs": false
+        }
+      ],
+      "returnType": "Number",
+      "obsoleteMessage": null
+    },
+    "min": {
+      "doc": "Returns the minimum value of the specified column for rows that satisfy the where condition.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "DCS column name.",
+          "isColumnName": true,
+          "isVarArgs": false
+        }
+      ],
+      "returnType": "Number",
+      "obsoleteMessage": null
+    },
+    "select": {
+      "doc": "Validates that the specified DCS column names exist. Returns empty — used as a side-effect validator only.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "One or more DCS column names to validate.",
+          "isColumnName": true,
+          "isVarArgs": true
+        }
+      ],
+      "returnType": "",
+      "obsoleteMessage": "Use selectMultiColumn() instead."
+    },
+    "selectColumn": {
+      "doc": "Returns non-empty row values for each specified column.\n\n- Single column: returns a flat Array of the non-empty values for that column.\n- Multiple columns: returns an Array of Arrays — one inner array per column, each containing the non-empty values for that column.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "One or more DCS column names.",
+          "isColumnName": true,
+          "isVarArgs": true
+        }
+      ],
+      "returnType": "Array",
+      "obsoleteMessage": "Use selectMultiColumn() instead."
+    },
+    "selectMultiColumn": {
+      "doc": "Returns an Array of rows for all matching rows (including rows with empty/null values).\n\nEach row is an Array where [0], [1], … are the column values in the order the columns were specified.\n\nThe entire result is materialised into memory upfront, making this suitable for producing JSON output or processing where random access or mutation is needed.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "One or more DCS column names.",
+          "isColumnName": true,
+          "isVarArgs": true
+        }
+      ],
+      "returnType": "Array",
+      "obsoleteMessage": null
+    },
+    "selectMultiColumnReadOnly": {
+      "doc": "Returns an Array of rows for all matching rows (including rows with empty/null values).\n\nEach row is a FlexDcsLoader object — a lazy-loading wrapper that only reads a column value from the data cache when it is accessed. Use integer indexing (row[0], row[1], …) to retrieve column values in the order the columns were specified.\n\nBecause rows are not fully materialised until accessed, this is much more memory-efficient than selectMultiColumn and is the preferred choice when looping over rows to compute or transform values.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "One or more DCS column names.",
+          "isColumnName": true,
+          "isVarArgs": true
+        }
+      ],
+      "returnType": "Array",
+      "obsoleteMessage": null
+    },
+    "selectDictionary": {
+      "doc": "Returns a Dictionary keyed by the key column value (converted to string).\n\nThrows a runtime error if any key is empty or duplicated.\n\nEach dictionary value is an Array where [0] is the key-column value, [1] is the first additional column, and so on.\n\nThe entire result is materialised into memory upfront, making this suitable for producing JSON output or processing where random access or mutation is needed.",
+      "params": [
+        {
+          "name": "key",
+          "doc": "DCS column name whose value becomes the dictionary key.",
+          "isColumnName": true,
+          "isVarArgs": false
+        },
+        {
+          "name": "column",
+          "doc": "One or more additional DCS column names to include in each row.",
+          "isColumnName": true,
+          "isVarArgs": true
+        }
+      ],
+      "returnType": "Dictionary",
+      "obsoleteMessage": null
+    },
+    "selectDictionaryReadOnly": {
+      "doc": "Returns a Dictionary keyed by the key column value (converted to string).\n\nThrows a runtime error if any key is empty or duplicated.\n\nEach dictionary value is a FlexDcsLoader — a lazy-loading wrapper indexable by integer (row[0] = key column, row[1] = first additional column, …). Only the columns you access are read from the data cache.\n\nBecause rows are not fully materialised until accessed, this is much more memory-efficient than selectDictionary and is the preferred choice when looping over rows to compute or transform values.",
+      "params": [
+        {
+          "name": "key",
+          "doc": "DCS column name whose value becomes the dictionary key.",
+          "isColumnName": true,
+          "isVarArgs": false
+        },
+        {
+          "name": "column",
+          "doc": "One or more additional DCS column names to include in each row.",
+          "isColumnName": true,
+          "isVarArgs": true
+        }
+      ],
+      "returnType": "Dictionary",
+      "obsoleteMessage": null
+    },
+    "selectMultiDictionary": {
+      "doc": "Returns a Dictionary keyed by the key column value (converted to string).\n\nDuplicate keys are allowed: the dictionary value for each key is an Array of rows, so all matching rows are grouped together.\n\nEach inner row is an Array where [0] is the key-column value, [1] is the first additional column, and so on.\n\nThe entire result is materialised into memory upfront, making this suitable for producing JSON output or processing where random access or mutation is needed.",
+      "params": [
+        {
+          "name": "key",
+          "doc": "DCS column name whose value becomes the dictionary key.",
+          "isColumnName": true,
+          "isVarArgs": false
+        },
+        {
+          "name": "column",
+          "doc": "One or more additional DCS column names to include in each row.",
+          "isColumnName": true,
+          "isVarArgs": true
+        }
+      ],
+      "returnType": "Dictionary",
+      "obsoleteMessage": null
+    },
+    "selectMultiDictionaryReadOnly": {
+      "doc": "Returns a Dictionary keyed by the key column value (converted to string).\n\nDuplicate keys are allowed: the dictionary value for each key is an Array of rows grouped together.\n\nEach inner row is a FlexDcsLoader — a lazy-loading wrapper indexable by integer (row[0] = key column, row[1] = first additional column, …). Only the columns you access are read from the data cache.\n\nBecause rows are not fully materialised until accessed, this is much more memory-efficient than selectMultiDictionary and is the preferred choice when looping over rows to compute or transform values.",
+      "params": [
+        {
+          "name": "key",
+          "doc": "DCS column name whose value becomes the dictionary key.",
+          "isColumnName": true,
+          "isVarArgs": false
+        },
+        {
+          "name": "column",
+          "doc": "One or more additional DCS column names to include in each row.",
+          "isColumnName": true,
+          "isVarArgs": true
+        }
+      ],
+      "returnType": "Dictionary",
+      "obsoleteMessage": null
+    },
+    "sum": {
+      "doc": "Returns the sum of the specified column for rows that satisfy the where condition.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "DCS column name.",
+          "isColumnName": true,
+          "isVarArgs": false
+        }
+      ],
+      "returnType": "Number",
+      "obsoleteMessage": null
+    },
+    "median": {
+      "doc": "Returns the median of the specified column for rows that satisfy the where condition.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "DCS column name.",
+          "isColumnName": true,
+          "isVarArgs": false
+        }
+      ],
+      "returnType": "Number",
+      "obsoleteMessage": null
+    },
+    "variance": {
+      "doc": "Returns the variance of the specified column for rows that satisfy the where condition.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "DCS column name.",
+          "isColumnName": true,
+          "isVarArgs": false
+        }
+      ],
+      "returnType": "Number",
+      "obsoleteMessage": null
+    },
+    "stdev": {
+      "doc": "Returns the standard deviation of the specified column for rows that satisfy the where condition.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "DCS column name.",
+          "isColumnName": true,
+          "isVarArgs": false
+        }
+      ],
+      "returnType": "Number",
+      "obsoleteMessage": null
+    },
+    "sterr": {
+      "doc": "Returns the standard error of the specified column for rows that satisfy the where condition.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "DCS column name.",
+          "isColumnName": true,
+          "isVarArgs": false
+        }
+      ],
+      "returnType": "Number",
+      "obsoleteMessage": null
+    },
+    "quantile": {
+      "doc": "Returns the q-th k-quantile of the specified column for rows that satisfy the where condition.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "DCS column name.",
+          "isColumnName": true,
+          "isVarArgs": false
+        },
+        {
+          "name": "q",
+          "doc": "Quantile number (1-based).",
+          "isColumnName": false,
+          "isVarArgs": false
+        },
+        {
+          "name": "k",
+          "doc": "Total number of quantiles.",
+          "isColumnName": false,
+          "isVarArgs": false
+        }
+      ],
+      "returnType": "Number",
+      "obsoleteMessage": null
+    },
+    "percentile": {
+      "doc": "Returns the k-th percentile of the specified column for rows that satisfy the where condition.",
+      "params": [
+        {
+          "name": "column",
+          "doc": "DCS column name.",
+          "isColumnName": true,
+          "isVarArgs": false
+        },
+        {
+          "name": "k",
+          "doc": "Percentile value (0–100).",
+          "isColumnName": false,
+          "isVarArgs": false
+        }
+      ],
+      "returnType": "Number",
+      "obsoleteMessage": null
+    },
+    "explainFreeText": {
+      "doc": "Returns explanations for the current free-text filter expression, limited to the specified hit count.",
+      "params": [
+        {
+          "name": "count",
+          "doc": "Maximum number of results to return.",
+          "isColumnName": false,
+          "isVarArgs": false
+        }
+      ],
+      "returnType": "Array",
+      "obsoleteMessage": null
     }
   }
 }

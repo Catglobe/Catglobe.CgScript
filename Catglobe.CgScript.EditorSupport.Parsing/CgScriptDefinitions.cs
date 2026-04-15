@@ -227,12 +227,8 @@ public class CgScriptDefinitions
    /// <summary>Global variable names sorted case-insensitively for binary-search prefix lookup.</summary>
    public IReadOnlyList<string>                         GlobalVariableKeys { get; init; }
 
-   // ── Where-expression functions (fallback is hardcoded; can be overridden by API payload) ──
-   /// <summary>
-   /// All <c>where</c>-expression aggregate functions, keyed by name.
-   /// Populated from the server-side API payload when available; otherwise falls back to the
-   /// hardcoded set (which is stable across runtime versions).
-   /// </summary>
+   // ── Where-expression functions ────────────────────────────────────────────
+   /// <summary>All <c>where</c>-expression aggregate functions, keyed by name.</summary>
    public IReadOnlyDictionary<string, WhereExpressionDefinition> WhereExpressions { get; private set; }
 
    /// <summary>Where-expression function names sorted case-insensitively for binary-search prefix lookup.</summary>
@@ -311,7 +307,7 @@ public class CgScriptDefinitions
       ObjectKeys         = Sort(Objects.Keys);
       GlobalVariableKeys = Sort(GlobalVariables.Keys);
       (ObjectMemberInfos, FunctionInfos, ObsoleteFunctions, ObsoleteConstants, ConstantsSet, EnumByConstant) = BuildDerived(Objects, Functions, Enums);
-      WhereExpressions = payload?.WhereExpressions ?? BuildWhereExpressions();
+      WhereExpressions = payload?.WhereExpressions is { Count: > 0 } we ? we : new Dictionary<string, WhereExpressionDefinition>(StringComparer.Ordinal);
       WhereExpressionKeys = Sort(WhereExpressions.Keys);
    }
 
@@ -365,7 +361,7 @@ public class CgScriptDefinitions
       ObjectKeys         = Sort(Objects.Keys);
       GlobalVariableKeys = Sort(GlobalVariables.Keys);
       (ObjectMemberInfos, FunctionInfos, ObsoleteFunctions, ObsoleteConstants, ConstantsSet, EnumByConstant) = BuildDerived(Objects, Functions, Enums);
-      WhereExpressions = whereExpressions ?? BuildWhereExpressions();
+      WhereExpressions = whereExpressions ?? new Dictionary<string, WhereExpressionDefinition>(StringComparer.Ordinal);
       WhereExpressionKeys = Sort(WhereExpressions.Keys);
    }
 
@@ -583,10 +579,14 @@ public class CgScriptDefinitions
          StringComparer.Ordinal);
       var objects   = payload?.Objects         ?? new Dictionary<string, ObjectDefinition>();
       var enums     = payload?.Enums           ?? new Dictionary<string, EnumDefinition>();
+      var whereExpressions = payload?.WhereExpressions is { Count: > 0 } we
+         ? we
+         : null;
       return new CgScriptDefinitions(
          functions, objects, DeriveConstants(enums),
          payload?.GlobalVariables ?? new Dictionary<string, GlobalVariableDefinition>(),
-         enums);
+         enums,
+         whereExpressions);
    }
 
 #if NET5_0_OR_GREATER
@@ -602,143 +602,4 @@ public class CgScriptDefinitions
          new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
    }
 
-   // ── Where-expression function table ──────────────────────────────────────────
-
-   private static IReadOnlyDictionary<string, WhereExpressionDefinition> BuildWhereExpressions()
-   {
-      static WhereExpressionParam Col(string name, string? doc = null, bool varArgs = false)
-         => new(name, doc, IsColumnName: true, IsVarArgs: varArgs);
-      static WhereExpressionParam Expr(string name, string? doc = null)
-         => new(name, doc, IsColumnName: false);
-
-      return new Dictionary<string, WhereExpressionDefinition>(StringComparer.Ordinal)
-      {
-         ["average"] = new(
-            "Returns the average value of the specified column for rows that satisfy the where condition.",
-            [Col("column", "DCS column name.")],
-            "Number"),
-
-         ["count"] = new(
-            "Returns the number of rows (including empty values) that satisfy the where condition.",
-            [],
-            "Number"),
-
-         ["countAnswer"] = new(
-            "Returns the number of non-empty answers in the specified column for rows that satisfy the where condition.",
-            [Col("column", "DCS column name.")],
-            "Number"),
-
-         ["max"] = new(
-            "Returns the maximum value of the specified column for rows that satisfy the where condition.",
-            [Col("column", "DCS column name.")],
-            "Number"),
-
-         ["min"] = new(
-            "Returns the minimum value of the specified column for rows that satisfy the where condition.",
-            [Col("column", "DCS column name.")],
-            "Number"),
-
-         ["select"] = new(
-            "Validates that the specified DCS column names exist. Returns empty — used as a side-effect validator only.",
-            [Col("column", "One or more DCS column names to validate.", varArgs: true)],
-            ObsoleteMessage: "Use selectMultiColumn() instead."),
-
-         ["selectColumn"] = new(
-            "Returns non-empty row values for each specified column.\n\n" +
-            "- **Single column**: returns a flat `Array` of the non-empty values for that column.\n" +
-            "- **Multiple columns**: returns an `Array` of `Array`s — one inner array per column, each containing the non-empty values for that column.",
-            [Col("column", "One or more DCS column names.", varArgs: true)],
-            "Array",
-            ObsoleteMessage: "Use selectMultiColumn() instead."),
-
-         ["selectMultiColumn"] = new(
-            "Returns an `Array` of rows for all matching rows (including rows with empty/null values).\n\n" +
-            "Each row is an `Array` where `[0]`, `[1]`, … are the column values in the order the columns were specified.\n\n" +
-            "The entire result is materialised into memory upfront, making this suitable for producing JSON output or processing where random access or mutation is needed.",
-            [Col("column", "One or more DCS column names.", varArgs: true)],
-            "Array"),
-
-         ["selectMultiColumnReadOnly"] = new(
-            "Returns an `Array` of rows for all matching rows (including rows with empty/null values).\n\n" +
-            "Each row is a `FlexDcsLoader` object — a lazy-loading wrapper that only reads a column value from the data cache when it is accessed. " +
-            "Use integer indexing (`row[0]`, `row[1]`, …) to retrieve column values in the order the columns were specified.\n\n" +
-            "Because rows are not fully materialised until accessed, this is **much more memory-efficient** than `selectMultiColumn` and is the preferred choice when looping over rows to compute or transform values.",
-            [Col("column", "One or more DCS column names.", varArgs: true)],
-            "Array"),
-
-         ["selectDictionary"] = new(
-            "Returns a `Dictionary` keyed by the `key` column value (converted to string).\n\n" +
-            "**Throws a runtime error if any key is empty or duplicated.**\n\n" +
-            "Each dictionary value is an `Array` where `[0]` is the key-column value, `[1]` is the first additional column, and so on.\n\n" +
-            "The entire result is materialised into memory upfront, making this suitable for producing JSON output or processing where random access or mutation is needed.",
-            [Col("key", "DCS column name whose value becomes the dictionary key."), Col("column", "One or more additional DCS column names to include in each row.", varArgs: true)],
-            "Dictionary"),
-
-         ["selectDictionaryReadOnly"] = new(
-            "Returns a `Dictionary` keyed by the `key` column value (converted to string).\n\n" +
-            "**Throws a runtime error if any key is empty or duplicated.**\n\n" +
-            "Each dictionary value is a `FlexDcsLoader` — a lazy-loading wrapper indexable by integer (`row[0]` = key column, `row[1]` = first additional column, …). " +
-            "Only the columns you access are read from the data cache.\n\n" +
-            "Because rows are not fully materialised until accessed, this is **much more memory-efficient** than `selectDictionary` and is the preferred choice when looping over rows to compute or transform values.",
-            [Col("key", "DCS column name whose value becomes the dictionary key."), Col("column", "One or more additional DCS column names to include in each row.", varArgs: true)],
-            "Dictionary"),
-
-         ["selectMultiDictionary"] = new(
-            "Returns a `Dictionary` keyed by the `key` column value (converted to string).\n\n" +
-            "**Duplicate keys are allowed**: the dictionary value for each key is an `Array` of rows, so all matching rows are grouped together.\n\n" +
-            "Each inner row is an `Array` where `[0]` is the key-column value, `[1]` is the first additional column, and so on.\n\n" +
-            "The entire result is materialised into memory upfront, making this suitable for producing JSON output or processing where random access or mutation is needed.",
-            [Col("key", "DCS column name whose value becomes the dictionary key."), Col("column", "One or more additional DCS column names to include in each row.", varArgs: true)],
-            "Dictionary"),
-
-         ["selectMultiDictionaryReadOnly"] = new(
-            "Returns a `Dictionary` keyed by the `key` column value (converted to string).\n\n" +
-            "**Duplicate keys are allowed**: the dictionary value for each key is an `Array` of rows grouped together.\n\n" +
-            "Each inner row is a `FlexDcsLoader` — a lazy-loading wrapper indexable by integer (`row[0]` = key column, `row[1]` = first additional column, …). " +
-            "Only the columns you access are read from the data cache.\n\n" +
-            "Because rows are not fully materialised until accessed, this is **much more memory-efficient** than `selectMultiDictionary` and is the preferred choice when looping over rows to compute or transform values.",
-            [Col("key", "DCS column name whose value becomes the dictionary key."), Col("column", "One or more additional DCS column names to include in each row.", varArgs: true)],
-            "Dictionary"),
-
-         ["sum"] = new(
-            "Returns the sum of the specified column for rows that satisfy the where condition.",
-            [Col("column", "DCS column name.")],
-            "Number"),
-
-         ["median"] = new(
-            "Returns the median of the specified column for rows that satisfy the where condition.",
-            [Col("column", "DCS column name.")],
-            "Number"),
-
-         ["variance"] = new(
-            "Returns the variance of the specified column for rows that satisfy the where condition.",
-            [Col("column", "DCS column name.")],
-            "Number"),
-
-         ["stdev"] = new(
-            "Returns the standard deviation of the specified column for rows that satisfy the where condition.",
-            [Col("column", "DCS column name.")],
-            "Number"),
-
-         ["sterr"] = new(
-            "Returns the standard error of the specified column for rows that satisfy the where condition.",
-            [Col("column", "DCS column name.")],
-            "Number"),
-
-         ["quantile"] = new(
-            "Returns the q-th k-quantile of the specified column for rows that satisfy the where condition.",
-            [Col("column", "DCS column name."), Expr("q", "Quantile number (1-based)."), Expr("k", "Total number of quantiles.")],
-            "Number"),
-
-         ["percentile"] = new(
-            "Returns the k-th percentile of the specified column for rows that satisfy the where condition.",
-            [Col("column", "DCS column name."), Expr("k", "Percentile value (0–100).")],
-            "Number"),
-
-         ["explainFreeText"] = new(
-            "Returns explanations for the current free-text filter expression, limited to the specified hit count.",
-            [Expr("count", "Maximum number of results to return.")],
-            "Array"),
-      };
-   }
 }
