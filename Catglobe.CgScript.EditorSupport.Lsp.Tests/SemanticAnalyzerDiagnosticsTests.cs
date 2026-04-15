@@ -21,7 +21,8 @@ public class SemanticAnalyzerDiagnosticsTests
          Dictionary<string, EnumDefinition>?                   enums = null)
          : base(functions, objects,
                 globalVariables ?? new Dictionary<string, GlobalVariableDefinition>(),
-                enums ?? new Dictionary<string, EnumDefinition>())
+                enums ?? new Dictionary<string, EnumDefinition>(),
+                [])
       { }
    }
 

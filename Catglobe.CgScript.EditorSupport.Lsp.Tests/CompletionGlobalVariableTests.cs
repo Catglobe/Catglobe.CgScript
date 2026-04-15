@@ -14,10 +14,11 @@ public class CompletionGlobalVariableTests
    {
       public TestCgScriptDefinitions(Dictionary<string, GlobalVariableDefinition> globalVariables)
          : base(
-            functions:       [],
-            objects:         [],
-            globalVariables: globalVariables,
-            enums:           [])
+            functions:        [],
+            objects:          [],
+            globalVariables:  globalVariables,
+            enums:            [],
+            whereExpressions: [])
       { }
    }
 

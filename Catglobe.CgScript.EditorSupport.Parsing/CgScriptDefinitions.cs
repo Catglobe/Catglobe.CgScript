@@ -343,7 +343,7 @@ public class CgScriptDefinitions
       Dictionary<string, ObjectDefinition>                  objects,
       IReadOnlyDictionary<string, GlobalVariableDefinition> globalVariables,
       Dictionary<string, EnumDefinition>                    enums,
-      Dictionary<string, WhereExpressionDefinition>?        whereExpressions = null)
+      Dictionary<string, WhereExpressionDefinition>         whereExpressions)
    {
       Functions        = functions;
       GlobalFunctions  = DeriveGlobalFunctions(functions, objects);
@@ -355,7 +355,7 @@ public class CgScriptDefinitions
       ObjectKeys         = Sort(Objects.Keys);
       GlobalVariableKeys = Sort(GlobalVariables.Keys);
       (ObjectMemberInfos, FunctionInfos, ObsoleteFunctions, ObsoleteConstants, ConstantsSet, EnumByConstant) = BuildDerived(Objects, Functions, Enums);
-      WhereExpressions = whereExpressions ?? new Dictionary<string, WhereExpressionDefinition>(StringComparer.Ordinal);
+      WhereExpressions = whereExpressions;
       WhereExpressionKeys = Sort(WhereExpressions.Keys);
    }
 
@@ -530,7 +530,8 @@ public class CgScriptDefinitions
          Functions   is Dictionary<string, MethodOverload[]>    fd ? fd : Functions.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
          Objects     is Dictionary<string, ObjectDefinition>    od ? od : Objects.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
          merged,
-         Enums       is Dictionary<string, EnumDefinition>      ed ? ed : Enums.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase));
+         Enums       is Dictionary<string, EnumDefinition>      ed ? ed : Enums.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
+         WhereExpressions is Dictionary<string, WhereExpressionDefinition> wd ? wd : WhereExpressions.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase));
    }
 
    /// <summary>
@@ -546,7 +547,8 @@ public class CgScriptDefinitions
          Functions   is Dictionary<string, MethodOverload[]>    fd ? fd : Functions.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
          Objects     is Dictionary<string, ObjectDefinition>    od ? od : Objects.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
          GlobalVariables,
-         Enums       is Dictionary<string, EnumDefinition>      ed ? ed : Enums.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase))
+         Enums       is Dictionary<string, EnumDefinition>      ed ? ed : Enums.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
+         WhereExpressions is Dictionary<string, WhereExpressionDefinition> wd ? wd : WhereExpressions.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase))
       { ObjectMemberInfos = modified };
    }
 
@@ -575,7 +577,7 @@ public class CgScriptDefinitions
          functions, objects,
          payload?.GlobalVariables ?? new Dictionary<string, GlobalVariableDefinition>(),
          enums,
-         payload?.WhereExpressions is { Count: > 0 } we ? we : null);
+         payload?.WhereExpressions ?? new Dictionary<string, WhereExpressionDefinition>());
    }
 
 #if NET5_0_OR_GREATER

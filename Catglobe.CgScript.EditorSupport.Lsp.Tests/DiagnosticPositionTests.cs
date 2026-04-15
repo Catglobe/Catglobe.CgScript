@@ -19,7 +19,8 @@ public class DiagnosticPositionTests
          Dictionary<string, ObjectDefinition> objects)
          : base(functions, objects,
                 globalVariables: new Dictionary<string, GlobalVariableDefinition>(),
-                enums: new Dictionary<string, EnumDefinition>())
+                enums: new Dictionary<string, EnumDefinition>(),
+                whereExpressions: [])
       { }
    }
 

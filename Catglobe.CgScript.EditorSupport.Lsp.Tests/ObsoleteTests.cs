@@ -153,7 +153,7 @@ public class ObsoleteTests
          Dictionary<string, ObjectDefinition>                  objects,
          IReadOnlyDictionary<string, GlobalVariableDefinition> globalVariables,
          Dictionary<string, EnumDefinition>                    enums)
-         : base(functions, objects, globalVariables, enums)
+         : base(functions, objects, globalVariables, enums, [])
       {
       }
    }
