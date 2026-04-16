@@ -7,7 +7,6 @@ Program.cs
 Properties/
 bin/
 obj/
-node_modules/
 *.md
 .gitignore
 
