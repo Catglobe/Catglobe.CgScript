@@ -191,7 +191,11 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       var idNode = ctx.IDENTIFIER();
       if (idNode is null) return VisitChildren(ctx);
       var token = idNode.Symbol;
-      if (!_definitions.Objects.ContainsKey(token.Text))
+      // Skip CGS002 for identifiers that are known primitive-type aliases
+      // (e.g. "Bool" maps to "Boolean" and is a valid type even if not in Objects).
+      var canonical    = MapToCanonical(token.Text);
+      var isKnownAlias = canonical != null && canonical != token.Text;
+      if (!isKnownAlias && !_definitions.Objects.ContainsKey(token.Text))
       {
          _diagnostics.Add(new Diagnostic(
             DiagnosticSeverity.Error,
@@ -1239,7 +1243,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             or "int" or "long" or "short" or "byte"
             or "double" or "float" or "decimal"                              => "Number",
          "string" or "String" or "string-guid"                               => "String",
-         "bool" or "Boolean" or "boolean"                                    => "Boolean",
+         "bool" or "Bool" or "Boolean" or "boolean"                          => "Boolean",
          "array" or "Array"
             or "Array of objects" or "Array of ints" or "Array of strings"   => "Array",
          "function" or "Function"                                             => "Function",

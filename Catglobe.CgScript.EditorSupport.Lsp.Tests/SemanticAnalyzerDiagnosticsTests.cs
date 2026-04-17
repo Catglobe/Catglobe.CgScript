@@ -184,6 +184,24 @@ public class SemanticAnalyzerDiagnosticsTests
    }
 
    [Fact]
+   public void BoolClassAlias_AssignedBoolLiteral_NoCGS020()
+   {
+      // "Bool" (capitalized class alias) should be treated as bool/Boolean
+      var diags = Analyze("Bool b = true;");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
+   public void BoolClassAlias_NoCGS002()
+   {
+      // "Bool" is a known primitive-type alias and should not be flagged as an unknown type
+      var diags = Analyze("Bool b;");
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS002");
+   }
+
+   [Fact]
    public void ArrayVar_AssignedArrayLiteral_NoCGS020()
    {
       var diags = Analyze("array a = {1, 2, 3};");
