@@ -10,11 +10,11 @@ jobs:
     runs-on: cg-linux
     steps:
       - name: Save actions cache
-        uses: Catglobe/save-actions-cache@v1
+        uses: Catglobe/save-actions-cache@559d503b658d4c2986f1a7fbdd39727aed115475 # v1
     # Generate token for GitHub app
       - name: Generate token
         id: generate-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
         with:
           app-id: 1008511
           private-key: ${{ secrets.CG_ISSUE_PROCESSOR_TOKEN }}
