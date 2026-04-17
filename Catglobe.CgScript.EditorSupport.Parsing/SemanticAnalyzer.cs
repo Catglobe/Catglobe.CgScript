@@ -191,11 +191,11 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       var idNode = ctx.IDENTIFIER();
       if (idNode is null) return VisitChildren(ctx);
       var token = idNode.Symbol;
-      // Skip CGS002 for identifiers that are known primitive-type aliases
-      // (e.g. "Bool" maps to "Boolean" and is a valid type even if not in Objects).
+      // Skip CGS002 for identifiers that resolve to a primitive canonical type
+      // (e.g. "Bool" is a valid alias for the 'bool' keyword type).
       var canonical    = MapToCanonical(token.Text);
-      var isKnownAlias = canonical != null && canonical != token.Text;
-      if (!isKnownAlias && !_definitions.Objects.ContainsKey(token.Text))
+      var isPrimitive  = canonical is "Number" or "Bool" or "String" or "Array" or "Function";
+      if (!isPrimitive && !_definitions.Objects.ContainsKey(token.Text))
       {
          _diagnostics.Add(new Diagnostic(
             DiagnosticSeverity.Error,
@@ -1022,7 +1022,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
 
    /// <summary>
    /// Attempts to infer the CgScript type of an expression node.
-   /// Returns the canonical type name (e.g. "Number", "String", "Boolean", "Array",
+   /// Returns the canonical type name (e.g. "Number", "String", "Bool", "Array",
    /// or a class name like "DateTime") or <c>null</c> when the type cannot be
    /// determined statically.
    /// </summary>
@@ -1053,14 +1053,14 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             return TryInferType(sub.orExpression());
 
          case CgScriptParser.OrExpressionContext or:
-            return or.OR().Length > 0 ? "Boolean" : TryInferType(or.andExpression(0));
+            return or.OR().Length > 0 ? "Bool" : TryInferType(or.andExpression(0));
 
          case CgScriptParser.AndExpressionContext and:
-            return and.AND().Length > 0 ? "Boolean" : TryInferType(and.relExpression(0));
+            return and.AND().Length > 0 ? "Bool" : TryInferType(and.relExpression(0));
 
          case CgScriptParser.RelExpressionContext rel:
-            // Comparison operators produce a Boolean result
-            if (rel.addExpression().Length > 1) return "Boolean";
+            // Comparison operators produce a Bool result
+            if (rel.addExpression().Length > 1) return "Bool";
             return TryInferType(rel.addExpression(0));
 
          case CgScriptParser.AddExpressionContext add:
@@ -1077,7 +1077,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             return TryInferType(pow.negExpression(0));
 
          case CgScriptParser.NegExpressionContext neg:
-            if (neg.NOT() != null) return "Boolean";
+            if (neg.NOT() != null) return "Bool";
             return TryInferType((Antlr4.Runtime.Tree.IParseTree?)neg.unaryExpr() ?? neg.negExpression());
 
          case CgScriptParser.UnaryExprContext unary:
@@ -1183,7 +1183,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       if (cv == null) return null;
       if (cv.STRING_LITERAL() != null || cv.CHAR_LITERAL() != null) return "String";
       if (cv.NUM_INT() != null || cv.NUM_DOUBLE() != null)           return "Number";
-      if (cv.TRUE() != null || cv.FALSE() != null)                   return "Boolean";
+      if (cv.TRUE() != null || cv.FALSE() != null)                   return "Bool";
       // Range (interval) literal: [1, 3-5] — distinct from Array
       if (cv.LBRACKET() != null) return "Range";
       // Array/dict literal: {…}  — check body for COLON separators to distinguish dict from array
@@ -1243,7 +1243,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             or "int" or "long" or "short" or "byte"
             or "double" or "float" or "decimal"                              => "Number",
          "string" or "String" or "string-guid"                               => "String",
-         "bool" or "Bool" or "Boolean" or "boolean"                          => "Boolean",
+         "bool" or "Bool" or "Boolean" or "boolean"                          => "Bool",
          "array" or "Array"
             or "Array of objects" or "Array of ints" or "Array of strings"   => "Array",
          "function" or "Function"                                             => "Function",

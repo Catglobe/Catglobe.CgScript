@@ -186,7 +186,7 @@ public class SemanticAnalyzerDiagnosticsTests
    [Fact]
    public void BoolClassAlias_AssignedBoolLiteral_NoCGS020()
    {
-      // "Bool" (capitalized class alias) should be treated as bool/Boolean
+      // "Bool" (capitalized class alias) should be treated as bool/Bool
       var diags = Analyze("Bool b = true;");
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS020");
