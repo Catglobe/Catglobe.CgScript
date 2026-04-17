@@ -186,8 +186,9 @@ public class SemanticAnalyzerDiagnosticsTests
    [Fact]
    public void BoolClassAlias_AssignedBoolLiteral_NoCGS020()
    {
-      // "Bool" (capitalized class alias) should be treated as bool/Bool
-      var diags = Analyze("Bool b = true;");
+      // "Bool" is the class name for booleans; "bool" is just a keyword alias.
+      // Bool is present in the definitions (as it is in production).
+      var diags = Analyze("Bool b = true;", objects: ["Bool"]);
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS020");
    }
@@ -195,8 +196,8 @@ public class SemanticAnalyzerDiagnosticsTests
    [Fact]
    public void BoolClassAlias_NoCGS002()
    {
-      // "Bool" is a known primitive-type alias and should not be flagged as an unknown type
-      var diags = Analyze("Bool b;");
+      // "Bool" is a known class type (present in production definitions).
+      var diags = Analyze("Bool b;", objects: ["Bool"]);
 
       Assert.DoesNotContain(diags, d => d.Code == "CGS002");
    }
