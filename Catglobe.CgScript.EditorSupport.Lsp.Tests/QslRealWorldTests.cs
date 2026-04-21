@@ -477,4 +477,94 @@ public class QslRealWorldTests
       Assert.Contains(result, h => h.Kind == DocumentHighlightKind.Write);    // definition
       Assert.Contains(result, h => h.Kind == DocumentHighlightKind.Read);     // GOTO
    }
+
+   // ── QSL007 — unnecessary quotes ──────────────────────────────────────────
+
+   [Fact]
+   public void QuotedQtext_EmitsQsl007()
+   {
+      const string qsl = """
+         QUESTION Q1 PAGE
+         "Already quoted question text"
+         """;
+      var (_, analysis) = QslParseService.ParseAndAnalyze(qsl);
+      Assert.Contains(analysis.Diagnostics, d => d.Code == "QSL007");
+   }
+
+   [Fact]
+   public void UnquotedQtext_NoQsl007()
+   {
+      const string qsl = """
+         QUESTION Q1 PAGE
+         Plain question text
+         """;
+      var (_, analysis) = QslParseService.ParseAndAnalyze(qsl);
+      Assert.DoesNotContain(analysis.Diagnostics, d => d.Code == "QSL007");
+   }
+
+   [Fact]
+   public void QuotedAoText_EmitsQsl007()
+   {
+      const string qsl = """
+         QUESTION Q1 SINGLE
+         Choose one
+         1: "Danmark"
+         2: "Sverige"
+         """;
+      var (_, analysis) = QslParseService.ParseAndAnalyze(qsl);
+      Assert.Equal(2, analysis.Diagnostics.Count(d => d.Code == "QSL007"));
+   }
+
+   [Fact]
+   public void UnquotedAoText_NoQsl007()
+   {
+      const string qsl = """
+         QUESTION Q1 SINGLE
+         Choose one
+         1: Danmark
+         2: Sverige
+         """;
+      var (_, analysis) = QslParseService.ParseAndAnalyze(qsl);
+      Assert.DoesNotContain(analysis.Diagnostics, d => d.Code == "QSL007");
+   }
+
+   [Fact]
+   public void QuotedSqText_EmitsQsl007()
+   {
+      const string qsl = """
+         QUESTION Q1 SINGLEGRID
+         Rate items
+         SQ: "Row one"
+         SQ: "Row two"
+         1: Low
+         2: High
+         """;
+      var (_, analysis) = QslParseService.ParseAndAnalyze(qsl);
+      Assert.Equal(2, analysis.Diagnostics.Count(d => d.Code == "QSL007"));
+   }
+
+   [Fact]
+   public void UnquotedSqText_NoQsl007()
+   {
+      const string qsl = """
+         QUESTION Q1 SINGLEGRID
+         Rate items
+         SQ: Row one
+         SQ: Row two
+         1: Low
+         2: High
+         """;
+      var (_, analysis) = QslParseService.ParseAndAnalyze(qsl);
+      Assert.DoesNotContain(analysis.Diagnostics, d => d.Code == "QSL007");
+   }
+
+   [Fact]
+   public void RealWorldFiles_NoQsl007()
+   {
+      // The real-world QSL samples are hand-authored and should not use quoted text.
+      var (_, dem)  = QslParseService.ParseAndAnalyze(ReadFile(DemographicFile));
+      var (_, bus)  = QslParseService.ParseAndAnalyze(ReadFile(PanelBusFile));
+      Assert.DoesNotContain(dem.Diagnostics,  d => d.Code == "QSL007");
+      Assert.DoesNotContain(bus.Diagnostics,  d => d.Code == "QSL007");
+   }
 }

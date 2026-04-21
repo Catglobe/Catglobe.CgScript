@@ -96,6 +96,9 @@ public sealed class QslSemanticAnalyzer : QslParserBaseVisitor<object?>
          _currentQuestionLabel = name;
       }
 
+      // Warn if the question text is unnecessarily quoted.
+      WarnIfObviouslyQuoted(ctx.StringLiteral()?.Symbol, "question text");
+
       var result = base.VisitQuestion(ctx);
       _currentQuestionLabel = string.Empty;
 
@@ -106,6 +109,20 @@ public sealed class QslSemanticAnalyzer : QslParserBaseVisitor<object?>
          _foldingRanges.Add(new QslFoldingRange(startLine, endLine, "region"));
 
       return result;
+   }
+
+   /// <inheritdoc/>
+   public override object? VisitAnsweroption([NotNull] QslParser.AnsweroptionContext ctx)
+   {
+      WarnIfObviouslyQuoted(ctx.StringLiteral()?.Symbol, "answer option text");
+      return base.VisitAnsweroption(ctx);
+   }
+
+   /// <inheritdoc/>
+   public override object? VisitSubquestion([NotNull] QslParser.SubquestionContext ctx)
+   {
+      WarnIfObviouslyQuoted(ctx.StringLiteral()?.Symbol, "sub-question text");
+      return base.VisitSubquestion(ctx);
    }
 
    /// <inheritdoc/>
@@ -397,6 +414,28 @@ public sealed class QslSemanticAnalyzer : QslParserBaseVisitor<object?>
                r.Line, r.Column, r.Length,
                "QSL002"));
          }
+      }
+   }
+
+   /// <summary>
+   /// Emits QSL007 if the string literal token clearly wraps already-quoted text.
+   /// The preprocessor turns raw user text into a <c>StringLiteral</c> by wrapping it in
+   /// double-quotes and escaping any internal quotes.  When the user has already quoted
+   /// their text (e.g. <c>1: "Danmark"</c>), the preprocessed token becomes
+   /// <c>"\"Danmark\""</c> and <see cref="UnquoteStringLiteral"/> yields <c>"Danmark"</c> —
+   /// a value that starts and ends with <c>"</c>.  That is the "obvious" signal.
+   /// </summary>
+   private void WarnIfObviouslyQuoted(IToken? tok, string context)
+   {
+      if (tok is null) return;
+      var inner = UnquoteStringLiteral(tok.Text).Trim();
+      if (inner.Length >= 2 && inner[0] == '"' && inner[inner.Length - 1] == '"')
+      {
+         _diagnostics.Add(new Diagnostic(
+            DiagnosticSeverity.Warning,
+            $"Unnecessary quotes around {context} — write the text without surrounding double quotes",
+            tok.Line, tok.Column, tok.Text.Length,
+            "QSL007"));
       }
    }
 
