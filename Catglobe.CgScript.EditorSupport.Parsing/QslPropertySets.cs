@@ -24,6 +24,7 @@ public static class QslPropertySets
       "TTS_PRESS_FOR_TEXT",
       "TTS_AO_TOO_MANY_TEXT",
       "TTS_ENTER_TO_NEXT_TEXT",
+      "TTS_MULTI_SELECT_TEXT",
    };
 
    /// <summary>Valid property names inside a question […] block.</summary>

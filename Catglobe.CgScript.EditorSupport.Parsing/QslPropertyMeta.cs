@@ -189,6 +189,8 @@ public static class QslPropertyMeta
 
          P("TTS_ENTER_TO_NEXT_TEXT",              QslValueType.String,
             "Text spoken after all segments of a question have been read, prompting the respondent to press Enter to advance. E.g. \"Press enter to go to the next question.\""),
+         P("TTS_MULTI_SELECT_TEXT",               QslValueType.String,
+            "Text spoken after the question text for multi-select questions, informing the respondent that multiple answers may be selected. E.g. \"Select one or more answers.\""),
 
                   // ── Script properties ──────────────────────────────────────────────────
          P("CG_SCRIPT",                           QslValueType.Script,
