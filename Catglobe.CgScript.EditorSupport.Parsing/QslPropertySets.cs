@@ -8,6 +8,7 @@ public static class QslPropertySets
    {
       "ANSWER_OPTION_COLUMNS","ANSWER_OPTION_ROWS",
       "REQUIRED","BACK_BUTTON_VISIBLE","CLOSE_BUTTON_VISIBLE","NEXT_BUTTON_VISIBLE","RESET_BUTTON_VISIBLE",
+      "TTS_ENABLED",
       "AUTO_ARRANGE_ANSWER_OPTIONS","HTML",
       "MIN_TEXT","MAX_TEXT","MIN_VALUE_REQUIRED_TEXT","MAX_VALUE_REQUIRED_TEXT",
       "BACK_BUTTON_TEXT","CLOSE_BUTTON_TEXT","NEXT_BUTTON_TEXT","JAVA_SCRIPT",
@@ -19,6 +20,10 @@ public static class QslPropertySets
       "INTEGER_REQUIRED_TEXT","NUMBER_OVERFLOW_TEXT","GRID_REQUIRED_TEXT",
       "MIN_VALUE_IN_GRID_REQUIRED_TEXT","MAX_VALUE_IN_GRID_REQUIRED_TEXT",
       "ILLEGAL_TYPE_TEXT","NO_SAME_VALUE_TEXT",
+      "TTS_BUTTON_TEXT",
+      "TTS_PRESS_FOR_TEXT",
+      "TTS_AO_TOO_MANY_TEXT",
+      "TTS_ENTER_TO_NEXT_TEXT",
    };
 
    /// <summary>Valid property names inside a question […] block.</summary>
@@ -26,6 +31,7 @@ public static class QslPropertySets
    {
       // bool
       "REQUIRED","DUMMY","DONE","DISCRETE","REVERSE",
+      "TTS_ENABLED",
       "BACK_BUTTON_VISIBLE","CLOSE_BUTTON_VISIBLE","NEXT_BUTTON_VISIBLE","RESET_BUTTON_VISIBLE",
       "AUTO_ARRANGE_ANSWER_OPTIONS","DECIMAL_ANSWER_ALLOWED","OPEN_ANSWER_REQUIRED",
       "HTML","DELETE_WHEN_ANONYMIZING",
@@ -45,6 +51,7 @@ public static class QslPropertySets
       "ILLEGAL_TYPE_TEXT","NO_SAME_VALUE_TEXT",
       "POINTS_TRANSACTION_TEXT","UNIT","CG_SCRIPT",
       "QUESTION_STYLE_SHEET","ON_PAGE","LAYOUT","QUESTION_DESCRIPTION",
+      "TTS_AO_SPEECH",
    };
 
    /// <summary>Valid property names inside a subquestion (SQ) […] block.</summary>

@@ -105,6 +105,10 @@ public static class QslPropertyMeta
             "Data privacy level: 0 = public, 1 = internal, 2 = confidential, 3 = sensitive."),
          P("BACKGROUND_DATA",                     QslValueType.Int,
             "Marks the question as background/panel data with the given category identifier."),
+         P("TTS_ENABLED",                          QslValueType.Bool,
+            "Enables (true) or disables (false) text-to-speech for this question. Inherits from the questionnaire-level TTS_ENABLED setting if not set."),
+         P("TTS_AO_SPEECH",                        QslValueType.String,
+            "Override text read by TTS for this question's answer options. Empty = read the answer options as-is."),
 
          // ── NumberOrRanges properties ──────────────────────────────────────────
          P("DEFAULT_ANSWER",                      QslValueType.NumberOrRanges,
@@ -176,8 +180,17 @@ public static class QslPropertyMeta
             "Message shown when a respondent accesses the questionnaire before its scheduled start date."),
          P("QUESTIONNAIRE_AFTER_END_DATE_TEXT",   QslValueType.String,
             "Message shown when a respondent accesses the questionnaire after its scheduled end date."),
+         P("TTS_BUTTON_TEXT",                     QslValueType.String,
+            "Override the label shown on the TTS button. Default is the theme/language default ('Read questions aloud')."),
+         P("TTS_PRESS_FOR_TEXT",                  QslValueType.String,
+            "Format string prepended to each answer option during TTS playback. Use {0} for the option number, e.g. \"Press {0} for:\"."),
+         P("TTS_AO_TOO_MANY_TEXT",               QslValueType.String,
+            "Text spoken when a question has more than 10 answer options and they cannot be enumerated by key. Default: 'Pick between the many options available.'."),
 
-         // ── Script properties ──────────────────────────────────────────────────
+         P("TTS_ENTER_TO_NEXT_TEXT",              QslValueType.String,
+            "Text spoken after all segments of a question have been read, prompting the respondent to press Enter to advance. E.g. \"Press enter to go to the next question.\""),
+
+                  // ── Script properties ──────────────────────────────────────────────────
          P("CG_SCRIPT",                           QslValueType.Script,
             "CgScript code executed server-side when the question is rendered. " +
             "The script has access to the current respondent context and the questionnaire answer sheet."),
