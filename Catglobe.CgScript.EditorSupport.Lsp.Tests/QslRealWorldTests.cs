@@ -567,4 +567,113 @@ public class QslRealWorldTests
       Assert.DoesNotContain(dem.Diagnostics,  d => d.Code == "QSL007");
       Assert.DoesNotContain(bus.Diagnostics,  d => d.Code == "QSL007");
    }
+
+   // ── QSL007 — unnecessarily-quoted conditions ──────────────────────────────
+
+   [Fact]
+   public void QuotedIfCondition_EmitsQsl007()
+   {
+      // Wrong: IF ("expr") — condition expression already quoted inside the parens.
+      const string qsl = """
+         QUESTION Q1 SINGLE
+         IF ("Q_MANY_AO == [1]")
+         Choose one
+         1: A
+         2: B
+         """;
+      var (_, analysis) = QslParseService.ParseAndAnalyze(qsl);
+      Assert.Contains(analysis.Diagnostics, d => d.Code == "QSL007");
+   }
+
+   [Fact]
+   public void UnquotedIfCondition_NoQsl007()
+   {
+      // Correct: IF (expr)
+      const string qsl = """
+         QUESTION Q1 SINGLE
+         IF (Q_MANY_AO == [1])
+         Choose one
+         1: A
+         2: B
+         """;
+      var (_, analysis) = QslParseService.ParseAndAnalyze(qsl);
+      Assert.DoesNotContain(analysis.Diagnostics, d => d.Code == "QSL007");
+   }
+
+   [Fact]
+   public void QuotedGotoCondition_EmitsQsl007()
+   {
+      // Wrong: GOTO Q2 IF "expr" — already quoted without the outer parens.
+      const string qsl = """
+         QUESTION Q1 PAGE
+         Page one
+         GOTO Q2 IF "Q_MANY_AO == [1]"
+         QUESTION Q2 PAGE
+         Page two
+         """;
+      var (_, analysis) = QslParseService.ParseAndAnalyze(qsl);
+      Assert.Contains(analysis.Diagnostics, d => d.Code == "QSL007");
+   }
+
+   [Fact]
+   public void UnquotedGotoCondition_NoQsl007()
+   {
+      // Correct: GOTO Q2 IF (expr)
+      const string qsl = """
+         QUESTION Q1 PAGE
+         Page one
+         GOTO Q2 IF (Q_MANY_AO == [1])
+         QUESTION Q2 PAGE
+         Page two
+         """;
+      var (_, analysis) = QslParseService.ParseAndAnalyze(qsl);
+      Assert.DoesNotContain(analysis.Diagnostics, d => d.Code == "QSL007");
+   }
+
+   // ── ON_PAGE: only comma allowed as separator ──────────────────────────────
+
+   [Fact]
+   public void OnPage_SemicolonSeparator_TreatedAsSingleLabel()
+   {
+      // Semicolon is NOT a valid separator — "Q1;Q2" is one (unknown) label, not two.
+      const string qsl = """
+         QUESTION P PAGE
+         [
+         ON_PAGE = "Q1;Q2";
+         ]
+         Page text
+         QUESTION Q1 SINGLE
+         Choose
+         1: A
+         QUESTION Q2 SINGLE
+         Choose
+         1: B
+         """;
+      var (_, analysis) = QslParseService.ParseAndAnalyze(qsl);
+      // The semicolon-joined value is not a known label → QSL002 for "Q1;Q2".
+      Assert.Contains(analysis.Diagnostics,
+         d => d.Code == "QSL002" && d.Message.Contains("Q1;Q2"));
+   }
+
+   [Fact]
+   public void OnPage_CommaSeparator_ResolvesLabels()
+   {
+      // Comma IS the valid separator — both labels should resolve without QSL002.
+      const string qsl = """
+         QUESTION P PAGE
+         [
+         ON_PAGE = "Q1,Q2";
+         ]
+         Page text
+         QUESTION Q1 SINGLE
+         Choose
+         1: A
+         QUESTION Q2 SINGLE
+         Choose
+         1: B
+         """;
+      var (_, analysis) = QslParseService.ParseAndAnalyze(qsl);
+      Assert.DoesNotContain(analysis.Diagnostics,
+         d => d.Code == "QSL002" && (d.Message.Contains("Q1") || d.Message.Contains("Q2")));
+   }
 }

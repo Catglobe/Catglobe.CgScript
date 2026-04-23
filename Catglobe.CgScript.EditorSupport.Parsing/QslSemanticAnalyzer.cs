@@ -207,6 +207,9 @@ public sealed class QslSemanticAnalyzer : QslParserBaseVisitor<object?>
          _refs.Add(new QslTokenRef(tok.Text, IsDefinition: false,
             tok.Line, tok.Column, tok.Text.Length));
 
+      // Warn if the GOTO IF expression is unnecessarily quoted.
+      WarnIfObviouslyQuoted(ctx.StringLiteral()?.Symbol, "condition");
+
       return base.VisitBranch(ctx);
    }
 
@@ -249,6 +252,9 @@ public sealed class QslSemanticAnalyzer : QslParserBaseVisitor<object?>
             _refs.Add(new QslTokenRef(tok.Text, IsDefinition: false,
                tok.Line, tok.Column, tok.Text.Length));
       }
+
+      // Warn if the IF condition expression is unnecessarily quoted.
+      WarnIfObviouslyQuoted(ctx.StringLiteral()?.Symbol, "condition");
 
       return base.VisitCondition(ctx);
    }
@@ -356,11 +362,11 @@ public sealed class QslSemanticAnalyzer : QslParserBaseVisitor<object?>
       if (raw.Length < 2) return;
       string unquoted  = raw.Substring(1, raw.Length - 2);
 
-      // Support both comma and semicolon as separators.
+      // Only comma is allowed as a separator in ON_PAGE values.
       bool isMultiLine = unquoted.Contains('\n');
 
       int offset = 0;
-      foreach (string part in unquoted.Split(new[] { ',', ';' }, StringSplitOptions.None))
+      foreach (string part in unquoted.Split(new[] { ',' }, StringSplitOptions.None))
       {
          string label = part.Trim();
          if (label.Length > 0)
