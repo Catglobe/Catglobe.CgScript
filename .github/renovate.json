@@ -79,6 +79,14 @@
       "matchDepTypes": [ "action", "minor", "patch", "devDependencies", "pin", "pinDigest", "digest" ],
       "automerge": true,
       "automergeType": "branch"
+    },
+    {
+      "description": "Group all GitHub Actions updates into one PR",
+      "matchManagers": [ "github-actions" ],
+      "groupName": "GitHub Actions",
+      "groupSlug": "github-actions",
+      "separateMajorMinor": false,
+      "separateMinorPatch": false
     }
   ]
 }
