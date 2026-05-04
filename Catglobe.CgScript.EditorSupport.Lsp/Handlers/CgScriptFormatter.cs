@@ -320,6 +320,10 @@ internal static class CgScriptFormatter
                break;
 
             case CgScriptLexer.SEMI:
+               // Semicolons inside a 'for' header (e.g. for(i=0; i<n; i++)) are
+               // separators, not statement terminators – suppress the newline.
+               if (parenDepth > 0)
+                  break;
                // Pop one non-block body indent if we were in one.
                if (bodyIndentStack.Count > 0)
                   indentDepth = bodyIndentStack.Pop();
@@ -388,8 +392,9 @@ internal static class CgScriptFormatter
       if (type == CgScriptLexer.INC || type == CgScriptLexer.DEC) return false;
       if (prevType == CgScriptLexer.INC || prevType == CgScriptLexer.DEC) return false;
 
-      // Space after comma.
+      // Space after comma or semicolon (semicolons appear mid-line inside 'for' headers).
       if (prevType == CgScriptLexer.COMMA) return true;
+      if (prevType == CgScriptLexer.SEMI) return true;
 
       // Binary operators: space on both sides (with unary exception).
       if (IsBinaryOperator(type))

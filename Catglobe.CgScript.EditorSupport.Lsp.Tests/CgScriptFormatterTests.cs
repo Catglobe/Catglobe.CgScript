@@ -46,6 +46,32 @@ public class CgScriptFormatterTests
       Assert.StartsWith("for (", result);
    }
 
+   [Fact]
+   public void Format_ForEachStyleLoop_KeepsSemicolonOnSameLine()
+   {
+      // CgScript foreach-style: 'for (item for collection; limit)'
+      // The ';' inside the header must not introduce a line break.
+      var input    = "for(i for 0; 10) { }";
+      var expected = "for (i for 0; 10) {\n}\n";
+      Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_CStyleForLoop_KeepsSemicolonsOnSameLine()
+   {
+      // C-style: 'for (init; condition; update)' – no line breaks inside header.
+      var input    = "for(i = 0; i < count; i++) { }";
+      var expected = "for (i = 0; i < count; i++) {\n}\n";
+      Assert.Equal(expected, CgScriptFormatter.Format(input));
+   }
+
+   [Fact]
+   public void Format_ForLoop_IsIdempotent()
+   {
+      var input = "for (i = 0; i < count; i++) {\n}\n";
+      Assert.Equal(input, CgScriptFormatter.Format(input));
+   }
+
    // ── indentation ───────────────────────────────────────────────────────────
 
    [Fact]
