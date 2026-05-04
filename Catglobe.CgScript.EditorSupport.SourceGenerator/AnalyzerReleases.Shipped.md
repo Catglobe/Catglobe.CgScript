@@ -83,3 +83,7 @@ Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 CGS026 | CgScript | Warning  | Use of obsolete symbol
 CGS000 | CgScript | Error    | Internal LSP error
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+CGS027 | CgScript | Error  | Unknown where-expression function

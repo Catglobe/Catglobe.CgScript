@@ -35,37 +35,27 @@
 
    <!-- Generator DLL + transitive deps → analyzers/dotnet/cs only -->
    <ItemGroup>
-      <None Include="$(OutputPath)$(AssemblyName).dll"
-            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.Parsing.dll"
-            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-      <None Include="$(OutputPath)Antlr4.Runtime.Standard.dll"
-            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-      <None Include="$(OutputPath)System.Text.Json.dll"
-            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="$(OutputPath)$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.Parsing.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="$(OutputPath)Antlr4.Runtime.Standard.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="$(OutputPath)System.Text.Json.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
    </ItemGroup>
 
    <!-- Attributes DLL → both analyzers/dotnet/cs (so generator sees it) and lib/ (so consumers get the real type) -->
    <ItemGroup>
-      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.dll"
-            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.xml"
-            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.pdb"
-            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.dll"
-            Pack="true" PackagePath="lib\netstandard2.0" Visible="true" />
-      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.xml"
-            Pack="true" PackagePath="lib\netstandard2.0" Visible="true" />
-      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.pdb"
-            Pack="true" PackagePath="lib\netstandard2.0" Visible="true" />
+      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.xml" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.pdb" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.dll" Pack="true" PackagePath="lib\netstandard2.0" Visible="true" />
+      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.xml" Pack="true" PackagePath="lib\netstandard2.0" Visible="true" />
+      <None Include="$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.pdb" Pack="true" PackagePath="lib\netstandard2.0" Visible="true" />
    </ItemGroup>
 
    <ItemGroup>
-      <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
-      <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
+      <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
+      <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.3.0" />
       <PackageReference Include="Antlr4.Runtime.Standard" Version="4.13.1" GeneratePathProperty="true" />
-      <PackageReference Include="System.Text.Json" Version="9.0.9" GeneratePathProperty="true" />
+      <PackageReference Include="System.Text.Json" Version="10.0.7" GeneratePathProperty="true" />
    </ItemGroup>
 
    <ItemGroup>
@@ -74,12 +64,8 @@
    </ItemGroup>
 
    <Target Name="CopyAnalyzerDependencies" AfterTargets="Build">
-      <Copy SourceFiles="$(PkgAntlr4_Runtime_Standard)\lib\netstandard2.0\Antlr4.Runtime.Standard.dll"
-            DestinationFolder="$(OutputPath)"
-            SkipUnchangedFiles="true" />
-      <Copy SourceFiles="$(PkgSystem_Text_Json)\lib\netstandard2.0\System.Text.Json.dll"
-            DestinationFolder="$(OutputPath)"
-            SkipUnchangedFiles="true" />
+      <Copy SourceFiles="$(PkgAntlr4_Runtime_Standard)\lib\netstandard2.0\Antlr4.Runtime.Standard.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+      <Copy SourceFiles="$(PkgSystem_Text_Json)\lib\netstandard2.0\System.Text.Json.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
    </Target>
 
    <PropertyGroup>
@@ -87,18 +73,10 @@
    </PropertyGroup>
    <Target Name="GetAnalyzerDependencies">
       <ItemGroup>
-         <TargetPathWithTargetPlatformMoniker
-            Include="$(MSBuildProjectDirectory)\$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.dll"
-            IncludeRuntimeDependency="false" />
-         <TargetPathWithTargetPlatformMoniker
-            Include="$(MSBuildProjectDirectory)\$(OutputPath)Catglobe.CgScript.EditorSupport.Parsing.dll"
-            IncludeRuntimeDependency="false" />
-         <TargetPathWithTargetPlatformMoniker
-            Include="$(MSBuildProjectDirectory)\$(OutputPath)Antlr4.Runtime.Standard.dll"
-            IncludeRuntimeDependency="false" />
-         <TargetPathWithTargetPlatformMoniker
-            Include="$(MSBuildProjectDirectory)\$(OutputPath)System.Text.Json.dll"
-            IncludeRuntimeDependency="false" />
+         <TargetPathWithTargetPlatformMoniker Include="$(MSBuildProjectDirectory)\$(OutputPath)Catglobe.CgScript.EditorSupport.SourceGenerator.Attributes.dll" IncludeRuntimeDependency="false" />
+         <TargetPathWithTargetPlatformMoniker Include="$(MSBuildProjectDirectory)\$(OutputPath)Catglobe.CgScript.EditorSupport.Parsing.dll" IncludeRuntimeDependency="false" />
+         <TargetPathWithTargetPlatformMoniker Include="$(MSBuildProjectDirectory)\$(OutputPath)Antlr4.Runtime.Standard.dll" IncludeRuntimeDependency="false" />
+         <TargetPathWithTargetPlatformMoniker Include="$(MSBuildProjectDirectory)\$(OutputPath)System.Text.Json.dll" IncludeRuntimeDependency="false" />
       </ItemGroup>
    </Target>
 </Project>

@@ -17,7 +17,7 @@
    </PropertyGroup>
 
    <PropertyGroup>
-      <TargetFramework>net9.0</TargetFramework>
+      <TargetFramework>net10.0</TargetFramework>
       <ImplicitUsings>enable</ImplicitUsings>
       <Nullable>enable</Nullable>
       <LangVersion>preview</LangVersion>
@@ -36,10 +36,10 @@
    </ItemGroup>
 
    <ItemGroup>
-      <PackageReference Include="OpenTelemetry.Api" Version="1.12.0" />
-      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.8" />
-      <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.7.0" />
-      <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.8" />
+      <PackageReference Include="OpenTelemetry.Api" Version="1.15.3" />
+      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
+      <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.5.0" />
+      <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
    </ItemGroup>
 
    <PropertyGroup>
@@ -48,9 +48,7 @@
    </PropertyGroup>
 
    <Target Name="ValidatePrecommitHook" Condition="'$(BuildingInsideVisualStudio)' != '' And '$(ProjectRootDir)' != ''">
-      <Error
-         Text="You forgot to setup commit check. Run npm install -g git-conventional-commits &amp;&amp; git-conventional-commits init"
-         Condition="!Exists('$(ProjectRootDir).git\hooks\commit-msg')" />
+      <Error Text="You forgot to setup commit check. Run npm install -g git-conventional-commits &amp;&amp; git-conventional-commits init" Condition="!Exists('$(ProjectRootDir).git\hooks\commit-msg')" />
    </Target>
 
 </Project>

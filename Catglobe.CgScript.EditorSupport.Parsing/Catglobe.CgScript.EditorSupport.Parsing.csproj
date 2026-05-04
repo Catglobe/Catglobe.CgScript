@@ -36,7 +36,7 @@
       <PackageReference Include="Antlr4.Runtime.Standard" Version="4.13.1" />
       <PackageReference Include="Antlr4BuildTasks" Version="12.14.0" PrivateAssets="all" />
       <!-- System.Text.Json is built-in on net5+; needed as a NuGet only for netstandard2.0 -->
-      <PackageReference Include="System.Text.Json" Version="9.0.9" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
+      <PackageReference Include="System.Text.Json" Version="10.0.7" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
    </ItemGroup>
 
    <ItemGroup>
@@ -76,8 +76,6 @@
    </PropertyGroup>
 
    <Target Name="ValidatePrecommitHook" Condition="'$(BuildingInsideVisualStudio)' != '' And '$(ProjectRootDir)' != ''">
-      <Error
-         Text="You forgot to setup commit check. Run npm install -g git-conventional-commits &amp;&amp; git-conventional-commits init"
-         Condition="!Exists('$(ProjectRootDir).git\hooks\commit-msg')" />
+      <Error Text="You forgot to setup commit check. Run npm install -g git-conventional-commits &amp;&amp; git-conventional-commits init" Condition="!Exists('$(ProjectRootDir).git\hooks\commit-msg')" />
    </Target>
 </Project>
