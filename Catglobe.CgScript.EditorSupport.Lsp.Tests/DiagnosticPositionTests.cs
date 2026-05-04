@@ -80,6 +80,42 @@ public class DiagnosticPositionTests
       Assert.Equal(1,  d.Length);  // length of 'x'
    }
 
+   [Fact]
+   public void CGS001_FunctionLocalConflictsWithGlobal()
+   {
+      // A variable declared inside a function body is treated as a global by the
+      // runtime, so the global-scope declaration of the same name is a re-declaration.
+      // function-local 'a' is at line 2; global 'a' is at line 4 — CGS001 on line 4.
+      var source = "Function f = function() {\n    string a;\n};\nstring a;\nf.Call();";
+      var diags  = Analyze(source);
+      var d      = Find(diags, "CGS001");
+      Assert.Equal(4, d.Line);    // global re-declaration on line 4
+      Assert.Equal(7, d.Column);  // column of 'a'
+      Assert.Equal(1, d.Length);  // length of 'a'
+   }
+
+   [Fact]
+   public void CGS001_TwoFunctionLocalsSameName()
+   {
+      // Two independent function bodies each declaring the same variable name both
+      // become global at runtime — the second one is a re-declaration.
+      var source = "Function f = function() {\n    string a;\n};\nFunction g = function() {\n    string a;\n};\nf.Call();\ng.Call();";
+      var diags  = Analyze(source);
+      var d      = Find(diags, "CGS001");
+      Assert.Equal(5, d.Line);    // second function's 'a' triggers CGS001
+      Assert.Equal(11, d.Column); // column of 'a' inside second function
+      Assert.Equal(1,  d.Length); // length of 'a'
+   }
+
+   [Fact]
+   public void NoCGS001_FunctionLocalsDifferentNames()
+   {
+      // Different variable names in different function bodies must not produce CGS001.
+      var source = "Function f = function() {\n    string a;\n};\nFunction g = function() {\n    string b;\n};\nf.Call();\ng.Call();";
+      var diags  = Analyze(source);
+      Assert.DoesNotContain(diags, d => d.Code == "CGS001");
+   }
+
    // ── CGS002: unknown type in declaration ───────────────────────────────────
 
    [Fact]

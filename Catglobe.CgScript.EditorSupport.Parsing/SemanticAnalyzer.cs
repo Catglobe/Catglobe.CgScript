@@ -6,9 +6,10 @@ namespace Catglobe.CgScript.EditorSupport.Parsing;
 /// <summary>
 /// Two-pass semantic analyzer for CgScript.
 /// <para>
-/// <b>Pass 1</b> walks the parse tree to collect every globally-scoped variable name
-/// (skipping inside <c>function</c> literal bodies) and for-each loop variables.
-/// Duplicate declarations are reported as <see cref="DiagnosticSeverity.Warning"/> (CGS001).
+/// <b>Pass 1</b> walks the parse tree to collect all variable names across every scope.
+/// The CgScript runtime treats all declarations as globally-scoped (function-local declarations
+/// included), so conflicts between scopes are reported as
+/// <see cref="DiagnosticSeverity.Warning"/> (CGS001).
 /// </para>
 /// <para>
 /// <b>Pass 2</b> walks the tree again to validate identifier usages against the
@@ -92,8 +93,20 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
    }
 
    /// <summary>
-   /// Collects all globally-scoped variable names and reports duplicate declarations.
-   /// Traversal skips inside <c>function</c> literal bodies.
+   /// Collects variable names from all scopes and reports duplicate declarations.
+   /// <para>
+   /// Variables declared inside <c>function</c> literal bodies are also tracked because
+   /// the CgScript runtime treats all declarations (including function-local ones) as
+   /// globally-scoped — only for-each loop variables, function parameters, and catch
+   /// variables are genuinely local.  A function-local declaration that shares a name
+   /// with a global declaration, or with a declaration in another function body, will
+   /// therefore cause an "Illegal variable re-declaration" error at runtime.
+   /// </para>
+   /// <para>
+   /// Function-local declarations are added to <see cref="Vars"/> for conflict detection
+   /// (CGS001) but are <em>not</em> added to <see cref="VarLines"/>; the unused-variable
+   /// check (CGS009) only applies to global-scope declarations.
+   /// </para>
    /// </summary>
    private sealed class ScopeCollector : CgScriptParserBaseVisitor<object?>
    {
@@ -104,7 +117,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       public Dictionary<string, string>   VarTypes { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
       public List<Diagnostic>             Diagnostics { get; } = new List<Diagnostic>();
 
-      // Skip inside function-literal bodies by tracking nesting depth
+      // Track nesting depth to distinguish global from function-local declarations
       public override object? VisitPrimaryExpr(CgScriptParser.PrimaryExprContext ctx)
       {
          if (ctx.FUNCTION() != null)
@@ -117,13 +130,13 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          return VisitChildren(ctx);
       }
 
-      // declarationStatement adds the variable to global scope
+      // declarationStatement: always check for conflicts; only add to VarLines at global scope
       public override object? VisitDeclarationStatement(
          CgScriptParser.DeclarationStatementContext ctx)
       {
+         TryAdd(ctx.declaration().IDENTIFIER(), addToVarLines: _depth == 0);
          if (_depth == 0)
          {
-            TryAdd(ctx.declaration().IDENTIFIER());
             // Track the declared class type for member access validation
             if (ctx.declaration().typeSpec() is CgScriptParser.ClassNameTypeContext classType)
             {
@@ -139,15 +152,15 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       public override object? VisitForEachControl(CgScriptParser.ForEachControlContext ctx)
          => VisitChildren(ctx);
 
-      // classic for-loop init declaration is also global
+      // classic for-loop init declaration is also global; check for conflicts at any depth
       public override object? VisitForClassicControl(CgScriptParser.ForClassicControlContext ctx)
       {
-         if (_depth == 0)
+         var decl = ctx.declaration();
+         if (decl != null)
          {
-            var decl = ctx.declaration();
-            if (decl != null)
+            TryAdd(decl.IDENTIFIER(), addToVarLines: _depth == 0);
+            if (_depth == 0)
             {
-               TryAdd(decl.IDENTIFIER());
                // Track the declared class type for member access validation
                if (decl.typeSpec() is CgScriptParser.ClassNameTypeContext classType)
                {
@@ -160,7 +173,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
          return VisitChildren(ctx);
       }
 
-      private void TryAdd(ITerminalNode? node)
+      private void TryAdd(ITerminalNode? node, bool addToVarLines)
       {
          if (node is null) return;
          var token = node.Symbol;
@@ -174,7 +187,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
                token.Text.Length,
                "CGS001"));
          }
-         else
+         else if (addToVarLines)
          {
             VarLines[token.Text] = (token.Line, token.Column);
          }
