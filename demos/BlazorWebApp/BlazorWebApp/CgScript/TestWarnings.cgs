@@ -1,6 +1,7 @@
 // TestWarnings.cgs — intentional CgScript issues used to verify build-time diagnostics.
 // Expected warnings:
 //   CGS001  duplicate declaration of 'counter'
+//   CGS001  duplicate declaration of 'localVar' (function-local conflicts with global)
 //   CGS006  empty statement after if-block
 //   CGS007  unreachable code after return
 //   CGS008  use of 'total' before its declaration
@@ -44,6 +45,16 @@ number total = 10;
 // CGS001 — re-declaration of 'counter'
 number counter = 0;
 number counter = 1;
+
+// CGS001 — function-local 'localVar' conflicts with global declaration.
+// The CgScript runtime treats ALL declarations as global (including those inside
+// function bodies), so declaring the same name in a function and at global scope
+// will cause a runtime re-declaration error.
+Function helperFn = function() {
+    string localVar;
+};
+string localVar;
+helperFn.Call();
 
 // CGS007 — unreachable code after return
 if (counter > 0)
