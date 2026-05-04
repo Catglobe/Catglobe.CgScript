@@ -28,8 +28,8 @@
   "devDependencies": {
     "@codemirror/state": "6.6.0",
     "@codemirror/view": "6.41.1",
-    "esbuild": "^0.28.0",
-    "typescript": "^6.0.3"
+    "esbuild": "0.28.0",
+    "typescript": "6.0.3"
   },
   "peerDependencies": {
     "@codemirror/state": "^6.5.4",
