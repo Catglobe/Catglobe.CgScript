@@ -4,8 +4,17 @@
 // Key design notes:
 //  - Tree rewriting (-> rules) is replaced by the visitor pattern.
 //  - k=2 lookahead is handled automatically by ANTLR4's ALL(*) algorithm.
-//  - The IsBlock() semantic predicate replicates the original scan_for_block
-//    syntactic predicate to distinguish { block } from { array/dict literal }.
+//  - Block vs array/dict disambiguation: ANTLR4's ALL(*) naturally resolves
+//    the { block } vs { ARRAYDECL } ambiguity via the grammar structure.
+//    The constantValue rule (LCURLY dictOrArrayBody? RCURLY) defines exactly
+//    what an array/dict literal looks like; any { ... } that cannot match
+//    dictOrArrayBody is unambiguously a block.  This mirrors the runtime's
+//    scan_for_block syntactic predicate, which also relies on the grammar
+//    (it speculatively parses an expression then checks LA(1)).
+//    The only remaining ambiguity is bare {} (empty braces), which is resolved
+//    in favour of block by ANTLR4's first-alternative rule — matching the
+//    runtime, which also treats {} as an empty block at statement level
+//    (only {} at top-level program scope is an empty ARRAYDECL).
 //  - ITypeResolver is set via SetTypeResolver() to validate class-name tokens
 //    in declarations; pass null to allow all identifiers as types (editor mode).
 //  - All alternatives within a rule either all have '#' labels or none do
@@ -24,96 +33,6 @@ options { tokenVocab = CgScriptLexer; }
 
     private bool IsTypeName(string name)
         => _typeResolver?.IsTypeName(name) ?? true;   // null = allow-all (editor mode)
-
-    // ── Block vs array/dict disambiguator ─────────────────────────────────────
-    // Replicates the original ANTLR3 scan_for_block syntactic predicate.
-    //
-    // Called when LA(1) is LCURLY and both the blockStatement and exprStatement
-    // alternatives are possible.  We inspect subsequent tokens to decide:
-    //   {}          -> block  (empty block)
-    //   { keyword … -> block  (starts with a statement keyword)
-    //   { expr ;  … -> block  (first item ends with a statement terminator)
-    //   { expr :  … -> dict literal
-    //   { expr ,  … -> array literal
-    //   { expr }    -> single-element array literal
-    private bool IsBlock()
-    {
-        // LA(1) == LCURLY; LA(2) is the next default-channel token after {.
-        int t2 = TokenStream.LA(2);
-
-        if (t2 == CgScriptLexer.RCURLY) return true;  // empty {} is a block
-
-        switch (t2)
-        {
-            case CgScriptLexer.IF:
-            case CgScriptLexer.WHILE:
-            case CgScriptLexer.FOR:
-            case CgScriptLexer.TRY:
-            case CgScriptLexer.SWITCH:
-            case CgScriptLexer.BREAK:
-            case CgScriptLexer.CONTINUE:
-            case CgScriptLexer.RETURN:
-            case CgScriptLexer.THROW:
-            case CgScriptLexer.SEMI:
-            case CgScriptLexer.LCURLY:
-            case CgScriptLexer.BOOL:
-            case CgScriptLexer.NUMBER:
-            case CgScriptLexer.STRING:
-            case CgScriptLexer.ARRAY:
-            case CgScriptLexer.OBJECT:
-            case CgScriptLexer.QUESTION:
-            case CgScriptLexer.FUNCTION:
-                return true;
-        }
-
-        // Scan ahead at brace-depth 0 looking for ; : , or }.
-        // Mirrors the runtime's scan_for_block predicate which parses the first
-        // expression and returns false when the token after it is ':', ',' or '}'
-        // (dict-literal separator, array-element separator, or single-element literal).
-        //
-        // ternaryDepth tracks unmatched '?' tokens so that the ':' in a ternary
-        // expression (cond ? then : else) is not mistaken for a dict-literal ':'.
-        int depth = 0;
-        int ternaryDepth = 0;
-        for (int i = 2; i <= 500; i++)
-        {
-            int t = TokenStream.LA(i);
-            if (t == Antlr4.Runtime.IntStreamConstants.EOF) return true;
-            switch (t)
-            {
-                case CgScriptLexer.LCURLY:
-                case CgScriptLexer.LPAREN:
-                case CgScriptLexer.LBRACKET:
-                    depth++;
-                    break;
-                case CgScriptLexer.RPAREN:
-                case CgScriptLexer.RBRACKET:
-                    depth--;
-                    break;
-                case CgScriptLexer.RCURLY:
-                    // depth == 0 means we reached the closing '}' of the outer brace
-                    // without seeing a ';' first — this is a single-element literal,
-                    // not a block (matches runtime scan_for_block which also rejects RCURLY).
-                    if (depth == 0) return false;
-                    depth--;
-                    break;
-                default:
-                    if (depth == 0)
-                    {
-                        if (t == CgScriptLexer.QMARK)  { ternaryDepth++; break; }
-                        if (t == CgScriptLexer.SEMI)   return true;
-                        if (t == CgScriptLexer.COLON)
-                        {
-                            if (ternaryDepth > 0) { ternaryDepth--; break; } // ternary else-branch
-                            return false; // dict-literal key/value separator
-                        }
-                        if (t == CgScriptLexer.COMMA)  return false;
-                    }
-                    break;
-            }
-        }
-        return true;
-    }
 }
 
 // ── Top-level program ─────────────────────────────────────────────────────────
@@ -127,7 +46,7 @@ program
 // ── Statements ────────────────────────────────────────────────────────────────
 statement
     : declaration SEMI                                                                          # declarationStatement
-    | {IsBlock()}? block                                                                        # blockStatement
+    | block                                                                                         # blockStatement
     | exprOrAssign (SEMI | EOF)                                                                 # exprStatement
     | IF LPAREN expression RPAREN statement (ELSE statement)?                                   # ifStatement
     | WHILE LPAREN expression RPAREN statement                                                  # whileStatement
