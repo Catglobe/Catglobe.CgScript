@@ -429,6 +429,48 @@ public class SemanticAnalyzerDiagnosticsTests
       Assert.DoesNotContain(diags, d => d.Code == "CGS021");
    }
 
+   // ── Ternary assignment inside blocks (issue #1173) ─────────────────────────
+   // The IsBlock() scanner used to mistake the ':' in a ternary for a dict-literal
+   // separator, causing a CGS019 parse error for blocks whose first statement
+   // contained a ternary expression. Also syncs the RCURLY handling with the
+   // runtime's scan_for_block: '{ expr }' is a single-element array, not a block.
+
+   [Fact]
+   public void TernaryAssignment_InsideIfBlock_NoParseDiagnostics()
+   {
+      var result = CgScriptParseService.Parse("string a;\nif (true) {\na = true ? \"Hello\" : \"World\";\n}");
+      Assert.Empty(result.Diagnostics);
+   }
+
+   [Fact]
+   public void TernaryAssignment_InsideForBlock_NoParseDiagnostics()
+   {
+      var result = CgScriptParseService.Parse("string b;\nfor (i for 0;5) {\nb = true ? \"Hello\" : \"World\";\n}");
+      Assert.Empty(result.Diagnostics);
+   }
+
+   [Fact]
+   public void TernaryAssignment_InsideIfBlock_NoSemanticDiagnostics()
+   {
+      var diags = Analyze("string a;\nif (true) {\na = true ? \"Hello\" : \"World\";\n}");
+      Assert.Empty(diags);
+   }
+
+   [Fact]
+   public void TernaryAssignment_InsideForBlock_NoSemanticDiagnostics()
+   {
+      var diags = Analyze("string b;\nfor (i for 0;5) {\nb = true ? \"Hello\" : \"World\";\n}");
+      Assert.Empty(diags);
+   }
+
+   [Fact]
+   public void SingleElementArrayLiteral_WithTernary_NoParseDiagnostics()
+   {
+      // { expr ? a : b } is a single-element array literal (not a block), matching the runtime
+      var result = CgScriptParseService.Parse("array r = { true ? \"Hello\" : \"World\" };");
+      Assert.Empty(result.Diagnostics);
+   }
+
    // ── CGS021: location accuracy ─────────────────────────────────────────────
 
    [Fact]

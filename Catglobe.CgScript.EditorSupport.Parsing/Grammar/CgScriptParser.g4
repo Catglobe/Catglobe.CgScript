@@ -67,7 +67,14 @@ options { tokenVocab = CgScriptLexer; }
         }
 
         // Scan ahead at brace-depth 0 looking for ; : , or }.
+        // Mirrors the runtime's scan_for_block predicate which parses the first
+        // expression and returns false when the token after it is ':', ',' or '}'
+        // (dict-literal separator, array-element separator, or single-element literal).
+        //
+        // ternaryDepth tracks unmatched '?' tokens so that the ':' in a ternary
+        // expression (cond ? then : else) is not mistaken for a dict-literal ':'.
         int depth = 0;
+        int ternaryDepth = 0;
         for (int i = 2; i <= 500; i++)
         {
             int t = TokenStream.LA(i);
@@ -84,14 +91,23 @@ options { tokenVocab = CgScriptLexer; }
                     depth--;
                     break;
                 case CgScriptLexer.RCURLY:
-                    if (depth == 0) return true;
+                    // depth == 0 means we reached the closing '}' of the outer brace
+                    // without seeing a ';' first — this is a single-element literal,
+                    // not a block (matches runtime scan_for_block which also rejects RCURLY).
+                    if (depth == 0) return false;
                     depth--;
                     break;
                 default:
                     if (depth == 0)
                     {
-                        if (t == CgScriptLexer.SEMI)  return true;
-                        if (t == CgScriptLexer.COLON || t == CgScriptLexer.COMMA) return false;
+                        if (t == CgScriptLexer.QMARK)  { ternaryDepth++; break; }
+                        if (t == CgScriptLexer.SEMI)   return true;
+                        if (t == CgScriptLexer.COLON)
+                        {
+                            if (ternaryDepth > 0) { ternaryDepth--; break; } // ternary else-branch
+                            return false; // dict-literal key/value separator
+                        }
+                        if (t == CgScriptLexer.COMMA)  return false;
                     }
                     break;
             }
