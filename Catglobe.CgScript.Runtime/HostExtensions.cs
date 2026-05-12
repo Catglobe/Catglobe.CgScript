@@ -1,7 +1,9 @@
 ﻿using Catglobe.CgScript.Common;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
+using Polly;
 
 namespace Catglobe.CgScript.Runtime;
 
@@ -41,13 +43,14 @@ public static class HostExtensions
       (isDevelopment
             ? services.AddHttpClient<ILongRunningCgScriptApiClient, DevelopmentModeCgScriptApiClient>(nameOfHttpClient)
             : services.AddHttpClient<ILongRunningCgScriptApiClient, CgScriptApiClient>(nameOfHttpClient))
-        .RemoveAllResilienceHandlers()
-#pragma warning restore EXTEXP0001
-        .AddStandardResilienceHandler(o => {
-            o.AttemptTimeout.Timeout          = TimeSpan.FromMinutes(30);
-            o.TotalRequestTimeout.Timeout     = TimeSpan.FromMinutes(90);
-            o.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(90);
+         .RemoveAllResilienceHandlers()
+         .AddResilienceHandler("long-running", static builder => {
+            builder
+               .AddTimeout(TimeSpan.FromMinutes(90))   // total safety net
+               .AddRetry(new HttpRetryStrategyOptions { MaxRetryAttempts = 3 })
+               .AddTimeout(TimeSpan.FromMinutes(30));  // per-attempt
          });
+#pragma warning restore EXTEXP0001
       return services;
    }
 }

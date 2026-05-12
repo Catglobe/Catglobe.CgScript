@@ -3,7 +3,9 @@ using Catglobe.CgScript.Common;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
+using Polly;
 
 namespace Catglobe.CgScript.Deployment;
 
@@ -46,12 +48,13 @@ public static class HostExtensions
                })
               .AddHttpMessageHandler<DeploymentAuthHandler>()
               .RemoveAllResilienceHandlers()
+              .AddResilienceHandler("deployer", static builder => {
+                  builder
+                     .AddTimeout(TimeSpan.FromMinutes(30))   // total safety net
+                     .AddRetry(new HttpRetryStrategyOptions { MaxRetryAttempts = 3 })
+                     .AddTimeout(TimeSpan.FromMinutes(10));  // per-attempt
+              });
 #pragma warning restore EXTEXP0001
-              .AddStandardResilienceHandler(o => {
-                  o.AttemptTimeout.Timeout          = TimeSpan.FromMinutes(10);
-                  o.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(30);
-                  o.TotalRequestTimeout.Timeout     = TimeSpan.FromMinutes(30);
-               });
       services.AddHttpClient<DeploymentAuthenticator>((sp, httpClient) => {
                   httpClient.BaseAddress = sp.GetRequiredService<IOptions<DeploymentOptions>>().Value.Authority;
                });
