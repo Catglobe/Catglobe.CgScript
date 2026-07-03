@@ -1245,6 +1245,12 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
       if (declaredName.EndsWith("?") && declaredName.Length > 1)
          return MapToCanonical(declaredName.Substring(0, declaredName.Length - 1));
 
+      // Runtime metadata represents typed arrays as "Array of <ElementType>"
+      // (e.g. "Array of AppProductRole", "Array of Appointment"); all of these
+      // are canonically just "Array" for compatibility purposes.
+      if (declaredName.StartsWith("Array of ", StringComparison.Ordinal))
+         return "Array";
+
       return declaredName switch
       {
          // CgScript keyword types and runtime metadata aliases
@@ -1253,8 +1259,7 @@ public sealed class SemanticAnalyzer : CgScriptParserBaseVisitor<object?>
             or "double" or "float" or "decimal"                              => "Number",
          "string" or "String" or "string-guid"                               => "String",
          "bool" or "Boolean" or "boolean"                                    => "Bool",
-         "array" or "Array"
-            or "Array of objects" or "Array of ints" or "Array of strings"   => "Array",
+         "array" or "Array"                                                  => "Array",
          "function" or "Function"                                             => "Function",
          "DateTime"                                                           => "DateTime",
          "Dictionary" or "Dictionary of numbers"                              => "Dictionary",

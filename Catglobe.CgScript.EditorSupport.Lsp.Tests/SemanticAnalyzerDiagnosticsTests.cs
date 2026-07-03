@@ -220,6 +220,27 @@ public class SemanticAnalyzerDiagnosticsTests
    }
 
    [Fact]
+   public void ArrayVar_AssignedTypedArrayProperty_NoCGS020()
+   {
+      // Runtime metadata reports element-typed array properties as "Array of <ElementType>"
+      // (e.g. "Array of AppProductRole"); these must be treated as plain "array".
+      var objDefs = new Dictionary<string, ObjectDefinition>
+      {
+         ["AppProduct"] = new ObjectDefinition("",
+            Properties: new Dictionary<string, PropertyDefinition>
+            {
+               ["Roles"] = new PropertyDefinition("", ReturnType: "Array of AppProductRole"),
+            }),
+      };
+
+      var diags = AnalyzeWithObjects(
+         "AppProduct app;\narray roles = app.Roles;",
+         objDefs);
+
+      Assert.DoesNotContain(diags, d => d.Code == "CGS020");
+   }
+
+   [Fact]
    public void FunctionVar_AssignedFunctionLiteral_NoCGS020()
    {
       var diags = Analyze("function f = function() {};");
