@@ -27,7 +27,7 @@ Paste this prompt into your AI agent:
 
 ```
 Add Catglobe.CgScript to this project using the instructions here:
-https://raw.githubusercontent.com/Catglobe/Catglobe.ScriptDeployer/main/docs/guide/setup.md
+https://raw.githubusercontent.com/Catglobe/Catglobe.CgScript/main/docs/guide/setup.md
 ```
 
 If you are an LLM agent helping a user set up Catglobe.CgScript, follow these steps in order.
@@ -461,7 +461,7 @@ If Discovery Step 0.5 found an existing `[CgScriptSerializer]` class, report its
 Retrieve the skill template from the raw GitHub URL:
 
 ```
-https://raw.githubusercontent.com/Catglobe/Catglobe.ScriptDeployer/main/templates/cgscript-skill-template.md
+https://raw.githubusercontent.com/Catglobe/Catglobe.CgScript/main/templates/cgscript-skill-template.md
 ```
 
 If the URL is not accessible, the template can also be found locally in the cloned repository at `templates/cgscript-skill-template.md`.
