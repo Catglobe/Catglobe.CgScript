@@ -1,3 +1,10 @@
+**AI-assisted setup**: paste this prompt into your AI agent:
+```
+Add latest version of Catglobe.CgScript using NuGet, and configure using
+the instructions found here:
+https://raw.githubusercontent.com/Catglobe/Catglobe.ScriptDeployer/main/docs/guide/setup.md
+```
+
 # Editor Support
 
 The CgScript editor extensions bring a full editing experience to `.cgs` files in both Visual Studio and Visual Studio Code.
