@@ -37,6 +37,7 @@ public class ScriptFileNameParserTests
 
    [Theory]
    [InlineData("Report@123.secret.cgs", "@123.secret")]
+   [InlineData("Report@123.publc.cgs", "@123.publc")]
    [InlineData("Report@123.public.pii.cgs", "@123.public.pii")]
    [InlineData("Report@123.pii.pii.cgs", "@123.pii.pii")]
    [InlineData("Report@123.public.public.cgs", "@123.public.public")]

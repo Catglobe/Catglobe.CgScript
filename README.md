@@ -797,7 +797,7 @@ These shapes are rejected:
 
 ### What changes for existing files
 
-File names that carry no metadata keep exactly the result they have today: `Name.cgs`, `Name@123.cgs`, `Name@123.public.cgs`, dotted names and `@` inside a name all behave as before. Four changes are accepted, and they are changes, not a promise that nothing moved:
+File names that carry no metadata keep exactly the result they have today: `Name.cgs`, `Name@123.cgs`, `Name@123.public.cgs` and dotted names all behave as before. An `@` in the leaf is the exception: the last `@` in the leaf always starts the metadata suffix, so a script file whose name merely contains an `@`, such as `user@domain.cgs`, is read as metadata, is rejected and never deploys - rename it (for example to `user-domain.cgs`) to keep it. Four changes are accepted, and they are changes, not a promise that nothing moved:
 
 1. A malformed tail after the last `@` is now an error where it used to be folded into the script name (`Name@123.publc.cgs`, `Name@abc.cgs`, `Name@123.public.pii.cgs`). This makes **any** `@` in the final segment a metadata boundary.
 2. A trailing `.public` or `.pii` with no `@` is now an error (`Name.public.cgs`, `Name.pii.cgs`).
