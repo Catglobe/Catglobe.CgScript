@@ -754,6 +754,8 @@ name[@<userId>[.pii][.public]].cgs
 
 `.public` runs the script without a login; `.pii` declares that it may read personal data and needs an impersonation user the site accepts. A malformed name - an unknown token, the wrong marker order, a `.pii`/`.public` with no `@` - is rejected with an error naming the file.
 
+Development mode honours neither marker: such a script runs as an ordinary script there.
+
 See the documentation for `ScriptFromFileOnDisk` for details.
 
 ## Can I adapt my scripts to do something special in development mode?
