@@ -2,12 +2,14 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:best-practices",
-    "schedule:weekends",
-    "schedule:automergeEarlyMondays",
+    "schedule:daily",
     ":semanticCommits"
   ],
-  "prConcurrentLimit": 0,
-  "prHourlyLimit": 2,
+  "branchConcurrentLimit": 3,
+  "platformAutomerge": false,
+  "automergeSchedule": [ "* 2-4 * * 1" ],
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
   "suppressNotifications": [
     "prIgnoreNotification"
   ],
@@ -78,9 +80,65 @@
       "enabled": false
     },
     {
-      "matchDepTypes": [ "action", "minor", "patch", "devDependencies", "pin", "pinDigest", "digest" ],
+      "description": "Automerge approved frontend development tooling",
+      "matchManagers": [ "npm" ],
+      "matchDepTypes": [ "devDependencies" ],
+      "matchUpdateTypes": [ "patch", "minor" ],
+      "groupName": "frontend dev tooling",
       "automerge": true,
-      "automergeType": "branch"
+      "automergeType": "branch",
+      "labels": [ "automerge" ]
+    },
+    {
+      "description": "Automerge approved .NET test tooling",
+      "matchManagers": [ "nuget" ],
+      "matchPackageNames": [
+        "coverlet.msbuild",
+        "microsoft.net.test.sdk",
+        "nsubstitute",
+        "shouldly",
+        "xunit",
+        "xunit.runner.visualstudio"
+      ],
+      "matchUpdateTypes": [ "patch", "minor" ],
+      "groupName": ".NET test tooling",
+      "automerge": true,
+      "automergeType": "branch",
+      "labels": [ "automerge" ]
+    },
+    {
+      "description": "Automerge patch-level NuGet runtime updates",
+      "matchManagers": [ "nuget" ],
+      "matchUpdateTypes": [ "patch" ],
+      "groupName": ".NET patch dependencies",
+      "automerge": true,
+      "automergeType": "branch",
+      "labels": [ "automerge" ]
+    },
+    {
+      "description": "Automerge approved dotnet monorepo updates",
+      "matchPackageNames": [ "dotnet" ],
+      "matchUpdateTypes": [ "patch", "minor" ],
+      "groupName": "dotnet monorepo",
+      "automerge": true,
+      "automergeType": "branch",
+      "labels": [ "automerge" ]
+    },
+    {
+      "description": "Do not update dependencies with known compatibility or licensing blockers",
+      "matchPackageNames": [
+        "jquery",
+        "jquery.ui",
+        "jquery-ui",
+        "jQuery.UI.Combined",
+        "jQuery.UI.i18n",
+        "Aspose.Slides.NET",
+        "NPOI",
+        "Sodium.Core",
+        "libsodium",
+        "FluentAssertions"
+      ],
+      "enabled": false
     },
     {
       "description": "Group all GitHub Actions updates into one PR",

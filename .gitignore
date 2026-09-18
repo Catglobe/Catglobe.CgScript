@@ -146,6 +146,10 @@ coverage*.json
 coverage*.xml
 coverage*.info
 
+# Test and coverage output produced by dotnet test / ReportGenerator
+test-results-output/
+coveragereport/
+
 # Visual Studio code coverage results
 *.coverage
 *.coveragexml
