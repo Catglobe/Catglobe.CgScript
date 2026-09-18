@@ -33,6 +33,10 @@
    </ItemGroup>
 
    <ItemGroup>
+      <InternalsVisibleTo Include="Catglobe.CgScript.Deployment.Tests" />
+   </ItemGroup>
+
+   <ItemGroup>
       <Content Include="../README.md">
          <Pack>true</Pack>
          <PackagePath></PackagePath>
