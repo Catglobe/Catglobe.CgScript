@@ -115,8 +115,6 @@ int userId = p["userId"];
 | Public | `GetCompany@123.public.cgs` | Public script, no login required |
 | PII + public | `GetCompany@123.pii.public.cgs` | May read personal data and run without a login |
 
-Rules for the file name: the metadata boundary is the last `@` in the file name, the leaf must end in `.cgs`, an id is ASCII digits in the range `0` to `2147483647`, and the marker order is `.pii` then `.public`. A `.pii` script must also declare an impersonation user, and that user must be PII-eligible on the site (not the built-in admin and not in an admin group). Anything else in the tail, such as `GetCompany@123.public.pii.cgs`, `GetCompany@0.pii.cgs` or `GetCompany.pii.cgs`, is an error that names the file. Do not name a script `*.public.cgs` or `*.pii.cgs` by accident: a trailing `.public`/`.pii` with no `@` is rejected as well.
-
 ## How to create a new .cgs script
 
 1. **Create the file** at `__SCRIPT_FOLDER__/YourPath/Name.cgs`

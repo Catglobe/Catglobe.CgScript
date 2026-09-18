@@ -746,77 +746,15 @@ The editors connect to the `Catglobe.CgScript.EditorSupport.Lsp.Server` process 
 
 ## File name mapping to security
 
-The file name is the only channel that carries a script's security metadata to the site: which user it runs under, whether it may run without a login, and whether it may read personal data.
-
-### The naming grammar
-
-The grammar applies to the **leaf** of the script path, that is the file name itself. Directory segments are never read for metadata, so a folder called `Reports@42.pii` stays exactly that and marks nothing. The leaf must end in `.cgs`, and the extension plus every marker is compared case-insensitively.
-
-The metadata boundary is the **last** `@` in the leaf. Everything before it is the script name; with no `@` there is no metadata at all. After the last `@`, the shape is:
+The file name carries a script's security metadata: which user it runs under, whether it may run without a login, and whether it may read personal data.
 
 ```
 name[@<userId>[.pii][.public]].cgs
 ```
 
-- `<userId>` is ASCII digits only, with no sign, and the value must fit the range `0` to `2147483647`. The site casts the value to a 32-bit signed integer, so anything larger is rejected.
-- `.pii` declares that the script may read personal data. It requires an impersonation user, and the site checks that user against its own PII policy.
-- `.public` declares that the script may run without a user being logged in. It too needs an impersonation user, and that user can't be `@0`.
-- The canonical marker order is `.pii` then `.public`, so `.pii` sits closest to the id it scopes. Each marker may appear at most once.
-- `@0` is a real value meaning "no impersonation user" (used for development mapping). It is not a synonym for leaving the `@` out.
+`.public` runs the script without a login; `.pii` declares that it may read personal data and needs an impersonation user the site accepts. A malformed name - an unknown token, the wrong marker order, a `.pii`/`.public` with no `@` - is rejected with an error naming the file.
 
-| File name | Script name | Impersonation | Public | PII |
-|---|---|---|---|---|
-| `Name.cgs` | `Name` | none | no | no |
-| `Name@0.cgs` | `Name` | 0 | no | no |
-| `Name@123.cgs` | `Name` | 123 | no | no |
-| `Name@123.pii.cgs` | `Name` | 123 | no | yes |
-| `Name@123.public.cgs` | `Name` | 123 | yes | no |
-| `Name@123.pii.public.cgs` | `Name` | 123 | yes | yes |
-
-Script names may contain any character except control characters and the `"` character. Both break the generated C# wrapper, which embeds the name in a method name and in a string literal. Backslashes in a relative path are normalized to `/`. Whitespace is preserved and never trimmed.
-
-### Names that fail the deploy
-
-A malformed name fails loudly, with an error that names the file and the offending suffix, before any HTTP request is made. Both the deployer and the source generator (diagnostic `CGS028`, an error) apply the same grammar, so a bad name also fails the build of a project that uses the analyzer package.
-
-These shapes are rejected:
-
-| Rejected shape | Example |
-|---|---|
-| Unknown token after the id | `Name@123.secret.cgs` |
-| Wrong marker order | `Name@123.public.pii.cgs` |
-| Duplicate marker | `Name@123.pii.pii.cgs`, `Name@123.public.public.cgs` |
-| Empty token | `Name@123..pii.cgs` |
-| Non-numeric or signed id | `Name@abc.cgs`, `Name@-1.cgs` |
-| Id above `2147483647` | `Name@2147483648.cgs` |
-| A marker combined with `@0` | `Name@0.pii.cgs`, `Name@0.public.cgs` |
-| A `.pii`/`.public` tail with no `@` | `Name.pii.cgs`, `Name.public.cgs` |
-| A leaf that does not end in `.cgs` | `Name` |
-| An empty script name | `@123.cgs`, `.cgs` |
-| A control character in the name | `Line\nBreak@123.public.cgs` |
-
-### What changes for existing files
-
-File names that carry no metadata keep exactly the result they have today: `Name.cgs`, `Name@123.cgs`, `Name@123.public.cgs` and dotted names all behave as before. An `@` in the leaf is the exception: the last `@` in the leaf always starts the metadata suffix, so a script file whose name merely contains an `@`, such as `user@domain.cgs`, is read as metadata, is rejected and never deploys - rename it (for example to `user-domain.cgs`) to keep it. Four changes are accepted, and they are changes, not a promise that nothing moved:
-
-1. A malformed tail after the last `@` is now an error where it used to be folded into the script name (`Name@123.publc.cgs`, `Name@abc.cgs`, `Name@123.public.pii.cgs`). This makes **any** `@` in the final segment a metadata boundary.
-2. A trailing `.public` or `.pii` with no `@` is now an error (`Name.public.cgs`, `Name.pii.cgs`).
-3. `.public` or `.pii` combined with `@0` is now an error. Today such a file registers and then fails on the site with `412` or `403`.
-4. A file named `Name@123.pii.cgs` now registers as script `Name` instead of the literal `Name@123.pii`. Treat this as a one-time rename: the next sync deletes the old resource on the site, and any external `new WorkflowScript(<old resource id>)` reference to it breaks. If `Name.cgs` also exists in the same folder, the deployer reports a duplicate script identity naming both files instead of renaming silently.
-
-### Site prerequisites
-
-Two site-side conditions decide whether a `.pii` deploy actually grants PII access. The deployer cannot check either one for you.
-
-**The impersonated user must satisfy the site's workflow-PII policy.** The current rule is `TemplateEligible && !BuiltInAdmin && !AdminGroup`, which in plain words means the user must not be the built-in admin and must not belong to an admin group. A `.pii` file with no impersonation user, or with an impersonation user that the policy rejects, fails on the site with `403`: the script requests PII access but no impersonation is set, or the impersonation does not have PII.
-
-**The server must already know the `canAccessPII` member.** A site that predates it silently ignores the member, so a `.pii` deploy against such a site succeeds with PII turned off. Deploy your Catglobe site first, then the scripts.
-
-Deploying a PII script asks for no extra permission on your side. The deployer keeps requesting the same `scriptdeployment:w` scope as before; there is no separate PII scope to grant or request.
-
-### Development mode
-
-Development mode honours neither marker. A `.pii` or `.public` script run through development-generated code is treated as an ordinary script, exactly as `public` is ignored there today.
+See the documentation for `ScriptFromFileOnDisk` for details.
 
 ## Can I adapt my scripts to do something special in development mode?
 
