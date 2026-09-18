@@ -87,3 +87,4 @@ CGS000 | CgScript | Error    | Internal LSP error
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 CGS027 | CgScript | Error  | Unknown where-expression function
+CGS028 | CgScript | Error  | Invalid script file name (expected name[@<userId>[.pii][.public]].cgs)

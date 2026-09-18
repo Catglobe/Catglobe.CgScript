@@ -33,6 +33,13 @@
       <Content Include="../README.md" Pack="true" PackagePath="" />
    </ItemGroup>
 
+   <!-- Shared script-file-name grammar from Catglobe.CgScript.Common (netstandard2.0-safe) -->
+   <ItemGroup>
+      <Compile Include="..\Catglobe.CgScript.Common\ScriptFileNameParser.cs" Link="ScriptFileNameParser.cs" />
+      <Compile Include="..\Catglobe.CgScript.Common\ScriptFileName.cs" Link="ScriptFileName.cs" />
+      <Compile Include="..\Catglobe.CgScript.Common\InvalidScriptFileNameException.cs" Link="InvalidScriptFileNameException.cs" />
+   </ItemGroup>
+
    <!-- Generator DLL + transitive deps → analyzers/dotnet/cs only -->
    <ItemGroup>
       <None Include="$(OutputPath)$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />

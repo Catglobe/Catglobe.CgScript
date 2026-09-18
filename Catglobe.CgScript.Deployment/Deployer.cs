@@ -36,6 +36,7 @@ internal partial class Deployer(HttpClient httpClient, IScriptProvider provider,
             Content = await maker.GetContent(scriptName),
             Impersonation = scriptDefinition.Impersonation,
             AllowExecuteWithoutLogin = scriptDefinition.AllowExecuteWithoutLogin,
+            CanAccessPII = scriptDefinition.CanAccessPII,
          });
       await UpdateScripts(cgScriptDefinitions, token);
       map.Reset();
@@ -118,5 +119,10 @@ internal partial class Deployer(HttpClient httpClient, IScriptProvider provider,
       /// If true, the script can be run without a user being logged in. For obvious reasons this must be used with impersonation.
       /// </summary>
       public bool AllowExecuteWithoutLogin { get; set; }
+      /// <summary>
+      /// If true, the script declares that it may read personal data.
+      /// For obvious reasons this must be used with impersonation, and the impersonated user must be PII-eligible on the site.
+      /// </summary>
+      public bool CanAccessPII { get; set; }
    }
 }

@@ -230,6 +230,14 @@ internal static class CgScriptDiagnostics
       defaultSeverity:    DiagnosticSeverity.Error,
       isEnabledByDefault: true);
 
+   public static readonly DiagnosticDescriptor InvalidScriptFileName = new(
+      id:                 "CGS028",
+      title:              "Invalid script file name",
+      messageFormat:      "{0}",
+      category:           Category,
+      defaultSeverity:    DiagnosticSeverity.Error,
+      isEnabledByDefault: true);
+
    public static DiagnosticSeverity ToRoslyn(Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity s)
       => s == Catglobe.CgScript.EditorSupport.Parsing.DiagnosticSeverity.Error
          ? DiagnosticSeverity.Error
@@ -265,6 +273,7 @@ internal static class CgScriptDiagnostics
          "CGS025" => IndexerCallMismatch,
          "CGS026" => ObsoleteUsage,
          "CGS027" => UnknownWhereFunction,
+         "CGS028" => InvalidScriptFileName,
          _ => throw new ArgumentOutOfRangeException(nameof(d), d.Code, "Unknown diagnostic code"),
       };
 }

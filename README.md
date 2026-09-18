@@ -746,9 +746,17 @@ The editors connect to the `Catglobe.CgScript.EditorSupport.Lsp.Server` process 
 
 ## File name mapping to security
 
-It is possible to specify which user a script runs under and if the script needs a user to be logged in.
+The file name carries a script's security metadata: which user it runs under, whether it may run without a login, and whether it may read personal data.
 
-See the documentation for ScriptFromFileOnDisk for details.
+```
+name[@<userId>[.pii][.public]].cgs
+```
+
+`.public` runs the script without a login; `.pii` declares that it may read personal data and needs an impersonation user the site accepts. A malformed name - an unknown token, the wrong marker order, a `.pii`/`.public` with no `@` - is rejected with an error naming the file.
+
+Development mode honours neither marker: such a script runs as an ordinary script there.
+
+See the documentation for `ScriptFromFileOnDisk` for details.
 
 ## Can I adapt my scripts to do something special in development mode?
 

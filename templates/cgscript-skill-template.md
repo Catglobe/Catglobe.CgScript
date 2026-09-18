@@ -111,7 +111,9 @@ int userId = p["userId"];
 |---------|---------|---------|
 | Standard | `GetCompany.cgs` | Normal script, runs as authenticated user |
 | Impersonation | `GetCompany@123.cgs` | Script runs impersonating user 123 |
+| PII | `GetCompany@123.pii.cgs` | Script may read personal data, runs as user 123 |
 | Public | `GetCompany@123.public.cgs` | Public script, no login required |
+| PII + public | `GetCompany@123.pii.public.cgs` | May read personal data and run without a login |
 
 ## How to create a new .cgs script
 

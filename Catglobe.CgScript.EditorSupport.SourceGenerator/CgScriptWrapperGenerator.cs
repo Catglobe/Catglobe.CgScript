@@ -1,3 +1,4 @@
+using Catglobe.CgScript.Common;
 using Catglobe.CgScript.EditorSupport.Parsing;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -7,7 +8,6 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Catglobe.CgScript.EditorSupport.SourceGenerator;
 
@@ -130,8 +130,17 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
          var dirPart     = lastSlash >= 0 ? relNoExt.Substring(0, lastSlash)  : "";
          var fileBase    = lastSlash >= 0 ? relNoExt.Substring(lastSlash + 1) : relNoExt;
 
-         // Strip deployer metadata (@NNN[.public]) from the file name only
-         var scriptFile  = s_deployerSuffix.Replace(fileBase, string.Empty);
+         // Derive the script name through the shared grammar the deployer applies too.
+         // The parser is defined on the leaf WITH its extension, so re-append ".cgs" here.
+         if (!ScriptFileNameParser.TryParse(fileBase + ".cgs", out var parsedFileName, out var parseError))
+         {
+            spc.ReportDiagnostic(Microsoft.CodeAnalysis.Diagnostic.Create(
+               CgScriptDiagnostics.InvalidScriptFileName,
+               AdditionalFileLocation(file),
+               parseError!));
+            return;
+         }
+         var scriptFile  = parsedFileName!.ScriptName;
 
          // Full relative path (used for hint name / namespace computation)
          var fullRelPath = dirPart.Length > 0 ? dirPart + "/" + scriptFile : scriptFile;
@@ -232,10 +241,6 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
       });
    }
 
-   /// <summary>Strips deployer metadata (@NNN[.public]) from a script base name.</summary>
-   private static readonly Regex s_deployerSuffix =
-      new Regex(@"@\d+(?:\.public)?$", RegexOptions.IgnoreCase);
-
    /// <summary>
    /// Strips the namespace prefix from a fully-qualified type name so that unqualified
    /// annotations (<c>@return TagSummary</c>) can match against fully-qualified registrations
@@ -316,6 +321,15 @@ public sealed class CgScriptWrapperGenerator : IIncrementalGenerator
          var location   = ToLocation(file, text, d);
          spc.ReportDiagnostic(Microsoft.CodeAnalysis.Diagnostic.Create(descriptor, location, d.Message));
       }
+   }
+
+   /// <summary>
+   /// Creates a location at the start of an additional file, which has no syntax tree of its own.
+   /// </summary>
+   private static Location AdditionalFileLocation(AdditionalText file)
+   {
+      var span = new TextSpan(0, 0);
+      return Location.Create(file.Path, span, new LinePositionSpan(new LinePosition(0, 0), new LinePosition(0, 0)));
    }
 
    private static Location ToLocation(AdditionalText file, SourceText text, Parsing.Diagnostic d)
