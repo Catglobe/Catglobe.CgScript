@@ -5,6 +5,14 @@ on:
     branches:
     - main
     - next
+  pull_request:
+    branches:
+    - main
+    - next
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -16,6 +24,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+      checks: write
       issues: write
       packages: write
       pull-requests: write
@@ -43,7 +52,7 @@ jobs:
           rm -rf ./test-results-output
           rm -f ./Catglobe.CgScript.EditorSupport.Lsp.Tests/coverage.cobertura.xml
       - name: Test
-        run: dotnet test --results-directory ./test-results-output --logger "trx;LogFileName=test-results.trx" -p:CollectCoverage=true
+        run: dotnet test --results-directory ./test-results-output --logger "trx;LogFileName=test-results.trx" -p:CollectCoverage=${{ !startsWith(github.head_ref || github.ref_name, 'renovate/') }}
       - name: Detect unit-test failure
         id: unit-test-signal
         if: ${{ always() }}
@@ -67,40 +76,40 @@ jobs:
         if: ${{ always() && steps.unit-test-signal.outputs.failed == 'true' }}
         run: exit 1
       - name: ReportGenerator
-        if: ${{ always() && steps.unit-test-signal.outputs.failed != 'true' }}
+        if: ${{ always() && steps.unit-test-signal.outputs.failed != 'true' && !startsWith(github.head_ref || github.ref_name, 'renovate/') }}
         uses: danielpalme/ReportGenerator-GitHub-Action@d3ebf1f760f7d8ab92cc44d9bcfee7ad73722a31 # v5.5.11
         with:
           reports: ./test-results-output/**/*.cobertura.xml
           targetdir: ./coveragereport
-          reporttypes: MarkdownSummaryGithub
+          reporttypes: MarkdownAssembliesSummary
           verbosity: 'Info'
           sourcedirs: .
       - name: Ensure coverage report exists
-        if: ${{ always() && steps.unit-test-signal.outputs.failed != 'true' }}
+        if: ${{ always() && steps.unit-test-signal.outputs.failed != 'true' && !startsWith(github.head_ref || github.ref_name, 'renovate/') }}
         shell: bash
         run: |
           mkdir -p ./coveragereport
-          touch ./coveragereport/SummaryGithub.md
+          touch ./coveragereport/Summary.md
       - name: Create check run with code coverage Markdown report
-        if: ${{ always() && steps.unit-test-signal.outputs.failed != 'true' }}
+        if: ${{ always() && steps.unit-test-signal.outputs.failed != 'true' && !startsWith(github.head_ref || github.ref_name, 'renovate/') }}
         uses: LouisBrunner/checks-action@937cbbcde3259005b50746dc91cde29098aac2ff # v3.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: 📝 Code coverage
           conclusion: ${{ job.status }}
           output: '{"summary":"Summary of code coverage. See the GitHub Actions summary and this check run for details"}'
-          output_text_description_file: ./coveragereport/SummaryGithub.md
+          output_text_description_file: ./coveragereport/Summary.md
       - name: Add Coverage output Summary
-        if: ${{ always() && steps.unit-test-signal.outputs.failed != 'true' }}
+        if: ${{ always() && steps.unit-test-signal.outputs.failed != 'true' && !startsWith(github.head_ref || github.ref_name, 'renovate/') }}
         shell: bash
-        run: cat ./coveragereport/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+        run: cat ./coveragereport/Summary.md >> $GITHUB_STEP_SUMMARY
       - name: Add Coverage PR Comment
-        if: ${{ always() && steps.unit-test-signal.outputs.failed != 'true' }}
+        if: ${{ always() && steps.unit-test-signal.outputs.failed != 'true' && !startsWith(github.head_ref || github.ref_name, 'renovate/') }}
         uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
         with:
           hide_and_recreate: true
           hide_classify: "OUTDATED"
-          path: ./coveragereport/SummaryGithub.md
+          path: ./coveragereport/Summary.md
       - name: NuGet login (OIDC → temp API key)
         uses: NuGet/login@v1
         id: nuget
