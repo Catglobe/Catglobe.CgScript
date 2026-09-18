@@ -5,3 +5,4 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
+CGS028 | CgScript | Error   | Invalid script file name (expected name[@<userId>[.pii][.public]].cgs)
