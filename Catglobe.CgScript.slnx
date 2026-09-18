@@ -9,6 +9,7 @@
     <Project Path="demos/BlazorWebApp/BlazorWebApp/BlazorWebApp.csproj" />
   </Folder>
   <Folder Name="/Tests/">
+    <Project Path="Catglobe.CgScript.Deployment.Tests/Catglobe.CgScript.Deployment.Tests.csproj" />
     <Project Path="Catglobe.CgScript.EditorSupport.Lsp.Tests/Catglobe.CgScript.EditorSupport.Lsp.Tests.csproj" />
   </Folder>
   <Project Path="Catglobe.CgScript.Common/Catglobe.CgScript.Common.csproj" />
