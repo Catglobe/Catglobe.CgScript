@@ -369,9 +369,9 @@ public partial class CgScriptLanguageTarget
    }
 
    /// <summary>
-   /// Builds signature info for a method call on an instance or type: <c>receiver.Method(</c>.
+   /// Resolves overloads for a method call on an instance or type: <c>receiver.Method(</c>.
    /// </summary>
-   private SignatureInformation[]? TryBuildMethodSignatures(
+   private MethodOverload[]? TryGetMethodOverloads(
       string methodName, string text, int parenPos, Antlr4.Runtime.Tree.IParseTree? tree)
    {
       // Step back over whitespace to the char before the method name identifier.
@@ -399,18 +399,7 @@ public partial class CgScriptLanguageTarget
       var methodSource = isStatic ? objDef.StaticMethods : objDef.Methods;
       if (methodSource == null || !methodSource.TryGetValue(methodName, out var methods) || methods.Length == 0) return null;
 
-      return methods.Select(m => new SignatureInformation
-      {
-         Label         = $"{m.ReturnType} {methodName}({BuildMethodParamList(m.Param)})",
-         Documentation = new SumType<string, MarkupContent>(
-            new MarkupContent { Kind = MarkupKind.Markdown, Value = m.Doc ?? string.Empty }),
-         Parameters    = (m.Param ?? []).Select(p =>
-            new ParameterInformation
-            {
-               Label         = new SumType<string, Tuple<int, int>>($"{p.Type} {p.Name}"),
-               Documentation = new SumType<string, MarkupContent>(p.Doc ?? string.Empty),
-            }).ToArray(),
-      }).ToArray();
+      return methods;
    }
 
    /// <summary>
