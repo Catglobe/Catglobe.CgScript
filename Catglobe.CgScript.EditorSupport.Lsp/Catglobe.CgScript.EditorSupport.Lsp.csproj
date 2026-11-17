@@ -42,6 +42,8 @@
       <PackageReference Include="Microsoft.VisualStudio.LanguageServer.Protocol" Version="17.2.8" />
       <PackageReference Include="Nerdbank.MessagePack" Version="1.2.30" />
       <PackageReference Include="StreamJsonRpc" Version="2.25.29" />
+      <!-- Override StreamJsonRpc's vulnerable transitive version (GHSA-qhrr-8q5h-9q3h). -->
+      <PackageReference Include="MessagePack" Version="2.5.303" />
       <!-- Pin all System.* transitive deps to 10.x so the server runs on .NET 10 (rollForward:Major) -->
       <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="10.0.9" />
       <PackageReference Include="System.IO.Pipelines" Version="10.0.9" />

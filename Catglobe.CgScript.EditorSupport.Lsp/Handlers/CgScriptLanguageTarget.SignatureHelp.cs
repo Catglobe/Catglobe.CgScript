@@ -56,9 +56,11 @@ public partial class CgScriptLanguageTarget
             if (funcName is null) return null;
 
             SignatureInformation[]? signatures = null;
+            MethodOverload[]? overloads = null;
 
             if (_definitions.Functions.TryGetValue(funcName, out var fn))
             {
+               overloads = fn;
                signatures = BuildSignatureInfoList(funcName, fn);
             }
             else if (_definitions.WhereExpressions.TryGetValue(funcName, out var whereDef))
@@ -69,14 +71,17 @@ public partial class CgScriptLanguageTarget
                      && obj.Constructors?.Length > 0
                      && IsConstructorCall(text, i, funcName))
             {
+               overloads = obj.Constructors;
                signatures = BuildConstructorSignatureInfoList(funcName, obj.Constructors);
             }
             else
             {
                // Method call on a variable: receiver.Method(  — find the dot and
                // resolve the receiver's declared type, then look up the method.
-               signatures = TryBuildMethodSignatures(funcName, text, i,
+               overloads = TryGetMethodOverloads(funcName, text, i,
                   _store.GetParseResult(p.TextDocument.Uri.ToString())?.Tree);
+               if (overloads != null)
+                  signatures = BuildSignatureInfoList(funcName, overloads);
             }
 
             if (signatures is null) return null;
@@ -85,7 +90,9 @@ public partial class CgScriptLanguageTarget
             {
                Signatures      = signatures,
                ActiveSignature = 0,
-               ActiveParameter = commaCount,
+               ActiveParameter = overloads is { Length: > 0 }
+                  ? GetActiveParameter(overloads[0].Param, commaCount)
+                  : commaCount,
             };
          }
          else if (c == '[' && parenDepth == 0 && bracketDepth == 0)
@@ -111,6 +118,12 @@ public partial class CgScriptLanguageTarget
 
       return null;
    }
+
+   /// <summary>All arguments in a variadic tail highlight its single parameter.</summary>
+   private static int GetActiveParameter(MethodParam[] parameters, int argumentIndex)
+      => parameters.Length > 0 && parameters[parameters.Length - 1].Type == "Params object"
+         ? Math.Min(argumentIndex, parameters.Length - 1)
+         : argumentIndex;
 
    /// <summary>
    /// Builds signature info for an indexer expression <c>receiver[</c>.

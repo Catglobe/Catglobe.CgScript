@@ -10685,6 +10685,43 @@
         ]
       }
     ],
+    "formatToUser": [
+      {
+        "doc": "Formats a string like format, but with the culture of the given user, e.g. formatToUser(User_getCurrentUser(), \"{0:N0}\", 12345)",
+        "returnType": "string",
+        "param": [
+          {
+            "name": "user",
+            "doc": "The user whose culture to format with; empty uses the user that most likely started the script",
+            "type": "User"
+          },
+          {
+            "name": "format",
+            "doc": "The composite format string",
+            "type": "string"
+          },
+          {
+            "name": "",
+            "type": "Params object"
+          }
+        ]
+      },
+      {
+        "doc": "Formats a string like format, but with the culture of the user that most likely started the script",
+        "returnType": "string",
+        "param": [
+          {
+            "name": "format",
+            "doc": "The composite format string",
+            "type": "string"
+          },
+          {
+            "name": "",
+            "type": "Params object"
+          }
+        ]
+      }
+    ],
     "getAddress": [
       {
         "doc": "Returns the street address of the current QAS user, or empty if not set",
