@@ -335,9 +335,13 @@ services.AddAuthentication(SCHEMENAME)
         .AllowAnonymous();
 ```
 ```cgscript
-//in gateway or qas dummy script
+// Gateway script
+return "https://siteurl.com/authentication/login?respondent=" + User_getQasUser().ResourceGuid + "&respondent_secret=" + QAS_getCurrentQAS().AccessCode;
+```
 
-gotoUrl("https://siteurl.com/authentication/login?respondent=" + User_getCurrentUser().ResourceGuid + "&respondent_secret=" + qas.AccessCode);");
+```cgscript
+// Questionnaire dummy script
+sendToUrl("https://siteurl.com/authentication/login?respondent=" + User_getQasUser().ResourceGuid + "&respondent_secret=" + QAS_getCurrentQAS().AccessCode);
 ```
 
 ## I18n and email
